@@ -58,11 +58,12 @@ async function getEvent(id: string) {
     );
     if (rows.length === 0) return null;
     const e = rows[0];
+    const parseJson = (v: unknown): unknown[] => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
     return {
       ...e,
-      images: e.images ? JSON.parse(e.images) : [],
-      schedule: e.schedule ? JSON.parse(e.schedule) : [],
-      disciplines: e.disciplines ? JSON.parse(e.disciplines) : [],
+      images: parseJson(e.images),
+      schedule: parseJson(e.schedule),
+      disciplines: parseJson(e.disciplines),
     };
   } catch (error) {
     console.error('获取赛事详情失败:', error);
