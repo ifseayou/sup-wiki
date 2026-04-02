@@ -3,10 +3,10 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { extractToken, verifyToken, isAdmin } from './auth';
-import type { JwtPayload } from '@/types';
+import type { AdminPayload } from './auth';
 
 export interface AdminContext {
-  payload: JwtPayload;
+  payload: AdminPayload;
 }
 
 export type AdminHandler = (

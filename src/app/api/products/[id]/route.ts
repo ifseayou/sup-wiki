@@ -57,7 +57,7 @@ export async function GET(
               b.tier as brand_tier
        FROM sup_products p
        JOIN sup_brands b ON p.brand_id = b.brand_id
-       WHERE p.product_id = ?`,
+       WHERE p.product_id = ? AND p.status = 'published'`,
       [productId]
     );
 

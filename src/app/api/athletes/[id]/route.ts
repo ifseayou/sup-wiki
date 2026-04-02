@@ -37,7 +37,7 @@ export async function GET(
     }
 
     const [athletes] = await pool.execute<AthleteRow[]>(
-      'SELECT * FROM sup_athletes WHERE athlete_id = ?',
+      "SELECT * FROM sup_athletes WHERE athlete_id = ? AND status = 'published'",
       [athleteId]
     );
 

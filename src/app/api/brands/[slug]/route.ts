@@ -55,7 +55,7 @@ export async function GET(
 
     // 获取品牌信息
     const [brands] = await pool.execute<BrandRow[]>(
-      'SELECT * FROM sup_brands WHERE slug = ?',
+      "SELECT * FROM sup_brands WHERE slug = ? AND status = 'published'",
       [slug]
     );
 
@@ -70,7 +70,7 @@ export async function GET(
 
     // 获取该品牌的所有产品
     const [products] = await pool.execute<ProductRow[]>(
-      `SELECT * FROM sup_products WHERE brand_id = ? ORDER BY created_at DESC`,
+      `SELECT * FROM sup_products WHERE brand_id = ? AND status = 'published' ORDER BY created_at DESC`,
       [brand.brand_id]
     );
 

@@ -68,7 +68,7 @@ export default async function CreatorDetailPage({
     notFound();
   }
 
-  const platform = platformLabels[creator.platform] || { name: creator.platform, color: 'bg-gray-500 text-white', icon: '📱' };
+  const platform = platformLabels[creator.platform] || { name: creator.platform, color: 'bg-cream-1000 text-white', icon: '📱' };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -76,21 +76,21 @@ export default async function CreatorDetailPage({
       <nav className="mb-8 text-sm">
         <ol className="flex items-center space-x-2">
           <li>
-            <Link href="/" className="text-gray-500 hover:text-gray-700">首页</Link>
+            <Link href="/" className="text-warm-gray-400 hover:text-warm-gray-700">首页</Link>
           </li>
-          <li className="text-gray-400">/</li>
+          <li className="text-warm-gray-400">/</li>
           <li>
-            <Link href="/creators" className="text-gray-500 hover:text-gray-700">博主</Link>
+            <Link href="/creators" className="text-warm-gray-400 hover:text-warm-gray-700">博主</Link>
           </li>
-          <li className="text-gray-400">/</li>
-          <li className="text-gray-900">{creator.nickname}</li>
+          <li className="text-warm-gray-400">/</li>
+          <li className="text-brown-800">{creator.nickname}</li>
         </ol>
       </nav>
 
       {/* Creator Card */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-cream-50 rounded-2xl shadow-sm overflow-hidden">
         {/* Banner */}
-        <div className="h-48 bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400"></div>
+        <div className="h-48 bg-cream-200"></div>
 
         {/* Avatar & Info */}
         <div className="px-8 pb-8">
@@ -112,17 +112,17 @@ export default async function CreatorDetailPage({
 
             {/* Name & Tags */}
             <div className="flex-1 pt-4 md:pt-0">
-              <h1 className="text-3xl font-bold text-gray-900 mb-3">
+              <h1 className="text-3xl font-bold text-brown-800 mb-3">
                 {creator.nickname}
               </h1>
               <div className="flex flex-wrap gap-3">
                 <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${platform.color}`}>
                   {platform.icon} {platform.name}
                 </span>
-                <span className="px-4 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm">
+                <span className="px-4 py-1.5 bg-cream-200 text-warm-gray-700 rounded-full text-sm">
                   {styleLabels[creator.content_style] || creator.content_style}
                 </span>
-                <span className="px-4 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm">
+                <span className="px-4 py-1.5 bg-cream-200 text-brown-600 rounded-full text-sm">
                   粉丝 {tierLabels[creator.follower_tier] || creator.follower_tier}
                 </span>
               </div>
@@ -144,32 +144,20 @@ export default async function CreatorDetailPage({
           {/* Bio */}
           {creator.bio && (
             <div className="mt-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">简介</h2>
-              <p className="text-gray-700 leading-relaxed">{creator.bio}</p>
+              <h2 className="text-lg font-semibold text-brown-800 mb-3">简介</h2>
+              <p className="text-warm-gray-700 leading-relaxed">{creator.bio}</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Placeholder for future content */}
-      <div className="mt-8 bg-gray-50 rounded-2xl p-8 text-center">
+      <div className="mt-8 bg-cream-100 rounded-2xl p-8 text-center">
         <span className="text-4xl mb-4 block">🎬</span>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">更多内容即将推出</h3>
-        <p className="text-gray-600">我们正在整理该博主的精选内容...</p>
+        <h3 className="text-lg font-semibold text-brown-800 mb-2">更多内容即将推出</h3>
+        <p className="text-warm-gray-500">我们正在整理该博主的精选内容...</p>
       </div>
 
-      {/* Contribute Button */}
-      <div className="fixed bottom-8 right-8">
-        <Link
-          href={`/contribute?type=creator&entity_id=${creator.creator_id}`}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          贡献修正
-        </Link>
-      </div>
     </div>
   );
 }

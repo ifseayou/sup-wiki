@@ -1,5 +1,5 @@
--- SUP Wiki 数据库初始化脚本
--- 在 sport_hacker 数据库中创建 6 张 sup_ 前缀的表
+-- SUP Wiki 数据库初始化脚本（v2）
+-- 在 sport_hacker 数据库中创建 sup_ 前缀的表
 
 USE sport_hacker;
 
@@ -14,9 +14,11 @@ CREATE TABLE IF NOT EXISTS sup_brands (
     website VARCHAR(255),
     description TEXT,
     tier ENUM('entry', 'intermediate', 'pro') DEFAULT 'entry',
+    status ENUM('draft', 'published') DEFAULT 'published',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_brands_tier (tier)
+    INDEX idx_brands_tier (tier),
+    INDEX idx_brands_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 产品表
@@ -34,15 +36,17 @@ CREATE TABLE IF NOT EXISTS sup_products (
     suitable_for ENUM('beginner', 'intermediate', 'advanced') DEFAULT 'beginner',
     price_min INT,
     price_max INT,
-    buy_links JSON,           -- [{platform, url}]
-    images JSON,              -- [url1, url2, ...]
+    buy_links JSON,
+    images JSON,
     description TEXT,
+    status ENUM('draft', 'published') DEFAULT 'published',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (brand_id) REFERENCES sup_brands(brand_id) ON DELETE CASCADE,
     INDEX idx_products_brand (brand_id),
     INDEX idx_products_type (type),
-    INDEX idx_products_price (price_min, price_max)
+    INDEX idx_products_price (price_min, price_max),
+    INDEX idx_products_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 运动员表
@@ -54,13 +58,15 @@ CREATE TABLE IF NOT EXISTS sup_athletes (
     photo VARCHAR(500),
     bio TEXT,
     discipline ENUM('race', 'surf', 'distance', 'technical') DEFAULT 'race',
-    achievements JSON,        -- [{year, event, result}]
+    achievements JSON,
     icf_ranking INT,
-    social_links JSON,        -- {instagram, youtube, ...}
+    social_links JSON,
+    status ENUM('draft', 'published') DEFAULT 'published',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_athletes_discipline (discipline),
-    INDEX idx_athletes_ranking (icf_ranking)
+    INDEX idx_athletes_ranking (icf_ranking),
+    INDEX idx_athletes_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 博主/KOL 表
@@ -73,35 +79,46 @@ CREATE TABLE IF NOT EXISTS sup_creators (
     follower_tier ENUM('1k-10k', '10k-100k', '100k-1m', '1m+') DEFAULT '1k-10k',
     content_style ENUM('tutorial', 'review', 'vlog', 'adventure') DEFAULT 'vlog',
     profile_url VARCHAR(500),
+    status ENUM('draft', 'published') DEFAULT 'published',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_creators_platform (platform),
-    INDEX idx_creators_tier (follower_tier)
+    INDEX idx_creators_tier (follower_tier),
+    INDEX idx_creators_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- SUP Wiki 用户表（复用 sport_hacker 的 users 表的 user_id）
-CREATE TABLE IF NOT EXISTS sup_wiki_users (
-    sup_user_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,  -- 关联 users.user_id
-    role ENUM('contributor', 'admin') DEFAULT 'contributor',
+-- 赛事表
+CREATE TABLE IF NOT EXISTS sup_events (
+    event_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(200) NOT NULL,
+    name_en VARCHAR(200),
+    slug VARCHAR(150) UNIQUE NOT NULL,
+    event_type ENUM('race','festival','training','exhibition') DEFAULT 'race',
+    location VARCHAR(200),
+    province VARCHAR(50),
+    city VARCHAR(50),
+    venue VARCHAR(200),
+    start_date DATE,
+    end_date DATE,
+    registration_deadline DATE,
+    organizer VARCHAR(200),
+    description TEXT,
+    requirements TEXT,
+    website VARCHAR(500),
+    registration_url VARCHAR(500),
+    contact_info VARCHAR(300),
+    images JSON,
+    schedule JSON,
+    disciplines JSON,
+    price_range VARCHAR(100),
+    max_participants INT,
+    status ENUM('draft', 'published') DEFAULT 'draft',
+    event_status ENUM('upcoming','ongoing','completed','cancelled') DEFAULT 'upcoming',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_user (user_id),
-    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- 贡献请求表（类 PR）
-CREATE TABLE IF NOT EXISTS sup_contributions (
-    contribution_id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    sup_user_id BIGINT NOT NULL,
-    entity_type ENUM('brand', 'product', 'athlete', 'creator') NOT NULL,
-    entity_id BIGINT,         -- 已有实体的 ID（编辑时为空则新增）
-    action ENUM('create', 'update') NOT NULL,
-    payload JSON NOT NULL,    -- 提交的完整数据
-    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-    review_note VARCHAR(500),
-    reviewed_at TIMESTAMP NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (sup_user_id) REFERENCES sup_wiki_users(sup_user_id) ON DELETE CASCADE,
-    INDEX idx_contributions_status (status),
-    INDEX idx_contributions_user (sup_user_id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_events_type (event_type),
+    INDEX idx_events_province (province),
+    INDEX idx_events_start_date (start_date),
+    INDEX idx_events_status (status),
+    INDEX idx_events_event_status (event_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

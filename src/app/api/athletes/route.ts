@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') || 'ranking'; // ranking, name, newest
 
     const offset = (page - 1) * pageSize;
-    const conditions: string[] = [];
+    const conditions: string[] = ['status = "published"'];
     const params: (string | number)[] = [];
 
     if (discipline) {

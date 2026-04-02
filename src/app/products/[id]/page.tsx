@@ -84,14 +84,14 @@ export default async function ProductDetailPage({
       <nav className="mb-8 text-sm">
         <ol className="flex items-center space-x-2">
           <li>
-            <Link href="/" className="text-gray-500 hover:text-gray-700">首页</Link>
+            <Link href="/" className="text-warm-gray-400 hover:text-warm-gray-700">首页</Link>
           </li>
-          <li className="text-gray-400">/</li>
+          <li className="text-warm-gray-400">/</li>
           <li>
-            <Link href="/products" className="text-gray-500 hover:text-gray-700">产品</Link>
+            <Link href="/products" className="text-warm-gray-400 hover:text-warm-gray-700">产品</Link>
           </li>
-          <li className="text-gray-400">/</li>
-          <li className="text-gray-900">{product.model}</li>
+          <li className="text-warm-gray-400">/</li>
+          <li className="text-brown-800">{product.model}</li>
         </ol>
       </nav>
 
@@ -106,7 +106,7 @@ export default async function ProductDetailPage({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-8xl text-gray-300">🏄</span>
+              <span className="text-8xl text-cream-300">🏄</span>
             )}
           </div>
           {images.length > 1 && (
@@ -125,7 +125,7 @@ export default async function ProductDetailPage({
           {/* Brand */}
           <Link
             href={`/brands/${product.brand_slug}`}
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 mb-2"
+            className="inline-flex items-center gap-2 text-warm-gray-500 hover:text-brown-500 mb-2"
           >
             {product.brand_logo && (
               <img src={product.brand_logo} alt="" className="w-6 h-6 object-contain" />
@@ -134,14 +134,14 @@ export default async function ProductDetailPage({
           </Link>
 
           {/* Model */}
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">{product.model}</h1>
+          <h1 className="text-3xl font-bold text-brown-800 mb-4">{product.model}</h1>
 
           {/* Tags */}
           <div className="flex flex-wrap gap-2 mb-6">
-            <span className="px-3 py-1 bg-cyan-100 text-cyan-800 rounded-full text-sm">
+            <span className="px-3 py-1 bg-cream-200 text-brown-600 rounded-full text-sm">
               {typeLabels[product.type] || product.type}
             </span>
-            <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">
+            <span className="px-3 py-1 bg-cream-200 text-warm-gray-500 rounded-full text-sm">
               {suitableLabels[product.suitable_for] || product.suitable_for}
             </span>
           </div>
@@ -149,11 +149,11 @@ export default async function ProductDetailPage({
           {/* Price */}
           {product.price_min && (
             <div className="mb-6">
-              <span className="text-3xl font-bold text-orange-600">
+              <span className="text-3xl font-bold text-brown-500">
                 ¥{product.price_min.toLocaleString()}
               </span>
               {product.price_max && product.price_max !== product.price_min && (
-                <span className="text-xl text-gray-500">
+                <span className="text-xl text-warm-gray-400">
                   {' '}- ¥{product.price_max.toLocaleString()}
                 </span>
               )}
@@ -161,43 +161,43 @@ export default async function ProductDetailPage({
           )}
 
           {/* Specs */}
-          <div className="bg-gray-50 rounded-xl p-6 mb-6">
-            <h3 className="font-semibold text-gray-900 mb-4">规格参数</h3>
+          <div className="bg-cream-100 rounded-xl p-6 mb-6">
+            <h3 className="font-semibold text-brown-800 mb-4">规格参数</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               {product.length_cm && (
                 <div>
-                  <span className="text-gray-500">长度</span>
-                  <span className="ml-2 text-gray-900">{product.length_cm} cm</span>
+                  <span className="text-warm-gray-400">长度</span>
+                  <span className="ml-2 text-brown-800">{product.length_cm} cm</span>
                 </div>
               )}
               {product.width_cm && (
                 <div>
-                  <span className="text-gray-500">宽度</span>
-                  <span className="ml-2 text-gray-900">{product.width_cm} cm</span>
+                  <span className="text-warm-gray-400">宽度</span>
+                  <span className="ml-2 text-brown-800">{product.width_cm} cm</span>
                 </div>
               )}
               {product.thickness_cm && (
                 <div>
-                  <span className="text-gray-500">厚度</span>
-                  <span className="ml-2 text-gray-900">{product.thickness_cm} cm</span>
+                  <span className="text-warm-gray-400">厚度</span>
+                  <span className="ml-2 text-brown-800">{product.thickness_cm} cm</span>
                 </div>
               )}
               {product.weight_kg && (
                 <div>
-                  <span className="text-gray-500">重量</span>
-                  <span className="ml-2 text-gray-900">{product.weight_kg} kg</span>
+                  <span className="text-warm-gray-400">重量</span>
+                  <span className="ml-2 text-brown-800">{product.weight_kg} kg</span>
                 </div>
               )}
               {product.max_load_kg && (
                 <div>
-                  <span className="text-gray-500">承重</span>
-                  <span className="ml-2 text-gray-900">{product.max_load_kg} kg</span>
+                  <span className="text-warm-gray-400">承重</span>
+                  <span className="ml-2 text-brown-800">{product.max_load_kg} kg</span>
                 </div>
               )}
               {product.material && (
                 <div className="col-span-2">
-                  <span className="text-gray-500">材质</span>
-                  <span className="ml-2 text-gray-900">{product.material}</span>
+                  <span className="text-warm-gray-400">材质</span>
+                  <span className="ml-2 text-brown-800">{product.material}</span>
                 </div>
               )}
             </div>
@@ -206,7 +206,7 @@ export default async function ProductDetailPage({
           {/* Buy Links */}
           {buyLinks.length > 0 && (
             <div className="mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">购买渠道</h3>
+              <h3 className="font-semibold text-brown-800 mb-3">购买渠道</h3>
               <div className="flex flex-wrap gap-3">
                 {buyLinks.map((link: { platform: string; url: string }, idx: number) => (
                   <a
@@ -214,7 +214,7 @@ export default async function ProductDetailPage({
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-lg hover:border-blue-500 hover:text-blue-600 transition-colors"
+                    className="px-4 py-2 bg-cream-50 border border-cream-200 rounded-lg hover:border-blue-500 hover:text-brown-500 transition-colors"
                   >
                     {link.platform}
                   </a>
@@ -226,25 +226,13 @@ export default async function ProductDetailPage({
           {/* Description */}
           {product.description && (
             <div>
-              <h3 className="font-semibold text-gray-900 mb-3">产品介绍</h3>
-              <p className="text-gray-700 leading-relaxed">{product.description}</p>
+              <h3 className="font-semibold text-brown-800 mb-3">产品介绍</h3>
+              <p className="text-warm-gray-700 leading-relaxed">{product.description}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Contribute Button */}
-      <div className="fixed bottom-8 right-8">
-        <Link
-          href={`/contribute?type=product&entity_id=${product.product_id}`}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          贡献修正
-        </Link>
-      </div>
     </div>
   );
 }

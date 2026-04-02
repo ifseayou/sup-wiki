@@ -1,214 +1,114 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useAdminAuth } from './layout';
 
-interface Contribution {
-  contribution_id: number;
-  entity_type: string;
-  action: string;
-  status: string;
-  created_at: string;
-  payload: Record<string, unknown>;
-  user_nickname: string | null;
+interface Stats {
+  brands: { total: number; draft: number };
+  products: { total: number; draft: number };
+  athletes: { total: number; draft: number };
+  creators: { total: number; draft: number };
+  events: { total: number; draft: number };
 }
 
-const entityLabels: Record<string, string> = {
-  brand: '品牌',
-  product: '产品',
-  athlete: '运动员',
-  creator: '博主',
-};
+const entityCards = [
+  { key: 'brands' as const, label: '品牌', icon: '🏷️', href: '/admin/brands' },
+  { key: 'products' as const, label: '产品', icon: '🏄', href: '/admin/products' },
+  { key: 'athletes' as const, label: '运动员', icon: '🏆', href: '/admin/athletes' },
+  { key: 'creators' as const, label: '博主', icon: '📱', href: '/admin/creators' },
+  { key: 'events' as const, label: '赛事', icon: '🗓️', href: '/admin/events' },
+];
 
-const actionLabels: Record<string, string> = {
-  create: '新增',
-  update: '修改',
-};
-
-const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800',
-};
-
-const statusLabels: Record<string, string> = {
-  pending: '待审核',
-  approved: '已通过',
-  rejected: '已拒绝',
-};
-
-export default function AdminPage() {
-  const [contributions, setContributions] = useState<Contribution[]>([]);
+export default function AdminDashboard() {
+  const { token } = useAdminAuth();
+  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedStatus, setSelectedStatus] = useState('pending');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-
-  // Simple password protection for demo
-  const checkAuth = () => {
-    if (password === 'admin123') {
-      setIsAuthenticated(true);
-      localStorage.setItem('admin_auth', 'true');
-    } else {
-      alert('密码错误');
-    }
-  };
 
   useEffect(() => {
-    if (localStorage.getItem('admin_auth') === 'true') {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const fetchContributions = async () => {
-      setLoading(true);
+    async function fetchStats() {
       try {
-        // In real implementation, this would call the API with auth token
-        // For now, just show empty state
-        setContributions([]);
-      } catch (error) {
-        console.error('获取贡献列表失败:', error);
+        const headers = { Authorization: `Bearer ${token}` };
+        const [b, p, a, c, e, bd, pd, ad, cd, ed] = await Promise.all([
+          fetch('/api/admin/brands?pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/products?pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/athletes?pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/creators?pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/events?pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/brands?status=draft&pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/products?status=draft&pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/athletes?status=draft&pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/creators?status=draft&pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/events?status=draft&pageSize=1', { headers }).then(r => r.json()),
+        ]);
+        setStats({
+          brands: { total: b.total ?? 0, draft: bd.total ?? 0 },
+          products: { total: p.total ?? 0, draft: pd.total ?? 0 },
+          athletes: { total: a.total ?? 0, draft: ad.total ?? 0 },
+          creators: { total: c.total ?? 0, draft: cd.total ?? 0 },
+          events: { total: e.total ?? 0, draft: ed.total ?? 0 },
+        });
+      } catch {
+        // ignore
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchContributions();
-  }, [isAuthenticated, selectedStatus]);
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-            管理后台
-          </h1>
-          <div className="space-y-4">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="请输入管理密码"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              onKeyDown={(e) => e.key === 'Enter' && checkAuth()}
-            />
-            <button
-              onClick={checkAuth}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              登录
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    }
+    fetchStats();
+  }, [token]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Header */}
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">管理后台</h1>
-          <p className="text-gray-600">审核用户提交的贡献内容</p>
-        </div>
-        <button
-          onClick={() => {
-            localStorage.removeItem('admin_auth');
-            setIsAuthenticated(false);
-          }}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          退出登录
-        </button>
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-brown-800">仪表板</h1>
+        <p className="text-warm-gray-400 text-sm mt-1">内容管理概览</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="text-3xl font-bold text-yellow-600">0</div>
-          <div className="text-gray-600">待审核</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="text-3xl font-bold text-green-600">0</div>
-          <div className="text-gray-600">今日通过</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="text-3xl font-bold text-blue-600">0</div>
-          <div className="text-gray-600">总贡献数</div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="text-3xl font-bold text-purple-600">0</div>
-          <div className="text-gray-600">活跃用户</div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-        <div className="flex gap-4">
-          {['pending', 'approved', 'rejected'].map((status) => (
-            <button
-              key={status}
-              onClick={() => setSelectedStatus(status)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                selectedStatus === status
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        {entityCards.map(card => {
+          const s = stats?.[card.key];
+          return (
+            <Link
+              key={card.key}
+              href={card.href}
+              className="bg-cream-50 border border-cream-200 rounded-xl p-4 hover:border-brown-500 hover:shadow-sm transition-all"
             >
-              {statusLabels[status]}
-            </button>
-          ))}
-        </div>
+              <div className="text-2xl mb-2">{card.icon}</div>
+              <div className="text-xl font-bold text-brown-800">
+                {loading ? '—' : s?.total ?? 0}
+              </div>
+              <div className="text-sm text-warm-gray-500">{card.label}</div>
+              {!loading && s && s.draft > 0 && (
+                <div className="mt-1.5 text-xs text-amber-600 font-medium">{s.draft} 草稿待审</div>
+              )}
+            </Link>
+          );
+        })}
       </div>
 
-      {/* Contributions List */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-gray-500">加载中...</div>
-        ) : contributions.length === 0 ? (
-          <div className="p-12 text-center">
-            <span className="text-6xl block mb-4">📭</span>
-            <p className="text-gray-600">暂无{statusLabels[selectedStatus]}的贡献</p>
-          </div>
-        ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">类型</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">操作</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">提交人</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">时间</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">状态</th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {contributions.map((c) => (
-                <tr key={c.contribution_id}>
-                  <td className="px-6 py-4">{entityLabels[c.entity_type]}</td>
-                  <td className="px-6 py-4">{actionLabels[c.action]}</td>
-                  <td className="px-6 py-4">{c.user_nickname || '未知'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {new Date(c.created_at).toLocaleString('zh-CN')}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full ${statusColors[c.status]}`}>
-                      {statusLabels[c.status]}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button className="text-blue-600 hover:text-blue-800 text-sm">
-                      查看详情
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      {/* Quick actions */}
+      <div className="bg-cream-50 border border-cream-200 rounded-xl p-6">
+        <h2 className="text-base font-semibold text-brown-800 mb-4">快速操作</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {entityCards.map(card => (
+            <Link
+              key={card.key}
+              href={`${card.href}?action=new`}
+              className="flex items-center gap-2 px-4 py-2.5 border border-cream-300 rounded-lg text-sm text-warm-gray-600 hover:border-brown-500 hover:text-brown-600 transition-all"
+            >
+              <span>{card.icon}</span>
+              新建{card.label}
+            </Link>
+          ))}
+          <Link
+            href="/admin/import"
+            className="flex items-center gap-2 px-4 py-2.5 bg-brown-500 text-white rounded-lg text-sm hover:bg-brown-600 transition-all"
+          >
+            <span>📥</span>
+            批量导入
+          </Link>
+        </div>
       </div>
     </div>
   );

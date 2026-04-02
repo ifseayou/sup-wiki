@@ -1,5 +1,8 @@
 // SUP Wiki TypeScript 类型定义
 
+// 内容发布状态
+export type ContentStatus = 'draft' | 'published';
+
 // 品牌定位
 export type BrandTier = 'entry' | 'intermediate' | 'pro';
 
@@ -21,17 +24,14 @@ export type FollowerTier = '1k-10k' | '10k-100k' | '100k-1m' | '1m+';
 // 内容风格
 export type ContentStyle = 'tutorial' | 'review' | 'vlog' | 'adventure';
 
-// 用户角色
-export type UserRole = 'contributor' | 'admin';
+// 赛事类型
+export type EventType = 'race' | 'festival' | 'training' | 'exhibition';
 
-// 贡献状态
-export type ContributionStatus = 'pending' | 'approved' | 'rejected';
+// 赛事运行状态
+export type EventRunStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
 
-// 实体类型
-export type EntityType = 'brand' | 'product' | 'athlete' | 'creator';
-
-// 操作类型
-export type ActionType = 'create' | 'update';
+// 实体类型（用于批量导入等）
+export type EntityType = 'brand' | 'product' | 'athlete' | 'creator' | 'event';
 
 // 品牌
 export interface Brand {
@@ -44,9 +44,10 @@ export interface Brand {
   website?: string;
   description?: string;
   tier: BrandTier;
+  status: ContentStatus;
   created_at: Date;
   updated_at: Date;
-  product_count?: number; // 关联产品数量
+  product_count?: number;
 }
 
 // 购买链接
@@ -73,9 +74,10 @@ export interface Product {
   buy_links?: BuyLink[];
   images?: string[];
   description?: string;
+  status: ContentStatus;
   created_at: Date;
   updated_at: Date;
-  brand?: Brand; // 关联品牌
+  brand?: Brand;
 }
 
 // 运动成就
@@ -108,6 +110,7 @@ export interface Athlete {
   achievements?: Achievement[];
   icf_ranking?: number;
   social_links?: SocialLinks;
+  status: ContentStatus;
   created_at: Date;
   updated_at: Date;
 }
@@ -122,33 +125,47 @@ export interface Creator {
   follower_tier: FollowerTier;
   content_style: ContentStyle;
   profile_url?: string;
+  status: ContentStatus;
   created_at: Date;
   updated_at: Date;
 }
 
-// SUP Wiki 用户
-export interface SupWikiUser {
-  sup_user_id: number;
-  user_id: number;
-  role: UserRole;
-  created_at: Date;
-  nickname?: string; // 从 users 表关联
-  avatar?: string;
+// 赛事安排条目
+export interface ScheduleItem {
+  date: string;
+  time: string;
+  event: string;
 }
 
-// 贡献请求
-export interface Contribution {
-  contribution_id: number;
-  sup_user_id: number;
-  entity_type: EntityType;
-  entity_id?: number;
-  action: ActionType;
-  payload: Record<string, unknown>;
-  status: ContributionStatus;
-  review_note?: string;
-  reviewed_at?: Date;
+// 赛事
+export interface Event {
+  event_id: number;
+  name: string;
+  name_en?: string;
+  slug: string;
+  event_type: EventType;
+  location?: string;
+  province?: string;
+  city?: string;
+  venue?: string;
+  start_date?: string;
+  end_date?: string;
+  registration_deadline?: string;
+  organizer?: string;
+  description?: string;
+  requirements?: string;
+  website?: string;
+  registration_url?: string;
+  contact_info?: string;
+  images?: string[];
+  schedule?: ScheduleItem[];
+  disciplines?: string[];
+  price_range?: string;
+  max_participants?: number;
+  status: ContentStatus;
+  event_status: EventRunStatus;
   created_at: Date;
-  user?: SupWikiUser; // 关联用户
+  updated_at: Date;
 }
 
 // API 响应类型
@@ -197,11 +214,21 @@ export interface CreatorFilter {
   search?: string;
 }
 
-// JWT Payload
+export interface EventFilter {
+  event_type?: EventType;
+  province?: string;
+  event_status?: EventRunStatus;
+  year?: number;
+  month?: number;
+  search?: string;
+}
+
+// JWT Payload（管理员）
 export interface JwtPayload {
-  user_id: number;
-  sup_user_id: number;
-  role: UserRole;
+  role: 'admin';
   iat: number;
   exp: number;
 }
+
+// 向后兼容别名
+export type AdminPayload = JwtPayload;

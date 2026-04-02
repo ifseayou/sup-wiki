@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
 
     const offset = (page - 1) * pageSize;
-    const conditions: string[] = [];
+    const conditions: string[] = ['status = "published"'];
     const params: (string | number)[] = [];
 
     if (platform) {

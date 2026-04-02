@@ -35,7 +35,7 @@ export async function GET(
     }
 
     const [creators] = await pool.execute<CreatorRow[]>(
-      'SELECT * FROM sup_creators WHERE creator_id = ?',
+      "SELECT * FROM sup_creators WHERE creator_id = ? AND status = 'published'",
       [creatorId]
     );
 

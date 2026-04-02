@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') || 'newest'; // newest, price_asc, price_desc
 
     const offset = (page - 1) * pageSize;
-    const conditions: string[] = [];
+    const conditions: string[] = ['p.status = "published"'];
     const params: (string | number)[] = [];
 
     if (brand_id) {
