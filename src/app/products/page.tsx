@@ -106,13 +106,9 @@ export default async function ProductsPage() {
 
                 {/* Info */}
                 <div className="p-4">
-                  <Link
-                    href={`/brands/${product.brand_slug}`}
-                    className="text-sm text-gray-500 hover:text-blue-600"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                  <span className="text-sm text-gray-500">
                     {product.brand_name}
-                  </Link>
+                  </span>
                   <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mt-1">
                     {product.model}
                   </h3>
