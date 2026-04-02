@@ -70,8 +70,8 @@ export async function GET(request: NextRequest) {
 
     // 获取运动员列表
     const [athletes] = await pool.execute<AthleteRow[]>(
-      `SELECT * FROM sup_athletes ${whereClause} ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+      `SELECT * FROM sup_athletes ${whereClause} ORDER BY ${orderBy} LIMIT ${pageSize} OFFSET ${offset}`,
+      params
     );
 
     // 解析 JSON 字段

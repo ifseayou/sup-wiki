@@ -105,8 +105,8 @@ export async function GET(request: NextRequest) {
        JOIN sup_brands b ON p.brand_id = b.brand_id
        ${whereClause}
        ORDER BY ${orderBy}
-       LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+       LIMIT ${pageSize} OFFSET ${offset}`,
+      params
     );
 
     // 解析 JSON 字段

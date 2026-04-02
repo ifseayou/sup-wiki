@@ -74,8 +74,8 @@ export async function GET(request: NextRequest) {
 
     // 获取博主列表
     const [creators] = await pool.execute<CreatorRow[]>(
-      `SELECT * FROM sup_creators ${whereClause} ORDER BY ${tierOrder} ASC, nickname ASC LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+      `SELECT * FROM sup_creators ${whereClause} ORDER BY ${tierOrder} ASC, nickname ASC LIMIT ${pageSize} OFFSET ${offset}`,
+      params
     );
 
     const response: PaginatedResponse<Creator> = {

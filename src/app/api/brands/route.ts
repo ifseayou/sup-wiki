@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
        ${whereClause}
        GROUP BY b.brand_id
        ORDER BY b.name ASC
-       LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+       LIMIT ${pageSize} OFFSET ${offset}`,
+      params
     );
 
     const response: PaginatedResponse<Brand> = {

@@ -78,8 +78,8 @@ export async function GET(request: NextRequest) {
        ORDER BY
          CASE event_status WHEN 'ongoing' THEN 0 WHEN 'upcoming' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
          start_date ASC
-       LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+       LIMIT ${pageSize} OFFSET ${offset}`,
+      params
     );
 
     const items = events.map(e => ({

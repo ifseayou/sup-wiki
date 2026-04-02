@@ -50,8 +50,8 @@ export const GET = withAdmin(async (request: NextRequest) => {
       `SELECT event_id, name, slug, event_type, province, city, start_date, end_date,
               organizer, status, event_status, created_at, updated_at
        FROM sup_events ${where}
-       ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+       ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
+      params
     );
 
     return NextResponse.json({ items: events, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
