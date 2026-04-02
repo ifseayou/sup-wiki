@@ -1,36 +1,35 @@
 import Link from 'next/link';
 
+const links = [
+  { href: '/brands', label: '品牌' },
+  { href: '/products', label: '产品' },
+  { href: '/athletes', label: '运动员' },
+  { href: '/creators', label: '博主' },
+  { href: '/events', label: '赛事' },
+];
+
 export default function Footer() {
   return (
-    <footer className="bg-brown-800 text-cream-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Logo & Description */}
-          <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <span className="text-2xl">🏄</span>
-              <span className="text-xl font-bold text-cream-50">SUP Wiki</span>
+    <footer style={{ borderTop: '1px solid #EDE5D8', background: '#FAF7F2' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 32 }}>
+          <div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 500, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#2E2118', marginBottom: 10 }}>
+              SUP Wiki
             </div>
-            <p className="text-sm text-cream-300 max-w-md leading-relaxed">
-              SUP Wiki 是一个桨板运动资讯平台，提供品牌、产品、运动员、博主和赛事信息。
+            <p style={{ fontSize: 12, color: '#A08060', maxWidth: 300, lineHeight: 1.75, margin: 0 }}>
+              桨板运动资讯百科。收录品牌、产品、运动员、博主与赛事信息。
             </p>
           </div>
-
-          {/* Quick Links */}
-          <div>
-            <h3 className="text-cream-50 font-semibold mb-4">快速链接</h3>
-            <ul className="space-y-2 text-sm">
-              <li><Link href="/brands" className="text-cream-300 hover:text-cream-50 transition-colors">品牌库</Link></li>
-              <li><Link href="/products" className="text-cream-300 hover:text-cream-50 transition-colors">产品库</Link></li>
-              <li><Link href="/athletes" className="text-cream-300 hover:text-cream-50 transition-colors">运动员</Link></li>
-              <li><Link href="/creators" className="text-cream-300 hover:text-cream-50 transition-colors">博主</Link></li>
-              <li><Link href="/events" className="text-cream-300 hover:text-cream-50 transition-colors">赛事</Link></li>
-            </ul>
-          </div>
+          <nav style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+            {links.map(link => (
+              <Link key={link.href} href={link.href} className="footer-link">{link.label}</Link>
+            ))}
+          </nav>
         </div>
-
-        <div className="border-t border-brown-700 mt-8 pt-8 text-center text-sm text-cream-300 opacity-60">
-          <p>&copy; {new Date().getFullYear()} SUP Wiki. 由运动骇客团队维护。</p>
+        <div style={{ marginTop: 32, paddingTop: 20, borderTop: '1px solid #EDE5D8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <span style={{ fontSize: 11, color: '#C0B4A4', letterSpacing: '0.04em' }}>© {new Date().getFullYear()} SUP Wiki</span>
+          <span style={{ fontSize: 11, color: '#C0B4A4', letterSpacing: '0.04em' }}>由运动骇客团队维护</span>
         </div>
       </div>
     </footer>

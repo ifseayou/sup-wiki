@@ -1,39 +1,157 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
 
 @theme inline {
   /* Cream palette */
   --color-cream-50: #FEFCF9;
   --color-cream-100: #FAF7F2;
-  --color-cream-200: #F0EBE1;
-  --color-cream-300: #E0D8CC;
+  --color-cream-200: #EDE5D8;
+  --color-cream-300: #DDD1C0;
 
-  /* Brown / primary accent */
-  --color-brown-500: #8B7355;
-  --color-brown-600: #6F5B42;
-  --color-brown-700: #574833;
-  --color-brown-800: #3D3226;
-  --color-brown-900: #2A2118;
+  /* Brown / primary */
+  --color-brown-400: #A08060;
+  --color-brown-500: #7A6145;
+  --color-brown-600: #5E4A33;
+  --color-brown-700: #443323;
+  --color-brown-800: #2E2118;
+  --color-brown-900: #1A1209;
 
-  /* Sage / secondary */
-  --color-sage-100: #EEF2ED;
-  --color-sage-500: #7A8F76;
+  /* Warm gray */
+  --color-warm-gray-300: #B0A89E;
+  --color-warm-gray-400: #8A8078;
+  --color-warm-gray-500: #655D56;
+  --color-warm-gray-700: #3D3730;
 
-  /* Warm gray for text */
-  --color-warm-gray-400: #8B8580;
-  --color-warm-gray-500: #6B6560;
-  --color-warm-gray-700: #443F3A;
+  /* Sage */
+  --color-sage-100: #ECF0E8;
+  --color-sage-500: #6E8567;
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: 'Cormorant Garamond', 'Songti SC', 'SimSun', Georgia, serif;
+  --font-sans: 'DM Sans', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'DM Mono', monospace;
 }
 
 :root {
   --background: #FAF7F2;
-  --foreground: #443F3A;
+  --foreground: #2E2118;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.65;
 }
+
+/* Editorial display type */
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* ── Hover utilities ── */
+.hover-dark:hover { color: #2E2118 !important; }
+.hover-brown:hover { color: #7A6145 !important; }
+
+.nav-item {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: #8A8078;
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.nav-item:hover { color: #2E2118; }
+.nav-item.active { color: #2E2118; font-weight: 500; border-bottom-color: #7A6145; }
+
+.index-row {
+  display: grid;
+  grid-template-columns: 36px 96px 110px 1fr 28px;
+  gap: 0 16px;
+  align-items: baseline;
+  padding: 22px 0;
+  border-top: 1px solid #EDE5D8;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+.index-row:last-child { border-bottom: 1px solid #EDE5D8; }
+.index-row:hover .index-title { color: #7A6145; }
+.index-row:hover .index-arrow { transform: translateX(4px); color: #7A6145; }
+
+.index-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  color: #2E2118;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.index-num {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: #C0B4A4;
+  letter-spacing: 0.04em;
+}
+.index-en {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: #A08060;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.index-desc { font-size: 13px; color: #8A8078; }
+.index-arrow {
+  font-size: 16px;
+  color: #C0B4A4;
+  transition: transform 0.15s, color 0.15s;
+  text-align: right;
+}
+
+.event-row {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  gap: 0 24px;
+  align-items: center;
+  padding: 20px 0;
+  border-top: 1px solid #EDE5D8;
+  text-decoration: none;
+}
+.event-row:last-child { border-bottom: 1px solid #EDE5D8; }
+.event-row:hover .event-title { color: #7A6145; }
+.event-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #2E2118;
+  margin-bottom: 4px;
+  transition: color 0.15s;
+}
+
+.hero-link {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: #7A6145;
+  text-decoration: none;
+  border-bottom: 1px solid #A08060;
+  padding-bottom: 2px;
+  transition: color 0.15s;
+}
+.hero-link:hover { color: #2E2118; }
+
+.footer-link {
+  font-size: 12px;
+  color: #8A8078;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  transition: color 0.15s;
+}
+.footer-link:hover { color: #2E2118; }

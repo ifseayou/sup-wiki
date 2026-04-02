@@ -2,72 +2,84 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 const navLinks = [
   { href: '/brands', label: '品牌' },
-  { href: '/products', label: '产品库' },
+  { href: '/products', label: '产品' },
   { href: '/athletes', label: '运动员' },
   { href: '/creators', label: '博主' },
   { href: '/events', label: '赛事' },
 ];
 
 export default function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-50 bg-cream-50 border-b border-cream-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl">🏄</span>
-            <span className="text-xl font-bold text-brown-800">SUP Wiki</span>
+    <header style={{ position: 'sticky', top: 0, zIndex: 50, background: '#FAF7F2', borderBottom: '1px solid #EDE5D8' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', height: 56 }}>
+
+          <Link
+            href="/"
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 16,
+              fontWeight: 500,
+              color: '#2E2118',
+              textDecoration: 'none',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              marginRight: 'auto',
+            }}
+          >
+            SUP Wiki
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-7">
-            {navLinks.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-warm-gray-500 hover:text-brown-700 transition-colors text-sm"
-              >
-                {link.label}
-              </Link>
-            ))}
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 28 }} className="hidden md:flex">
+            {navLinks.map(link => {
+              const active = pathname.startsWith(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`nav-item${active ? ' active' : ''}`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
 
-          {/* Mobile menu button */}
           <button
-            className="md:hidden p-2 text-warm-gray-500"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="md:hidden"
+            onClick={() => setOpen(!open)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#655D56', marginLeft: 8 }}
             aria-label="菜单"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {isMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              {open ? (
+                <path d="M4 4l12 12M4 16L16 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               )}
             </svg>
           </button>
         </div>
 
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <nav className="md:hidden py-4 border-t border-cream-200">
-            <div className="flex flex-col space-y-4">
-              {navLinks.map(link => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="text-warm-gray-500 hover:text-brown-700 transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
+        {open && (
+          <nav style={{ borderTop: '1px solid #EDE5D8', padding: '12px 0 16px', display: 'flex', flexDirection: 'column', gap: 0 }} className="md:hidden">
+            {navLinks.map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                style={{ fontSize: 14, color: '#655D56', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid #F0E8DB', letterSpacing: '0.02em' }}
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
         )}
       </div>
