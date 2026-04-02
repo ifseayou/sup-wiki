@@ -54,7 +54,7 @@ async function getEvents() {
     );
     return events.map(e => ({
       ...e,
-      disciplines: e.disciplines ? JSON.parse(e.disciplines) : [],
+      disciplines: Array.isArray(e.disciplines) ? e.disciplines : (e.disciplines ? JSON.parse(e.disciplines) : []),
     }));
   } catch (error) {
     console.error('获取赛事列表失败:', error);

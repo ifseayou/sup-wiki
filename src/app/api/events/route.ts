@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
 
     const items = events.map(e => ({
       ...e,
-      images: e.images ? JSON.parse(e.images) : [],
-      disciplines: e.disciplines ? JSON.parse(e.disciplines) : [],
+      images: Array.isArray(e.images) ? e.images : (e.images ? JSON.parse(e.images) : []),
+      disciplines: Array.isArray(e.disciplines) ? e.disciplines : (e.disciplines ? JSON.parse(e.disciplines) : []),
     }));
 
     return NextResponse.json({

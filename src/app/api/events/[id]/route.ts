@@ -49,11 +49,12 @@ export async function GET(
     }
 
     const event = rows[0];
+    const parseJson = (v: unknown) => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
     return NextResponse.json({
       ...event,
-      images: event.images ? JSON.parse(event.images) : [],
-      schedule: event.schedule ? JSON.parse(event.schedule) : [],
-      disciplines: event.disciplines ? JSON.parse(event.disciplines) : [],
+      images: parseJson(event.images),
+      schedule: parseJson(event.schedule),
+      disciplines: parseJson(event.disciplines),
     });
   } catch (error) {
     console.error('获取赛事详情失败:', error);
