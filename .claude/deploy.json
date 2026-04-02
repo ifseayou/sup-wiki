@@ -1,0 +1,17 @@
+{
+  "server": "zjk_aliyun_ecs",
+  "deployPath": "/www/wwwroot/sup-wiki",
+  "branch": "main",
+  "packageManager": "npm",
+  "processManager": "pm2",
+  "buildCommand": "npm run build",
+  "services": [
+    {
+      "name": "sup-wiki",
+      "startCommand": "npm start",
+      "port": 3107,
+      "healthPath": "/"
+    }
+  ],
+  "envFile": ".env.local"
+}
