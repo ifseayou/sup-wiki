@@ -99,11 +99,25 @@ npm run dev
 
 ## 部署
 
-计划部署到 Vercel，域名 `sup.iaddu.cn`。
+已部署到 zjk_aliyun_ecs，域名 `sup.iaddu.cn`（HTTPS）。
+- 服务器：zjk_aliyun_ecs (39.100.160.80)
+- 路径：/www/wwwroot/sup-wiki
+- 端口：3107（PM2 进程 id=8）
+- 部署命令：`git archive HEAD | ssh zjk_aliyun_ecs "tar -xf - -C /www/wwwroot/sup-wiki"`，然后在服务器 build + restart
 
-## 待办事项
+## Lessons Learned
 
-- [ ] 执行数据库初始化脚本
-- [ ] 配置环境变量
-- [ ] 部署到 Vercel
-- [ ] 配置域名
+### mysql2 JSON 列自动解析问题
+- **What went wrong:** mysql2 将 MySQL JSON 列返回为已解析的 JS 对象（数组/对象），而不是字符串。对已解析的数组调用 `JSON.parse(array)` 时，JS 会先调用 `array.toString()` 得到 `"race,distance"` 格式的字符串，导致 `JSON.parse` 失败。
+- **Root cause:** mysql2 3.x 对 MySQL JSON 类型列可能返回已解析的 JS 对象，与对 TEXT 列存储 JSON 的行为不同。
+- **Correct approach:** 始终用防御性写法解析 JSON 列：`Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : [])`
+
+### 服务器部署时必须删除旧 .next 目录
+- **What went wrong:** 用 `git archive | tar` 传输文件后重启 PM2，但服务器仍使用旧的 `.next` 构建目录，导致代码修复未生效。
+- **Root cause:** `git archive` 只传输源文件，不删除服务器上的旧构建产物。PM2 restart 使用已有的 `.next` 目录，不会自动重新构建。
+- **Correct approach:** 传输后先 `rm -rf .next`，再 `npm run build`，最后 `pm2 restart`。
+
+### MySQL LIMIT ? OFFSET ? 参数化问题
+- **What went wrong:** 使用 `pool.execute(sql, [...params, pageSize, offset])` 传递 LIMIT/OFFSET 参数，MySQL 8.0 某些版本报 `ER_WRONG_ARGUMENTS` 错误。
+- **Root cause:** mysql2 prepared statements 对 LIMIT/OFFSET 参数类型有严格要求，混合 string/number 数组时可能出现类型不匹配。
+- **Correct approach:** 对 LIMIT/OFFSET 使用模板字符串直接嵌入：`` LIMIT ${pageSize} OFFSET ${offset} ``，其余过滤参数继续用 `?` 占位符。
