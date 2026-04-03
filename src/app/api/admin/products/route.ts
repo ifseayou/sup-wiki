@@ -26,7 +26,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const [products] = await pool.execute<RowDataPacket[]>(
       `SELECT p.product_id, p.model, p.type, p.suitable_for, p.price_min, p.status, p.updated_at, b.name as brand_name
        FROM sup_products p JOIN sup_brands b ON p.brand_id = b.brand_id ${where}
-       ORDER BY p.updated_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
+       ORDER BY CASE p.status WHEN 'published' THEN 0 ELSE 1 END, p.updated_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
       params
     );
     return NextResponse.json({ items: products, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });

@@ -22,7 +22,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const total = (countRows[0] as { total: number }).total;
 
     const [athletes] = await pool.execute<RowDataPacket[]>(
-      `SELECT athlete_id, name, name_en, nationality, discipline, icf_ranking, status, updated_at FROM sup_athletes ${where} ORDER BY updated_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
+      `SELECT athlete_id, name, name_en, nationality, discipline, icf_ranking, status, updated_at FROM sup_athletes ${where} ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, updated_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
       params
     );
     return NextResponse.json({ items: athletes, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });

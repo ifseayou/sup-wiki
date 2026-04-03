@@ -22,7 +22,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const total = (countRows[0] as { total: number }).total;
 
     const [brands] = await pool.execute<RowDataPacket[]>(
-      `SELECT b.*, COUNT(p.product_id) as product_count FROM sup_brands b LEFT JOIN sup_products p ON b.brand_id = p.brand_id ${where} GROUP BY b.brand_id ORDER BY b.updated_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
+      `SELECT b.*, COUNT(p.product_id) as product_count FROM sup_brands b LEFT JOIN sup_products p ON b.brand_id = p.brand_id ${where} GROUP BY b.brand_id ORDER BY CASE b.status WHEN 'published' THEN 0 ELSE 1 END, b.updated_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
       params
     );
     return NextResponse.json({ items: brands, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
