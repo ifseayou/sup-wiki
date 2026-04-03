@@ -6,7 +6,7 @@ import type { ResultSetHeader } from 'mysql2';
 export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
   try {
     const url = new URL(request.url);
-    const id = url.pathname.split('/').at(-2);
+    const id = url.pathname.split('/').at(-1);
     const body = await request.json();
 
     const {
