@@ -185,7 +185,7 @@ export default async function BrandDetailPage({
         {products.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {products.map((product) => {
-              const images = product.images ? JSON.parse(product.images) : [];
+              const images = Array.isArray(product.images) ? product.images : (product.images ? JSON.parse(product.images) : []);
               return (
                 <Link
                   key={product.product_id}

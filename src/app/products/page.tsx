@@ -117,7 +117,7 @@ export default async function ProductsPage({
           {products.map((product) => {
             const images = Array.isArray(product.images)
               ? product.images
-              : product.images ? JSON.parse(product.images) : [];
+              : (Array.isArray(product.images) ? product.images : (product.images ? JSON.parse(product.images) : []));
             return (
               <Link
                 key={product.product_id}

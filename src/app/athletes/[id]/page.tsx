@@ -55,8 +55,8 @@ export default async function AthleteDetailPage({
     notFound();
   }
 
-  const achievements = athlete.achievements ? JSON.parse(athlete.achievements) : [];
-  const socialLinks = athlete.social_links ? JSON.parse(athlete.social_links) : {};
+  const achievements = Array.isArray(athlete.achievements) ? athlete.achievements : (athlete.achievements ? JSON.parse(athlete.achievements) : []);
+  const socialLinks = typeof athlete.social_links === 'object' && athlete.social_links !== null ? athlete.social_links : (athlete.social_links ? JSON.parse(athlete.social_links) : {});
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

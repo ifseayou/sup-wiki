@@ -75,8 +75,8 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const images = product.images ? JSON.parse(product.images) : [];
-  const buyLinks = product.buy_links ? JSON.parse(product.buy_links) : [];
+  const images = Array.isArray(product.images) ? product.images : (product.images ? JSON.parse(product.images) : []);
+  const buyLinks = Array.isArray(product.buy_links) ? product.buy_links : (product.buy_links ? JSON.parse(product.buy_links) : []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
