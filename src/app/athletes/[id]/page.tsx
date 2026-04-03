@@ -179,6 +179,27 @@ export default async function AthleteDetailPage({
         </div>
       )}
 
+      {/* References */}
+      {socialLinks.references && (socialLinks.references as { title: string; url: string }[]).length > 0 && (
+        <div style={{ marginTop: 24, padding: '20px 0', borderTop: '1px solid #EDE5D8' }}>
+          <h3 style={{ fontSize: 13, color: '#8A8078', letterSpacing: '0.06em', marginBottom: 12 }}>参考资料</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {(socialLinks.references as { title: string; url: string }[]).map((ref: { title: string; url: string }, idx: number) => (
+              <a
+                key={idx}
+                href={ref.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 13, color: '#7A6145', textDecoration: 'none', lineHeight: 1.6 }}
+                className="hover-brown"
+              >
+                [{idx + 1}] {ref.title} <span style={{ fontSize: 11, color: '#C0B4A4' }}>↗</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
