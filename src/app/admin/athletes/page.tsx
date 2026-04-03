@@ -1,13 +1,16 @@
 'use client';
 
 import EntityManager from '@/components/admin/EntityManager';
+import ImageUpload from '@/components/admin/ImageUpload';
 import { useAdminAuth } from '../layout';
 
 function AthleteForm({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void }) {
+  const { token } = useAdminAuth();
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
   const inp = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
   return (
     <div className="space-y-4">
+      <ImageUpload value={String(data.photo || '')} onChange={url => set('photo', url)} folder="athletes" token={token} label="运动员照片" />
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">姓名 *</label>
@@ -33,15 +36,9 @@ function AthleteForm({ data, onChange }: { data: Record<string, unknown>; onChan
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs text-warm-gray-400 mb-1">ICF 排名</label>
-          <input className={inp} type="number" value={String(data.icf_ranking || '')} onChange={e => set('icf_ranking', e.target.value ? Number(e.target.value) : null)} />
-        </div>
-        <div>
-          <label className="block text-xs text-warm-gray-400 mb-1">照片 URL</label>
-          <input className={inp} value={String(data.photo || '')} onChange={e => set('photo', e.target.value)} />
-        </div>
+      <div>
+        <label className="block text-xs text-warm-gray-400 mb-1">ICF 排名</label>
+        <input className={inp} type="number" value={String(data.icf_ranking || '')} onChange={e => set('icf_ranking', e.target.value ? Number(e.target.value) : null)} style={{ maxWidth: 160 }} />
       </div>
       <div>
         <label className="block text-xs text-warm-gray-400 mb-1">简介</label>

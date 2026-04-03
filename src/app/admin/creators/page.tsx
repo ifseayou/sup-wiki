@@ -1,13 +1,16 @@
 'use client';
 
 import EntityManager from '@/components/admin/EntityManager';
+import ImageUpload from '@/components/admin/ImageUpload';
 import { useAdminAuth } from '../layout';
 
 function CreatorForm({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void }) {
+  const { token } = useAdminAuth();
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
   const inp = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
   return (
     <div className="space-y-4">
+      <ImageUpload value={String(data.avatar || '')} onChange={url => set('avatar', url)} folder="creators" token={token} label="博主头像" />
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">昵称 *</label>
@@ -47,10 +50,6 @@ function CreatorForm({ data, onChange }: { data: Record<string, unknown>; onChan
       <div>
         <label className="block text-xs text-warm-gray-400 mb-1">主页链接</label>
         <input className={inp} value={String(data.profile_url || '')} onChange={e => set('profile_url', e.target.value)} placeholder="https://..." />
-      </div>
-      <div>
-        <label className="block text-xs text-warm-gray-400 mb-1">头像 URL</label>
-        <input className={inp} value={String(data.avatar || '')} onChange={e => set('avatar', e.target.value)} placeholder="https://..." />
       </div>
       <div>
         <label className="block text-xs text-warm-gray-400 mb-1">简介</label>
