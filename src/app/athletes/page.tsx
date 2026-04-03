@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
+import FilterBar from '@/components/FilterBar';
 
 interface AthleteRow extends RowDataPacket {
   athlete_id: number;
@@ -19,10 +21,20 @@ const disciplineLabels: Record<string, string> = {
   technical: '技巧',
 };
 
-async function getAthletes() {
+async function getAthletes(discipline?: string, nationality?: string) {
   try {
+    const conditions: string[] = ["status = 'published'"];
+    const params: string[] = [];
+
+    if (discipline) { conditions.push('discipline = ?'); params.push(discipline); }
+    if (nationality) { conditions.push('nationality = ?'); params.push(nationality); }
+
+    const where = `WHERE ${conditions.join(' AND ')}`;
+
     const [athletes] = await pool.execute<AthleteRow[]>(
-      `SELECT * FROM sup_athletes WHERE status = 'published' ORDER BY COALESCE(icf_ranking, 9999) ASC, name ASC`
+      `SELECT * FROM sup_athletes ${where}
+       ORDER BY COALESCE(icf_ranking, 9999) ASC, name ASC`,
+      params
     );
     return athletes;
   } catch (error) {
@@ -31,36 +43,49 @@ async function getAthletes() {
   }
 }
 
-export default async function AthletesPage() {
-  const athletes = await getAthletes();
+const filters = [
+  {
+    key: 'discipline',
+    placeholder: '全部项目',
+    options: [
+      { label: '竞速', value: 'race' },
+      { label: '冲浪', value: 'surf' },
+      { label: '长距离', value: 'distance' },
+      { label: '技巧', value: 'technical' },
+    ],
+  },
+  {
+    key: 'nationality',
+    placeholder: '全部国籍',
+    options: [
+      { label: '中国', value: '中国' },
+      { label: '澳大利亚', value: '澳大利亚' },
+      { label: '美国', value: '美国' },
+      { label: '法国', value: '法国' },
+      { label: '夏威夷', value: '夏威夷' },
+    ],
+  },
+];
+
+export default async function AthletesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ discipline?: string; nationality?: string }>;
+}) {
+  const { discipline, nationality } = await searchParams;
+  const athletes = await getAthletes(discipline, nationality);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-brown-800 mb-2">运动员</h1>
         <p className="text-warm-gray-500">世界顶尖桨板运动员档案，ICF 排名和荣誉成就</p>
       </div>
 
-      {/* Filters */}
-      <div className="mb-8 flex flex-wrap gap-4">
-        <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-500">
-          <option value="">全部项目</option>
-          <option value="race">竞速</option>
-          <option value="surf">冲浪</option>
-          <option value="distance">长距离</option>
-          <option value="technical">技巧</option>
-        </select>
-        <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brown-500 focus:border-brown-500">
-          <option value="">全部国籍</option>
-          <option value="中国">中国</option>
-          <option value="澳大利亚">澳大利亚</option>
-          <option value="美国">美国</option>
-          <option value="法国">法国</option>
-        </select>
-      </div>
+      <Suspense>
+        <FilterBar filters={filters} />
+      </Suspense>
 
-      {/* Athletes Grid */}
       {athletes.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {athletes.map((athlete) => (
@@ -69,20 +94,15 @@ export default async function AthletesPage() {
               href={`/athletes/${athlete.athlete_id}`}
               className="bg-cream-50 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-cream-200 group"
             >
-              {/* Photo */}
               <div className="h-56 bg-[#F5EDE4] flex items-center justify-center">
                 {athlete.photo ? (
-                  <img
-                    src={athlete.photo}
-                    alt={athlete.name}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={athlete.photo} alt={athlete.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-6xl">🏆</span>
+                  <span className="text-5xl text-[#D4C4B0]" style={{ fontFamily: 'var(--font-display)' }}>
+                    {athlete.name.slice(0, 1)}
+                  </span>
                 )}
               </div>
-
-              {/* Info */}
               <div className="p-4">
                 <h3 className="text-lg font-semibold text-brown-800 group-hover:text-brown-500 transition-colors">
                   {athlete.name}
@@ -90,22 +110,16 @@ export default async function AthletesPage() {
                 {athlete.name_en && (
                   <p className="text-sm text-warm-gray-400">{athlete.name_en}</p>
                 )}
-
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-xs px-2 py-1 bg-[#F5EDE4] text-[#8B6F4E] rounded">
                     {disciplineLabels[athlete.discipline] || athlete.discipline}
                   </span>
                   {athlete.icf_ranking && (
-                    <span className="text-sm font-medium text-brown-500">
-                      ICF #{athlete.icf_ranking}
-                    </span>
+                    <span className="text-sm font-medium text-brown-500">ICF #{athlete.icf_ranking}</span>
                   )}
                 </div>
-
                 {athlete.nationality && (
-                  <div className="mt-2 text-sm text-warm-gray-400">
-                    🏳️ {athlete.nationality}
-                  </div>
+                  <div className="mt-2 text-sm text-warm-gray-400">{athlete.nationality}</div>
                 )}
               </div>
             </Link>
@@ -113,9 +127,7 @@ export default async function AthletesPage() {
         </div>
       ) : (
         <div className="text-center py-16">
-          <span className="text-6xl mb-4 block">🏆</span>
-          <h3 className="text-xl font-semibold text-brown-800 mb-2">暂无运动员数据</h3>
-          <p className="text-warm-gray-500">运动员信息正在整理中，请稍后再来</p>
+          <p className="text-warm-gray-500">暂无符合条件的运动员</p>
         </div>
       )}
     </div>

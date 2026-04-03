@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
+import FilterBar from '@/components/FilterBar';
 
 interface EventRow extends RowDataPacket {
   event_id: number;
@@ -40,17 +42,26 @@ function formatDate(dateStr: string | null): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-async function getEvents() {
+async function getEvents(event_type?: string, event_status?: string, province?: string) {
   try {
+    const conditions: string[] = ["status = 'published'"];
+    const params: string[] = [];
+
+    if (event_type) { conditions.push('event_type = ?'); params.push(event_type); }
+    if (event_status) { conditions.push('event_status = ?'); params.push(event_status); }
+    if (province) { conditions.push('province = ?'); params.push(province); }
+
+    const where = `WHERE ${conditions.join(' AND ')}`;
+
     const [events] = await pool.execute<EventRow[]>(
       `SELECT event_id, name, slug, event_type, location, province, city,
               start_date, end_date, registration_deadline, organizer,
               description, disciplines, price_range, event_status
-       FROM sup_events
-       WHERE status = 'published'
+       FROM sup_events ${where}
        ORDER BY
          CASE event_status WHEN 'ongoing' THEN 0 WHEN 'upcoming' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
-         start_date ASC`
+         start_date ASC`,
+      params
     );
     return events.map(e => ({
       ...e,
@@ -62,24 +73,65 @@ async function getEvents() {
   }
 }
 
-export default async function EventsPage() {
-  const events = await getEvents();
+const filters = [
+  {
+    key: 'event_type',
+    placeholder: '全部类型',
+    options: [
+      { label: '竞速赛', value: 'race' },
+      { label: '嘉年华', value: 'festival' },
+      { label: '训练营', value: 'training' },
+      { label: '展览赛', value: 'exhibition' },
+    ],
+  },
+  {
+    key: 'event_status',
+    placeholder: '全部状态',
+    options: [
+      { label: '即将开始', value: 'upcoming' },
+      { label: '进行中', value: 'ongoing' },
+      { label: '已结束', value: 'completed' },
+    ],
+  },
+  {
+    key: 'province',
+    placeholder: '全部省份',
+    options: [
+      { label: '北京', value: '北京' },
+      { label: '浙江', value: '浙江' },
+      { label: '海南', value: '海南' },
+      { label: '云南', value: '云南' },
+      { label: '山东', value: '山东' },
+    ],
+  },
+];
+
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ event_type?: string; event_status?: string; province?: string }>;
+}) {
+  const { event_type, event_status, province } = await searchParams;
+  const events = await getEvents(event_type, event_status, province);
+
   const upcomingOrOngoing = events.filter(e => e.event_status === 'upcoming' || e.event_status === 'ongoing');
   const completed = events.filter(e => e.event_status === 'completed' || e.event_status === 'cancelled');
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Header */}
       <div className="mb-10">
         <h1 className="text-3xl font-bold text-stone-800 mb-2">国内赛事</h1>
         <p className="text-stone-500">掌握国内 SUP 桨板赛事动态，报名参与或关注精彩比赛</p>
       </div>
 
-      {/* Upcoming & Ongoing */}
+      <Suspense>
+        <FilterBar filters={filters} />
+      </Suspense>
+
       {upcomingOrOngoing.length > 0 && (
         <section className="mb-12">
           <h2 className="text-lg font-semibold text-stone-700 mb-5 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
             即将举办 / 进行中
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -90,11 +142,10 @@ export default async function EventsPage() {
         </section>
       )}
 
-      {/* Completed */}
       {completed.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold text-stone-500 mb-5 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-stone-400 inline-block"></span>
+            <span className="w-2 h-2 rounded-full bg-stone-400 inline-block" />
             往届赛事
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -107,9 +158,7 @@ export default async function EventsPage() {
 
       {events.length === 0 && (
         <div className="text-center py-20">
-          <span className="text-6xl mb-4 block">🏆</span>
-          <h3 className="text-xl font-semibold text-stone-800 mb-2">暂无赛事信息</h3>
-          <p className="text-stone-500">赛事信息正在收录整理中，请稍后再来</p>
+          <p className="text-stone-500">暂无符合条件的赛事</p>
         </div>
       )}
     </div>
@@ -117,7 +166,7 @@ export default async function EventsPage() {
 }
 
 function EventCard({ event, highlighted = false }: {
-  event: ReturnType<typeof Object.assign> & EventRow & { disciplines: string[] };
+  event: EventRow & { disciplines: string[] };
   highlighted?: boolean;
 }) {
   const statusInfo = eventStatusLabels[event.event_status] || { label: event.event_status, style: 'bg-stone-100 text-stone-600' };
@@ -132,11 +181,8 @@ function EventCard({ event, highlighted = false }: {
           : 'bg-[#FEFCF9] border-[#E0D8CC] opacity-80 hover:opacity-100'
       }`}
     >
-      {/* Top bar */}
       <div className={`h-1.5 rounded-t-xl ${highlighted ? 'bg-amber-400' : 'bg-stone-300'}`} />
-
       <div className="p-5">
-        {/* Status + Type */}
         <div className="flex items-center gap-2 mb-3">
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusInfo.style}`}>
             {statusInfo.label}
@@ -145,33 +191,23 @@ function EventCard({ event, highlighted = false }: {
             {typeLabel}
           </span>
         </div>
-
-        {/* Name */}
         <h3 className="font-semibold text-stone-800 group-hover:text-[#8B7355] transition-colors leading-snug mb-2">
           {event.name}
         </h3>
-
-        {/* Date */}
         {event.start_date && (
           <div className="text-sm text-stone-500 mb-1">
-            📅 {formatDate(event.start_date)}
+            {formatDate(event.start_date)}
             {event.end_date && event.end_date !== event.start_date && ` — ${formatDate(event.end_date)}`}
           </div>
         )}
-
-        {/* Location */}
         {(event.city || event.province) && (
           <div className="text-sm text-stone-500 mb-1">
-            📍 {[event.city, event.province].filter(Boolean).join('，')}
+            {[event.city, event.province].filter(Boolean).join('，')}
           </div>
         )}
-
-        {/* Organizer */}
         {event.organizer && (
           <div className="text-xs text-stone-400 mt-3 truncate">主办：{event.organizer}</div>
         )}
-
-        {/* Price */}
         {event.price_range && (
           <div className="text-sm font-medium text-[#8B7355] mt-2">{event.price_range}</div>
         )}
