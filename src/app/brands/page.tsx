@@ -11,6 +11,7 @@ interface BrandRow extends RowDataPacket {
   name_en: string | null;
   logo: string | null;
   country: string | null;
+  website: string | null;
   tier: string;
   product_count: number;
 }
@@ -126,6 +127,9 @@ export default async function BrandsPage({
                 </div>
                 {brand.country && (
                   <div className="mt-2 text-sm text-warm-gray-400">{brand.country}</div>
+                )}
+                {brand.website && (
+                  <div className="mt-1.5 text-xs text-warm-gray-400 truncate">{brand.website.replace(/^https?:\/\//, '')}</div>
                 )}
               </div>
             </Link>

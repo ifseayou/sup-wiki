@@ -130,21 +130,42 @@ export default async function BrandDetailPage({
               <p className="text-lg text-warm-gray-400 mb-4">{brand.name_en}</p>
             )}
 
-            <div className="flex flex-wrap gap-4 mb-4 text-sm text-warm-gray-500">
+            <div className="flex flex-wrap items-center gap-4 mb-4 text-sm text-warm-gray-500">
               {brand.country && (
-                <span>📍 {brand.country}</span>
-              )}
-              {brand.website && (
-                <a
-                  href={brand.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-brown-500 hover:underline"
-                >
-                  🌐 官网
-                </a>
+                <span>{brand.country}</span>
               )}
             </div>
+
+            {brand.website && (
+              <a
+                href={brand.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 18px',
+                  border: '1px solid #EDE5D8',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  color: '#7A6145',
+                  textDecoration: 'none',
+                  marginBottom: 16,
+                  transition: 'border-color 0.15s, color 0.15s',
+                }}
+                className="hover:border-brown-500 hover:text-brown-700"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+                  <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M7 1C7 1 4.5 4 4.5 7s2.5 6 2.5 6M7 1c0 0 2.5 3 2.5 6S7 13 7 13M1 7h12" stroke="currentColor" strokeWidth="1.2"/>
+                </svg>
+                访问官网
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ flexShrink: 0, opacity: 0.5 }}>
+                  <path d="M2 8L8 2M4 2h4v4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                </svg>
+              </a>
+            )}
 
             {brand.description && (
               <p className="text-warm-gray-700 leading-relaxed">{brand.description}</p>
