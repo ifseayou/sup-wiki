@@ -100,54 +100,57 @@ export default async function BrandsPage({
       {brands.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {brands.map((brand) => (
-            <Link
-              key={brand.brand_id}
-              href={`/brands/${brand.slug}`}
-              className="group bg-cream-50 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border border-cream-200 hover:border-brown-500"
-            >
-              <div className="h-32 bg-cream-100 flex items-center justify-center p-4">
-                {brand.logo ? (
-                  <img src={brand.logo} alt={brand.name} className="max-h-full max-w-full object-contain" />
-                ) : (
-                  <span className="text-3xl text-cream-300 font-display">{brand.name.slice(0, 2)}</span>
-                )}
-              </div>
-              <div className="p-4">
-                <h3 className="text-lg font-semibold text-brown-800 group-hover:text-brown-500 transition-colors">
-                  {brand.name}
-                </h3>
-                {brand.name_en && brand.name_en !== brand.name && (
-                  <p className="text-sm text-warm-gray-400">{brand.name_en}</p>
-                )}
-                <div className="mt-3 flex items-center justify-between">
-                  <span className={`text-xs px-2 py-1 rounded-full ${tierColors[brand.tier]}`}>
-                    {tierLabels[brand.tier]}
-                  </span>
-                  <span className="text-sm text-warm-gray-400">{brand.product_count} 款产品</span>
+            <div key={brand.brand_id} className="relative group">
+              <Link
+                href={`/brands/${brand.slug}`}
+                className="block bg-cream-50 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border border-cream-200 hover:border-brown-500"
+              >
+                <div className="h-32 bg-cream-100 flex items-center justify-center p-4">
+                  {brand.logo ? (
+                    <img src={brand.logo} alt={brand.name} className="max-h-full max-w-full object-contain" />
+                  ) : (
+                    <span className="text-3xl text-cream-300 font-display">{brand.name.slice(0, 2)}</span>
+                  )}
                 </div>
-                {brand.country && (
-                  <div className="mt-2 text-sm text-warm-gray-400">{brand.country}</div>
-                )}
-                {brand.website && (
-                  <a
-                    href={brand.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="mt-2 flex items-center gap-1.5 text-xs text-warm-gray-400 hover:text-brown-500 transition-colors w-fit"
-                  >
-                    <svg width="11" height="11" viewBox="0 0 14 14" fill="none" className="shrink-0">
-                      <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3"/>
-                      <path d="M7 1C7 1 4.5 4 4.5 7s2.5 6 2.5 6M7 1c0 0 2.5 3 2.5 6S7 13 7 13M1 7h12" stroke="currentColor" strokeWidth="1.3"/>
-                    </svg>
-                    <span className="truncate">{brand.website.replace(/^https?:\/\//, '')}</span>
-                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" className="shrink-0 opacity-50">
-                      <path d="M2 8L8 2M4 2h4v4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                    </svg>
-                  </a>
-                )}
-              </div>
-            </Link>
+                <div className="p-4">
+                  <h3 className="text-lg font-semibold text-brown-800 group-hover:text-brown-500 transition-colors">
+                    {brand.name}
+                  </h3>
+                  {brand.name_en && brand.name_en !== brand.name && (
+                    <p className="text-sm text-warm-gray-400">{brand.name_en}</p>
+                  )}
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className={`text-xs px-2 py-1 rounded-full ${tierColors[brand.tier]}`}>
+                      {tierLabels[brand.tier]}
+                    </span>
+                    <span className="text-sm text-warm-gray-400">{brand.product_count} 款产品</span>
+                  </div>
+                  {brand.country && (
+                    <div className="mt-2 text-sm text-warm-gray-400">{brand.country}</div>
+                  )}
+                  {brand.website && (
+                    <div className="mt-2 h-5" />
+                  )}
+                </div>
+              </Link>
+              {brand.website && (
+                <a
+                  href={brand.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute bottom-4 left-4 flex items-center gap-1.5 text-xs text-warm-gray-400 hover:text-brown-500 transition-colors z-10"
+                >
+                  <svg width="11" height="11" viewBox="0 0 14 14" fill="none" className="shrink-0">
+                    <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3"/>
+                    <path d="M7 1C7 1 4.5 4 4.5 7s2.5 6 2.5 6M7 1c0 0 2.5 3 2.5 6S7 13 7 13M1 7h12" stroke="currentColor" strokeWidth="1.3"/>
+                  </svg>
+                  <span className="truncate max-w-[140px]">{brand.website.replace(/^https?:\/\//, '')}</span>
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none" className="shrink-0 opacity-50">
+                    <path d="M2 8L8 2M4 2h4v4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                  </svg>
+                </a>
+              )}
+            </div>
           ))}
         </div>
       ) : (
