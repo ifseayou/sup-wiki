@@ -1,11 +1,13 @@
 'use client';
 
 import EntityManager from '@/components/admin/EntityManager';
+import { MultiImageUpload } from '@/components/admin/ImageUpload';
 import { useAdminAuth } from '../layout';
 
-function ProductForm({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void }) {
+function ProductForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
   const inp = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
+  const images = Array.isArray(data.images) ? (data.images as string[]) : [];
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -75,6 +77,13 @@ function ProductForm({ data, onChange }: { data: Record<string, unknown>; onChan
         <label className="block text-xs text-warm-gray-400 mb-1">产品描述</label>
         <textarea className={inp} rows={3} value={String(data.description || '')} onChange={e => set('description', e.target.value)} />
       </div>
+      <MultiImageUpload
+        values={images}
+        onChange={urls => set('images', urls)}
+        folder="products"
+        token={token}
+        label="产品图片"
+      />
     </div>
   );
 }

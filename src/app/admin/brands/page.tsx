@@ -4,8 +4,7 @@ import EntityManager from '@/components/admin/EntityManager';
 import ImageUpload from '@/components/admin/ImageUpload';
 import { useAdminAuth } from '../layout';
 
-function BrandForm({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void }) {
-  const { token } = useAdminAuth();
+function BrandForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
   const inp = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
 

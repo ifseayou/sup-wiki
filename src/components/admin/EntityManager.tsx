@@ -13,7 +13,7 @@ interface EntityManagerProps {
   entityName: string;
   apiPath: string;
   columns: Column[];
-  FormComponent: React.ComponentType<{ data: Record<string, unknown>; onChange: (data: Record<string, unknown>) => void }>;
+  FormComponent: React.ComponentType<{ data: Record<string, unknown>; onChange: (data: Record<string, unknown>) => void; token: string }>;
   defaultFormData: Record<string, unknown>;
   token: string;
   searchPlaceholder?: string;
@@ -56,14 +56,16 @@ function EditModal({
   onCancel,
   FormComponent,
   saving,
+  token,
 }: {
   title: string;
   data: Record<string, unknown>;
   onChange: (d: Record<string, unknown>) => void;
   onSave: (status: 'draft' | 'published') => void;
   onCancel: () => void;
-  FormComponent: React.ComponentType<{ data: Record<string, unknown>; onChange: (data: Record<string, unknown>) => void }>;
+  FormComponent: React.ComponentType<{ data: Record<string, unknown>; onChange: (data: Record<string, unknown>) => void; token: string }>;
   saving: boolean;
+  token: string;
 }) {
   const [activeTab, setActiveTab] = useState<'form' | 'json'>('form');
   const [jsonText, setJsonText] = useState(JSON.stringify(data, null, 2));
@@ -113,7 +115,7 @@ function EditModal({
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6">
           {activeTab === 'form' ? (
-            <FormComponent data={data} onChange={handleFormChange} />
+            <FormComponent data={data} onChange={handleFormChange} token={token} />
           ) : (
             <div>
               <p className="text-xs text-warm-gray-400 mb-3">粘贴 JSON 数据，点击解析后会自动填入表单字段</p>
@@ -415,6 +417,7 @@ export default function EntityManager({
           onCancel={closeModal}
           FormComponent={FormComponent}
           saving={saving}
+          token={token}
         />
       )}
 
