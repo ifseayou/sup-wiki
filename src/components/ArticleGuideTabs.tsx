@@ -281,25 +281,6 @@ function ChinaDiagram() {
         ))}
       </div>
 
-      {/* U系列说明 */}
-      <div style={{
-        marginTop: 12,
-        padding: '10px 14px',
-        background: '#F5EFE8',
-        borderRadius: 6,
-        border: '1px solid #E8DDD0',
-        display: 'flex',
-        gap: 8,
-        alignItems: 'flex-start',
-      }}>
-        <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>ℹ️</span>
-        <div style={{ fontSize: 12, color: '#655D56', lineHeight: 1.7 }}>
-          <strong style={{ color: '#5E4A33' }}>年龄组说明：</strong>
-          U9 = 9岁以下 · U12 = 12岁以下 · U15 = 15岁以下 · U18 = 18岁以下。
-          "U"来自英文 Under，是国际通用的青少年年龄分组惯例，各年龄组独立计分，不与成人组竞争。
-        </div>
-      </div>
-
       <p style={{ fontSize: 11, color: '#C0B4A4', marginTop: 8, textAlign: 'right' }}>点击卡片查看详细说明</p>
     </div>
   );
