@@ -16,7 +16,7 @@ export type SuitableFor = 'beginner' | 'intermediate' | 'advanced';
 export type Discipline = 'race' | 'surf' | 'distance' | 'technical';
 
 // 社交平台
-export type Platform = 'douyin' | 'xiaohongshu' | 'bilibili' | 'youtube' | 'weibo';
+export type Platform = 'douyin' | 'xiaohongshu' | 'bilibili' | 'youtube' | 'weibo' | 'instagram';
 
 // 粉丝量级
 export type FollowerTier = '1k-10k' | '10k-100k' | '100k-1m' | '1m+';

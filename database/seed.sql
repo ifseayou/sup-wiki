@@ -52,11 +52,5 @@ INSERT INTO sup_athletes (name, name_en, nationality, discipline, icf_ranking, b
 ('Bruno Hasulyo', 'Bruno Hasulyo', '匈牙利', 'race', 8, 'Bruno Hasulyo 和他的兄弟 Daniel 是匈牙利桨板双子星。', '[{"year": 2022, "event": "European Championships", "result": "金牌"}]', '{"instagram": "https://instagram.com/brunohasulyo"}');
 
 -- =====================
--- 博主/KOL 数据
+-- 博主/KOL 数据（见 seed-creators.sql）
 -- =====================
-INSERT INTO sup_creators (nickname, platform, follower_tier, content_style, bio, profile_url) VALUES
-('桨板老王', 'douyin', '100k-1m', 'tutorial', '专业桨板教练，分享桨板技巧和安全知识。10年桨板经验。', 'https://www.douyin.com/user/xxx'),
-('SUP小美', 'xiaohongshu', '10k-100k', 'vlog', '分享桨板生活和旅行，带你发现国内最美的桨板地点。', 'https://www.xiaohongshu.com/user/xxx'),
-('水上飞人', 'bilibili', '10k-100k', 'review', '专注桨板装备测评，买板前看我的视频不踩坑！', 'https://space.bilibili.com/xxx'),
-('Paddle with Lucy', 'youtube', '100k-1m', 'tutorial', '国际桨板教练，双语教学，适合华人和外国人学习。', 'https://www.youtube.com/@paddlewithlucy'),
-('极限探险家', 'douyin', '10k-100k', 'adventure', '带着桨板去冒险，记录极限水域的探索。', 'https://www.douyin.com/user/xxx');
