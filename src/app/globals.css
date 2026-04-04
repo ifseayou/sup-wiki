@@ -155,3 +155,22 @@ body {
   transition: color 0.15s;
 }
 .footer-link:hover { color: #2E2118; }
+
+/* ── Article Guide Body (Markdown rendered) ── */
+.article-guide-body h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 500;
+  color: #2E2118;
+  margin: 24px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #EDE5D8;
+}
+.article-guide-body h2:first-child { margin-top: 0; }
+.article-guide-body p { font-size: 14px; color: #3D3730; line-height: 1.8; margin: 0 0 12px; }
+.article-guide-body strong { color: #2E2118; font-weight: 600; }
+.article-guide-body ul { margin: 0 0 12px; padding-left: 20px; }
+.article-guide-body li { font-size: 14px; color: #3D3730; line-height: 1.8; margin-bottom: 4px; }
+.article-guide-body table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 20px; }
+.article-guide-body th { background: #FAF7F2; color: #8A8078; font-weight: 500; padding: 8px 12px; border: 1px solid #EDE5D8; text-align: left; }
+.article-guide-body td { padding: 8px 12px; border: 1px solid #EDE5D8; color: #3D3730; }

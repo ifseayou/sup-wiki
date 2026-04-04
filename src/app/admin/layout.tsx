@@ -26,6 +26,7 @@ const navItems = [
   { href: '/admin/athletes', label: '运动员' },
   { href: '/admin/creators', label: '博主' },
   { href: '/admin/events', label: '赛事' },
+  { href: '/admin/articles', label: '文章' },
   { href: '/admin/import', label: '批量导入' },
 ];
 

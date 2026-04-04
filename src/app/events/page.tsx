@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import FilterBar from '@/components/FilterBar';
+import ArticleGuideTabs from '@/components/ArticleGuideTabs';
 
 interface EventRow extends RowDataPacket {
   event_id: number;
@@ -40,6 +41,19 @@ function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function getGuideArticles() {
+  try {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT article_id, title, summary, content FROM sup_articles
+       WHERE status = 'published' AND category = 'event_guide'
+       ORDER BY sort_order ASC, article_id ASC`
+    );
+    return rows as { article_id: number; title: string; summary: string | null; content: string | null }[];
+  } catch {
+    return [];
+  }
 }
 
 async function getEvents(event_type?: string, event_status?: string, province?: string) {
@@ -112,7 +126,10 @@ export default async function EventsPage({
   searchParams: Promise<{ event_type?: string; event_status?: string; province?: string }>;
 }) {
   const { event_type, event_status, province } = await searchParams;
-  const events = await getEvents(event_type, event_status, province);
+  const [events, guideArticles] = await Promise.all([
+    getEvents(event_type, event_status, province),
+    getGuideArticles(),
+  ]);
 
   const upcomingOrOngoing = events.filter(e => e.event_status === 'upcoming' || e.event_status === 'ongoing');
   const completed = events.filter(e => e.event_status === 'completed' || e.event_status === 'cancelled');
@@ -123,6 +140,8 @@ export default async function EventsPage({
         <h1 className="text-3xl font-bold text-stone-800 mb-2">国内赛事</h1>
         <p className="text-stone-500">掌握国内 SUP 桨板赛事动态，报名参与或关注精彩比赛</p>
       </div>
+
+      <ArticleGuideTabs articles={guideArticles} />
 
       <Suspense>
         <FilterBar filters={filters} />
