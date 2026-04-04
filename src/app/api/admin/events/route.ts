@@ -47,9 +47,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const total = (countRows[0] as { total: number }).total;
 
     const [events] = await pool.execute<EventRow[]>(
-      `SELECT event_id, name, slug, event_type, province, city, start_date, end_date,
-              organizer, status, event_status, created_at, updated_at
-       FROM sup_events ${where}
+      `SELECT * FROM sup_events ${where}
        ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
       params
     );
