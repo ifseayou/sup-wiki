@@ -10,6 +10,7 @@ const navLinks = [
   { href: '/athletes', label: '运动员' },
   { href: '/creators', label: '博主' },
   { href: '/events', label: '赛事' },
+  { href: '/learn', label: '学习' },
 ];
 
 export default function Header() {
