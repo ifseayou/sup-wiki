@@ -129,7 +129,22 @@ export default async function BrandsPage({
                   <div className="mt-2 text-sm text-warm-gray-400">{brand.country}</div>
                 )}
                 {brand.website && (
-                  <div className="mt-1.5 text-xs text-warm-gray-400 truncate">{brand.website.replace(/^https?:\/\//, '')}</div>
+                  <a
+                    href={brand.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="mt-2 flex items-center gap-1.5 text-xs text-warm-gray-400 hover:text-brown-500 transition-colors w-fit"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 14 14" fill="none" className="shrink-0">
+                      <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3"/>
+                      <path d="M7 1C7 1 4.5 4 4.5 7s2.5 6 2.5 6M7 1c0 0 2.5 3 2.5 6S7 13 7 13M1 7h12" stroke="currentColor" strokeWidth="1.3"/>
+                    </svg>
+                    <span className="truncate">{brand.website.replace(/^https?:\/\//, '')}</span>
+                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" className="shrink-0 opacity-50">
+                      <path d="M2 8L8 2M4 2h4v4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                    </svg>
+                  </a>
                 )}
               </div>
             </Link>
