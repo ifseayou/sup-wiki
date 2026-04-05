@@ -8,9 +8,32 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const difficulty = searchParams.get('difficulty');
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
+    // 支持按 ID 列表精确查询（用于我的学习页面）
+    const ids = searchParams.get('ids');
 
     const conditions: string[] = ["status = 'published'"];
     const params: (string | number)[] = [];
+
+    if (ids) {
+      // 按 ID 精确查询，不随机，不限数量
+      const idList = ids.split(',').map(Number).filter(n => !isNaN(n) && n > 0);
+      if (idList.length === 0) return NextResponse.json({ items: [] });
+      conditions.push(`question_id IN (${idList.map(() => '?').join(',')})`);
+      idList.forEach(id => params.push(id));
+      const where = `WHERE ${conditions.join(' AND ')}`;
+      const [rows] = await pool.execute<RowDataPacket[]>(
+        `SELECT question_id, question, type, options, correct, explanation, explanation_image, category, difficulty
+         FROM sup_quiz_questions ${where}`,
+        params
+      );
+      const questions = rows.map(q => ({
+        ...q,
+        options: Array.isArray(q.options) ? q.options : (q.options ? JSON.parse(String(q.options)) : []),
+        correct: Array.isArray(q.correct) ? q.correct : (typeof q.correct === 'number' ? q.correct : JSON.parse(String(q.correct))),
+      }));
+      return NextResponse.json({ items: questions });
+    }
+
     if (category) { conditions.push('category = ?'); params.push(category); }
     if (difficulty) { conditions.push('difficulty = ?'); params.push(difficulty); }
     const where = `WHERE ${conditions.join(' AND ')}`;

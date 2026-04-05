@@ -72,7 +72,7 @@ export default function Header() {
                   </button>
                   {userMenuOpen && (
                     <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 10, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.08)', zIndex: 100 }}>
-                      <Link href="/learn" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: '#2E2118', textDecoration: 'none', borderBottom: '1px solid #EDE5D8' }}>📚 我的学习</Link>
+                      <Link href="/my-learning" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: '#2E2118', textDecoration: 'none', borderBottom: '1px solid #EDE5D8' }}>📚 我的学习</Link>
                       <button onClick={() => { logout(); setUserMenuOpen(false); }} style={{ display: 'block', width: '100%', padding: '10px 16px', fontSize: 13, color: '#c0392b', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>退出登录</button>
                     </div>
                   )}
