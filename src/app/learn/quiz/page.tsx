@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useUser } from '@/components/UserContext';
 
 interface Question {
   question_id: number;
@@ -27,10 +28,90 @@ const DIFF_COLORS: Record<string, string> = {
   beginner: '#0E6655', intermediate: '#B7470A', advanced: '#6C3483',
 };
 
+// ── 登录引导弹窗 ───────────────────────────────────────────────
+function LoginPromptModal({ onClose, redirectUrl }: { onClose: () => void; redirectUrl: string }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onClose}>
+      <div style={{ background: '#FEFCF9', borderRadius: 14, padding: '32px 28px', maxWidth: 340, width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}
+        onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize: 24, textAlign: 'center', marginBottom: 12 }}>⭐</div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: '#2E2118', textAlign: 'center', marginBottom: 8 }}>登录后收藏题目</div>
+        <p style={{ fontSize: 13, color: '#8A8078', lineHeight: 1.7, textAlign: 'center', marginBottom: 24 }}>
+          登录后可以收藏题目、追踪错题记录，随时查看复习。
+        </p>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 13, color: '#8A8078', background: 'none', cursor: 'pointer' }}>
+            稍后再说
+          </button>
+          <Link
+            href={`/login?redirect=${encodeURIComponent(redirectUrl)}`}
+            style={{ flex: 1, padding: '10px', background: '#7A6145', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 500, textDecoration: 'none', textAlign: 'center', display: 'block' }}
+          >
+            去登录
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 收藏按钮 ──────────────────────────────────────────────────
+function BookmarkBtn({ questionId, token, onNeedLogin }: {
+  questionId: number;
+  token: string | null;
+  onNeedLogin: () => void;
+}) {
+  const [bookmarked, setBookmarked] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // 加载初始收藏状态
+  useEffect(() => {
+    if (!token) return;
+    fetch('/api/user/bookmarks', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d.bookmarks)) setBookmarked(d.bookmarks.includes(questionId)); })
+      .catch(() => {});
+  }, [questionId, token]);
+
+  async function toggle() {
+    if (!token) { onNeedLogin(); return; }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/user/bookmarks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ question_id: questionId }),
+      });
+      const data = await res.json();
+      if (data.success) setBookmarked(data.bookmarked);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={loading}
+      title={bookmarked ? '取消收藏' : '收藏此题'}
+      style={{
+        background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px',
+        fontSize: 18, lineHeight: 1, opacity: loading ? 0.5 : 1,
+        transition: 'transform 0.15s',
+      }}
+    >
+      {bookmarked ? '⭐' : '☆'}
+    </button>
+  );
+}
+
 function QuizContent() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const category = searchParams.get('category') || '';
   const difficulty = searchParams.get('difficulty') || '';
+  const { user, token } = useUser();
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +121,7 @@ function QuizContent() {
   const [selected, setSelected] = useState<number[]>([]);
   const [showExplanation, setShowExplanation] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
@@ -64,17 +146,28 @@ function QuizContent() {
 
   useEffect(() => { fetchQuestions(); }, [fetchQuestions]);
 
+  // 答题结束后上报错题
+  useEffect(() => {
+    if (!finished || !token) return;
+    const wrongIds = questions
+      .map((q, i) => ({ q, i }))
+      .filter(({ i }) => !isCorrect(i))
+      .map(({ q }) => q.question_id);
+    if (wrongIds.length === 0) return;
+    fetch('/api/user/wrong-answers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ question_ids: wrongIds }),
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+
   const q = questions[current];
 
   function toggleOption(idx: number) {
     if (showExplanation) return;
-    if (q.type === 'single' || q.type === 'truefalse') {
-      setSelected([idx]);
-    } else {
-      setSelected(prev =>
-        prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]
-      );
-    }
+    if (q.type === 'single' || q.type === 'truefalse') setSelected([idx]);
+    else setSelected(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
   }
 
   function confirmAnswer() {
@@ -88,11 +181,8 @@ function QuizContent() {
   function nextQuestion() {
     setShowExplanation(false);
     setSelected([]);
-    if (current + 1 >= questions.length) {
-      setFinished(true);
-    } else {
-      setCurrent(current + 1);
-    }
+    if (current + 1 >= questions.length) setFinished(true);
+    else setCurrent(current + 1);
   }
 
   function isCorrect(qIdx: number): boolean {
@@ -107,34 +197,29 @@ function QuizContent() {
     return ans === correct;
   }
 
-  function calcScore() {
-    return answers.filter((_, i) => isCorrect(i)).length;
-  }
+  function calcScore() { return answers.filter((_, i) => isCorrect(i)).length; }
 
   // ── 加载中 ──
-  if (loading) {
-    return (
-      <div style={{ maxWidth: 720, margin: '100px auto', textAlign: 'center', color: '#8A8078' }}>
-        <div style={{ fontSize: 32, marginBottom: 16 }}>⏳</div>
-        <div>正在加载题目...</div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div style={{ maxWidth: 720, margin: '100px auto', textAlign: 'center', color: '#8A8078' }}>
+      <div style={{ fontSize: 32, marginBottom: 16 }}>⏳</div>
+      <div>正在加载题目...</div>
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div style={{ maxWidth: 720, margin: '100px auto', textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 16 }}>😢</div>
-        <div style={{ color: '#c0392b', marginBottom: 20 }}>{error}</div>
-        <Link href="/learn" style={{ color: '#7A6145', textDecoration: 'none' }}>← 返回学习中心</Link>
-      </div>
-    );
-  }
+  if (error) return (
+    <div style={{ maxWidth: 720, margin: '100px auto', textAlign: 'center' }}>
+      <div style={{ fontSize: 32, marginBottom: 16 }}>😢</div>
+      <div style={{ color: '#c0392b', marginBottom: 20 }}>{error}</div>
+      <Link href="/learn" style={{ color: '#7A6145', textDecoration: 'none' }}>← 返回学习中心</Link>
+    </div>
+  );
 
   // ── 结果页 ──
   if (finished) {
     const score = calcScore();
     const pct = Math.round((score / questions.length) * 100);
+    const wrongQuestions = questions.filter((_, i) => !isCorrect(i));
     const grade = pct >= 90 ? { label: '桨板专家', color: '#B7470A', icon: '🏆' }
       : pct >= 70 ? { label: '进阶达人', color: '#0E6655', icon: '🎯' }
       : pct >= 50 ? { label: '入门学员', color: '#1A5276', icon: '📚' }
@@ -144,13 +229,15 @@ function QuizContent() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px' }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontSize: 56, marginBottom: 16 }}>{grade.icon}</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 300, color: '#2E2118', marginBottom: 8 }}>
-            {grade.label}
-          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 300, color: '#2E2118', marginBottom: 8 }}>{grade.label}</div>
           <div style={{ fontSize: 64, fontWeight: 700, color: grade.color, lineHeight: 1 }}>{pct}%</div>
-          <div style={{ fontSize: 16, color: '#8A8078', marginTop: 8 }}>
-            共 {questions.length} 题，答对 {score} 题
-          </div>
+          <div style={{ fontSize: 16, color: '#8A8078', marginTop: 8 }}>共 {questions.length} 题，答对 {score} 题</div>
+          {wrongQuestions.length > 0 && (
+            <div style={{ marginTop: 12, fontSize: 13, color: '#c0392b', background: '#FDEDEC', padding: '8px 16px', borderRadius: 20, display: 'inline-block' }}>
+              ❌ {wrongQuestions.length} 道错题
+              {!user && <span style={{ color: '#8A8078' }}>（<Link href={`/login?redirect=${encodeURIComponent(pathname + '?' + searchParams.toString())}`} style={{ color: '#7A6145' }}>登录</Link>后自动保存错题）</span>}
+            </div>
+          )}
         </div>
 
         {/* 逐题回顾 */}
@@ -167,8 +254,11 @@ function QuizContent() {
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <span style={{ fontSize: 16, flexShrink: 0 }}>{correct ? '✅' : '❌'}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: '#2E2118', marginBottom: 6 }}>
-                      {i + 1}. {q.question}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: '#2E2118', marginBottom: 6, flex: 1 }}>
+                        {i + 1}. {q.question}
+                      </div>
+                      <BookmarkBtn questionId={q.question_id} token={token} onNeedLogin={() => setShowLoginPrompt(true)} />
                     </div>
                     {!correct && (
                       <div style={{ fontSize: 12, color: '#0E6655', marginBottom: 4 }}>
@@ -183,6 +273,9 @@ function QuizContent() {
                       <div style={{ fontSize: 12, color: '#655D56', lineHeight: 1.65, borderTop: '1px solid #EDE5D8', paddingTop: 8, marginTop: 6 }}>
                         💡 {q.explanation}
                       </div>
+                    )}
+                    {q.explanation_image && (
+                      <img src={q.explanation_image} alt="解析图示" style={{ maxWidth: '100%', marginTop: 8, borderRadius: 6, border: '1px solid #EDE5D8' }} />
                     )}
                   </div>
                 </div>
@@ -202,6 +295,13 @@ function QuizContent() {
             返回学习中心
           </Link>
         </div>
+
+        {showLoginPrompt && (
+          <LoginPromptModal
+            onClose={() => setShowLoginPrompt(false)}
+            redirectUrl={pathname + '?' + searchParams.toString()}
+          />
+        )}
       </div>
     );
   }
@@ -212,7 +312,14 @@ function QuizContent() {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px' }}>
-      {/* 顶部进度 */}
+      {showLoginPrompt && (
+        <LoginPromptModal
+          onClose={() => setShowLoginPrompt(false)}
+          redirectUrl={pathname + '?' + searchParams.toString()}
+        />
+      )}
+
+      {/* 进度 */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <span style={{ fontSize: 13, color: '#8A8078' }}>
@@ -228,17 +335,20 @@ function QuizContent() {
 
       {/* 题目卡片 */}
       <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '28px 28px 24px' }}>
-        {/* 标签 */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-          <span style={{ fontSize: 11, background: '#F0EAE0', color: '#7A6145', padding: '2px 8px', borderRadius: 10 }}>
-            {CAT_LABELS[q.category] || q.category}
-          </span>
-          <span style={{ fontSize: 11, background: `${DIFF_COLORS[q.difficulty]}18`, color: DIFF_COLORS[q.difficulty], padding: '2px 8px', borderRadius: 10 }}>
-            {DIFF_LABELS[q.difficulty] || q.difficulty}
-          </span>
-          <span style={{ fontSize: 11, background: '#F2F3F4', color: '#8A8078', padding: '2px 8px', borderRadius: 10 }}>
-            {q.type === 'single' ? '单选' : q.type === 'multiple' ? '多选' : '判断'}
-          </span>
+        {/* 标签 + 收藏 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <span style={{ fontSize: 11, background: '#F0EAE0', color: '#7A6145', padding: '2px 8px', borderRadius: 10 }}>
+              {CAT_LABELS[q.category] || q.category}
+            </span>
+            <span style={{ fontSize: 11, background: `${DIFF_COLORS[q.difficulty]}18`, color: DIFF_COLORS[q.difficulty], padding: '2px 8px', borderRadius: 10 }}>
+              {DIFF_LABELS[q.difficulty] || q.difficulty}
+            </span>
+            <span style={{ fontSize: 11, background: '#F2F3F4', color: '#8A8078', padding: '2px 8px', borderRadius: 10 }}>
+              {q.type === 'single' ? '单选' : q.type === 'multiple' ? '多选' : '判断'}
+            </span>
+          </div>
+          <BookmarkBtn questionId={q.question_id} token={token} onNeedLogin={() => setShowLoginPrompt(true)} />
         </div>
 
         {/* 题干 */}
@@ -258,7 +368,6 @@ function QuizContent() {
             } else if (isSelected) {
               bg = '#F0EAE0'; border = '#C4A882'; textColor = '#5E4A33';
             }
-
             return (
               <button
                 key={idx}
@@ -274,7 +383,6 @@ function QuizContent() {
                   width: 24, height: 24, borderRadius: q.type === 'multiple' ? 4 : '50%',
                   border: `1.5px solid ${isSelected || (showExplanation && isRight) ? border : '#C0B4A4'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: (isSelected || (showExplanation && isRight)) ? bg : 'transparent',
                   flexShrink: 0, fontSize: 11, color: textColor, fontWeight: 700,
                 }}>
                   {showExplanation && isRight ? '✓' : showExplanation && isSelected && !isRight ? '✗' : String.fromCharCode(65 + idx)}
@@ -287,23 +395,11 @@ function QuizContent() {
 
         {/* 解析 */}
         {showExplanation && (q.explanation || q.explanation_image) && (
-          <div style={{
-            marginTop: 20, padding: '14px 16px', background: '#FAF7F2',
-            border: '1px solid #EDE5D8', borderRadius: 8,
-          }}>
+          <div style={{ marginTop: 20, padding: '14px 16px', background: '#FAF7F2', border: '1px solid #EDE5D8', borderRadius: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#7A6145', marginBottom: 6 }}>💡 解析</div>
-            {q.explanation && (
-              <p style={{ fontSize: 13, color: '#3D3730', lineHeight: 1.75, margin: 0 }}>{q.explanation}</p>
-            )}
+            {q.explanation && <p style={{ fontSize: 13, color: '#3D3730', lineHeight: 1.75, margin: 0 }}>{q.explanation}</p>}
             {q.explanation_image && (
-              <img
-                src={q.explanation_image}
-                alt="解析图示"
-                style={{
-                  display: 'block', maxWidth: '100%', marginTop: q.explanation ? 12 : 0,
-                  borderRadius: 6, border: '1px solid #EDE5D8',
-                }}
-              />
+              <img src={q.explanation_image} alt="解析图示" style={{ display: 'block', maxWidth: '100%', marginTop: q.explanation ? 12 : 0, borderRadius: 6, border: '1px solid #EDE5D8' }} />
             )}
           </div>
         )}
@@ -318,7 +414,6 @@ function QuizContent() {
                 padding: '11px 28px', background: selected.length > 0 ? '#7A6145' : '#C0B4A4',
                 color: '#fff', border: 'none', borderRadius: 8, fontSize: 14,
                 fontWeight: 500, cursor: selected.length > 0 ? 'pointer' : 'default',
-                transition: 'background 0.15s',
               }}
             >
               确认答案
@@ -326,10 +421,7 @@ function QuizContent() {
           ) : (
             <button
               onClick={nextQuestion}
-              style={{
-                padding: '11px 28px', background: '#2E2118', color: '#fff',
-                border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer',
-              }}
+              style={{ padding: '11px 28px', background: '#2E2118', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
             >
               {current + 1 >= questions.length ? '查看结果 →' : '下一题 →'}
             </button>

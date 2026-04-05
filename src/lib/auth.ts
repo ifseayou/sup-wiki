@@ -61,3 +61,36 @@ export function isAdmin(payload: AdminPayload | null): boolean {
 
 // 保持向后兼容的别名
 export type JwtPayload = AdminPayload;
+
+// ── 用户认证 ────────────────────────────────────────────────────
+import crypto from 'crypto';
+
+export interface UserPayload {
+  role: 'user';
+  user_id: number;
+  nickname: string;
+  email: string;
+  iat: number;
+  exp: number;
+}
+
+export function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password + 'sup-wiki-salt-2026').digest('hex');
+}
+
+export function generateUserToken(user: { user_id: number; nickname: string; email: string }): string {
+  return jwt.sign(
+    { role: 'user', user_id: user.user_id, nickname: user.nickname, email: user.email },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+}
+
+export function verifyUserToken(token: string): UserPayload | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as UserPayload;
+    return payload?.role === 'user' ? payload : null;
+  } catch {
+    return null;
+  }
+}

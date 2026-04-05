@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useUser } from '@/components/UserContext';
 
 const navLinks = [
   { href: '/brands', label: '品牌' },
@@ -15,7 +16,9 @@ const navLinks = [
 
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
+  const { user, logout, loading } = useUser();
 
   return (
     <header style={{ position: 'sticky', top: 0, zIndex: 50, background: '#FAF7F2', borderBottom: '1px solid #EDE5D8' }}>
@@ -52,6 +55,35 @@ export default function Header() {
               );
             })}
           </nav>
+
+          {/* 用户区域 */}
+          {!loading && (
+            <div style={{ position: 'relative', marginLeft: 16 }} className="hidden md:block">
+              {user ? (
+                <>
+                  <button
+                    onClick={() => setUserMenuOpen(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid #EDE5D8', borderRadius: 20, padding: '4px 12px', cursor: 'pointer', fontSize: 13, color: '#655D56' }}
+                  >
+                    <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#7A6145', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff', fontWeight: 600 }}>
+                      {user.nickname.slice(0, 1).toUpperCase()}
+                    </span>
+                    {user.nickname}
+                  </button>
+                  {userMenuOpen && (
+                    <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 10, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.08)', zIndex: 100 }}>
+                      <Link href="/learn" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: '#2E2118', textDecoration: 'none', borderBottom: '1px solid #EDE5D8' }}>📚 我的学习</Link>
+                      <button onClick={() => { logout(); setUserMenuOpen(false); }} style={{ display: 'block', width: '100%', padding: '10px 16px', fontSize: 13, color: '#c0392b', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>退出登录</button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Link href={`/login?redirect=${encodeURIComponent(pathname)}`} style={{ fontSize: 13, color: '#7A6145', textDecoration: 'none', border: '1px solid #C4A882', borderRadius: 20, padding: '4px 14px' }}>
+                  登录
+                </Link>
+              )}
+            </div>
+          )}
 
           <button
             className="md:hidden"

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import PublicShell from "@/components/PublicShell";
+import { UserProvider } from "@/components/UserContext";
 
 export const metadata: Metadata = {
   title: "SUP Wiki — 桨板运动资讯百科",
@@ -20,7 +21,9 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="min-h-full flex flex-col bg-cream-100" style={{ fontFamily: "var(--font-sans)" }}>
-        <PublicShell>{children}</PublicShell>
+        <UserProvider>
+          <PublicShell>{children}</PublicShell>
+        </UserProvider>
       </body>
     </html>
   );
