@@ -40,6 +40,7 @@ const CHINA_TIERS = [
     items: [
       {
         name: '中国桨板俱乐部联赛（CPL）',
+        nameEn: 'China Paddle League',
         tag: '6–8站 / 年',
         host: '中国桨板协会',
         highlight: '站点最多 · 全年巡回',
@@ -49,7 +50,7 @@ const CHINA_TIERS = [
         name: '中国桨板公开赛',
         tag: '含国际认证',
         host: '地方体育局 / 承办公司',
-        highlight: '接轨 ICF 国际积分',
+        highlight: '接轨 ICF（国际皮划艇联合会）积分',
         detail: '部分站点同时承办亚洲杯赛事，具备国际积分认证资格，是国内赛事对接 ICF 国际体系的重要窗口。2024 年青田站引入 ICF 认证精英组别，吸引来自多个国家的顶尖运动员参赛，是国内赛事国际化的标志性节点。',
       },
     ],
@@ -111,28 +112,28 @@ const CHINA_TIERS = [
 
 const INTL_ORGS = [
   {
-    id: 'icf', org: 'ICF', fullName: '国际皮划艇联合会', color: '#1A5276', lightBg: '#EBF5FB', founded: '1924', scope: '竞速 · 技术',
+    id: 'icf', org: 'ICF', fullName: '国际皮划艇联合会', fullNameEn: 'International Canoe Federation', color: '#1A5276', lightBg: '#EBF5FB', founded: '1924', scope: '竞速 · 技术',
     items: [
       { name: 'ICF 世界桨板锦标赛', tag: '两年一届', flag: '🏆', detail: '桨板竞速项目的国际最高荣誉，设 200 米冲刺、500 米技术赛、长距离赛（12 km+）等项目，成绩直接影响 ICF 世界排名。中国队近年来持续取得突破，蒋磊、陈澄灏等运动员多次登上国际领奖台。' },
       { name: 'ICF 洲际锦标赛', tag: '年度', flag: '🌏', detail: '亚洲、欧洲、泛美洲分区举办，积分计入 ICF 世界排名。对中国运动员而言，亚洲区赛事是获取 ICF 积分、争取世锦赛参赛资格的重要通道。' },
     ],
   },
   {
-    id: 'isa', org: 'ISA', fullName: '国际冲浪协会', color: '#0E6655', lightBg: '#E9F7EF', founded: '1964', scope: '冲浪 · 综合',
+    id: 'isa', org: 'ISA', fullName: '国际冲浪协会', fullNameEn: 'International Surfing Association', color: '#0E6655', lightBg: '#E9F7EF', founded: '1964', scope: '冲浪 · 综合',
     items: [
       { name: 'ISA 世界立式桨板锦标赛', tag: '年度', flag: '🌊', detail: '侧重冲浪 SUP 及海浪环境下的综合赛项，对运动员的平衡感和浪况适应能力要求极高。与 ICF 共同形成国际桨板的两大权威管理体系，代表了桨板运动起源于冲浪文化的一脉。' },
       { name: 'ISA 青少年世界锦标赛', tag: '年度', flag: '⭐', detail: '专为青少年运动员设立，设多个年龄组别（对应 U14/U16/U18 等）。是青少年运动员走向世界舞台的重要跳板，也是各国发掘下一代桨板明星的核心赛事。' },
     ],
   },
   {
-    id: 'app', org: 'APP', fullName: '冒险桨板职业巡回赛', color: '#6C3483', lightBg: '#F4ECF7', founded: '2015', scope: '职业巡回',
+    id: 'app', org: 'APP', fullName: '冒险桨板职业巡回赛', fullNameEn: 'Adventure Paddle Professionals', color: '#6C3483', lightBg: '#F4ECF7', founded: '2015', scope: '职业巡回',
     items: [
       { name: 'APP World Tour', tag: '多站全球巡回', flag: '🌍', detail: '全球规格最高的职业桨板巡回赛，每年在夏威夷、法国、英国、摩纳哥等地设多站，涵盖长距离赛、冲刺赛及海浪赛，奖金丰厚。Connor Baxter、Michael Booth、Noic Garioud 等世界名将长年角逐年度总冠军。' },
       { name: 'APP Challenge 精英邀请赛', tag: '邀请制', flag: '🎯', detail: '面向精英运动员的邀请制赛事，赛制紧凑激烈，是 APP 生态中观赏性和话题性最强的比赛，也是顶尖运动员获得曝光度和赞助商青睐的核心舞台。' },
     ],
   },
   {
-    id: 'asia', org: 'Asia', fullName: '亚太桨板赛事', color: '#B7470A', lightBg: '#FDF2E9', founded: '2018', scope: '亚太区域',
+    id: 'asia', org: 'Asia', fullName: '亚太桨板赛事', fullNameEn: 'Asia Paddle Championship', color: '#B7470A', lightBg: '#FDF2E9', founded: '2018', scope: '亚太区域',
     items: [
       { name: '亚洲桨板锦标赛', tag: '年度', flag: '🏅', detail: '亚太国家和地区轮流承办，设精英组与业余组，是亚洲运动员争夺亚洲冠军头衔的最高舞台。中国、日本、澳大利亚为主要争金大国，近年来中国队竞争力大幅提升。' },
       { name: '亚洲桨板公开赛', tag: '多站', flag: '🌏', detail: '2025 年分别在浙江青田（7月）和四川青神（10月）举办，吸引来自亚洲 10余个国家和地区共 845 名运动员参赛，是目前亚洲参赛规模最大的桨板赛事系列之一。' },
@@ -242,9 +243,14 @@ function ChinaDiagram() {
                           transition: 'all 0.15s',
                         }}
                       >
-                        <div style={{ fontWeight: 600, fontSize: 13, color: isActive ? '#fff' : '#2E2118', marginBottom: 4, lineHeight: 1.35 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: isActive ? '#fff' : '#2E2118', marginBottom: 2, lineHeight: 1.35 }}>
                           {item.name}
                         </div>
+                        {(item as typeof item & { nameEn?: string }).nameEn && (
+                          <div style={{ fontSize: 10, color: isActive ? 'rgba(255,255,255,0.7)' : '#8A8078', fontStyle: 'italic', marginBottom: 3 }}>
+                            {(item as typeof item & { nameEn?: string }).nameEn}
+                          </div>
+                        )}
                         <div style={{ fontSize: 10, color: isActive ? 'rgba(255,255,255,0.7)' : '#A08060', marginBottom: 5 }}>
                           🏛 {item.host}
                         </div>
@@ -301,7 +307,12 @@ function IntlDiagram() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', fontFamily: 'var(--font-display)', letterSpacing: '-0.02em', lineHeight: 1 }}>{org.org}</div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 3 }}>{org.fullName}</div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)', marginTop: 2, fontWeight: 500 }}>{org.fullName}</div>
+                  {(org as typeof org & { fullNameEn?: string }).fullNameEn && (
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', marginTop: 1, fontStyle: 'italic' }}>
+                      {(org as typeof org & { fullNameEn?: string }).fullNameEn}
+                    </div>
+                  )}
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginBottom: 3 }}>成立 {org.founded} 年</div>
