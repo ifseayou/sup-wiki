@@ -43,29 +43,16 @@ async function getAthletes(discipline?: string, nationality?: string) {
   }
 }
 
-const filters = [
-  {
-    key: 'discipline',
-    placeholder: '全部项目',
-    options: [
-      { label: '竞速', value: 'race' },
-      { label: '冲浪', value: 'surf' },
-      { label: '长距离', value: 'distance' },
-      { label: '技巧', value: 'technical' },
-    ],
-  },
-  {
-    key: 'nationality',
-    placeholder: '全部国籍',
-    options: [
-      { label: '中国', value: '中国' },
-      { label: '澳大利亚', value: '澳大利亚' },
-      { label: '美国', value: '美国' },
-      { label: '法国', value: '法国' },
-      { label: '夏威夷', value: '夏威夷' },
-    ],
-  },
-];
+async function getNationalities(): Promise<string[]> {
+  try {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      "SELECT DISTINCT nationality FROM sup_athletes WHERE status='published' AND nationality IS NOT NULL ORDER BY nationality"
+    );
+    return rows.map(r => r.nationality as string);
+  } catch {
+    return [];
+  }
+}
 
 export default async function AthletesPage({
   searchParams,
@@ -73,12 +60,33 @@ export default async function AthletesPage({
   searchParams: Promise<{ discipline?: string; nationality?: string }>;
 }) {
   const { discipline, nationality } = await searchParams;
-  const athletes = await getAthletes(discipline, nationality);
+  const [athletes, nationalities] = await Promise.all([
+    getAthletes(discipline, nationality),
+    getNationalities(),
+  ]);
+
+  const filters = [
+    {
+      key: 'discipline',
+      placeholder: '全部项目',
+      options: [
+        { label: '竞速', value: 'race' },
+        { label: '冲浪', value: 'surf' },
+        { label: '长距离', value: 'distance' },
+        { label: '技巧', value: 'technical' },
+      ],
+    },
+    {
+      key: 'nationality',
+      placeholder: '全部国籍',
+      options: nationalities.map(n => ({ label: n, value: n })),
+    },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-brown-800 mb-2">运动员</h1>
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold text-brown-800 mb-1">运动员</h1>
         <p className="text-warm-gray-500">世界顶尖桨板运动员档案，ICF 排名和荣誉成就</p>
       </div>
 
