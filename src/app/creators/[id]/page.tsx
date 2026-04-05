@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import Tooltip from '@/components/Tooltip';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 
@@ -14,11 +15,12 @@ interface CreatorRow extends RowDataPacket {
   profile_url: string | null;
 }
 
-const platformLabels: Record<string, { name: string; color: string; icon: string }> = {
+const platformLabels: Record<string, { name: string; color: string; icon: string; tip?: string }> = {
   douyin: { name: '抖音', color: 'bg-black text-white', icon: '🎵' },
   xiaohongshu: { name: '小红书', color: 'bg-red-500 text-white', icon: '📕' },
   bilibili: { name: 'B站', color: 'bg-pink-400 text-white', icon: '📺' },
-  youtube: { name: 'YouTube', color: 'bg-red-600 text-white', icon: '▶️' },
+  youtube: { name: 'YouTube', color: 'bg-red-600 text-white', icon: '▶️', tip: '谷歌旗下视频分享平台' },
+  instagram: { name: 'Instagram', color: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white', icon: '📸', tip: 'Meta 旗下图文社交平台' },
   weibo: { name: '微博', color: 'bg-orange-500 text-white', icon: '📝' },
 };
 
@@ -117,10 +119,15 @@ export default async function CreatorDetailPage({
               </h1>
               <div className="flex flex-wrap gap-3">
                 <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${platform.color}`}>
-                  {platform.icon} {platform.name}
+                  {platform.icon}{' '}
+                  {platform.tip
+                    ? <Tooltip tip={platform.tip} dotted={false}>{platform.name}</Tooltip>
+                    : platform.name}
                 </span>
                 <span className="px-4 py-1.5 bg-cream-200 text-warm-gray-700 rounded-full text-sm">
-                  {styleLabels[creator.content_style] || creator.content_style}
+                  {creator.content_style === 'vlog'
+                    ? <Tooltip tip="视频博客 / 视频日志" dotted={false}>Vlog</Tooltip>
+                    : styleLabels[creator.content_style] || creator.content_style}
                 </span>
                 <span className="px-4 py-1.5 bg-cream-200 text-brown-600 rounded-full text-sm">
                   粉丝 {tierLabels[creator.follower_tier] || creator.follower_tier}

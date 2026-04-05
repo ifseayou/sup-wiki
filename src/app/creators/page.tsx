@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
+import Tooltip from '@/components/Tooltip';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import FilterBar from '@/components/FilterBar';
@@ -15,11 +16,12 @@ interface CreatorRow extends RowDataPacket {
   profile_url: string | null;
 }
 
-const platformLabels: Record<string, { name: string; color: string }> = {
+const platformLabels: Record<string, { name: string; color: string; tip?: string }> = {
   douyin: { name: '抖音', color: 'bg-black text-white' },
   xiaohongshu: { name: '小红书', color: 'bg-red-500 text-white' },
   bilibili: { name: 'B站', color: 'bg-pink-400 text-white' },
-  youtube: { name: 'YouTube', color: 'bg-red-600 text-white' },
+  youtube: { name: 'YouTube', color: 'bg-red-600 text-white', tip: '谷歌旗下视频分享平台' },
+  instagram: { name: 'Instagram', color: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white', tip: 'Meta 旗下图文社交平台' },
   weibo: { name: '微博', color: 'bg-orange-500 text-white' },
 };
 
@@ -71,6 +73,7 @@ const filters = [
       { label: '小红书', value: 'xiaohongshu' },
       { label: 'B站', value: 'bilibili' },
       { label: 'YouTube', value: 'youtube' },
+      { label: 'Instagram', value: 'instagram' },
       { label: '微博', value: 'weibo' },
     ],
   },
@@ -133,10 +136,16 @@ export default async function CreatorsPage({
                 </h3>
                 <div className="mt-3 flex items-center justify-center gap-2">
                   <span className={`text-xs px-2 py-1 rounded ${platformLabels[creator.platform]?.color || 'bg-cream-200 text-warm-gray-500'}`}>
-                    {platformLabels[creator.platform]?.name || creator.platform}
+                    {(() => {
+                      const p = platformLabels[creator.platform];
+                      if (!p) return creator.platform;
+                      return p.tip ? <Tooltip tip={p.tip} dotted={false}>{p.name}</Tooltip> : p.name;
+                    })()}
                   </span>
                   <span className="text-xs px-2 py-1 bg-cream-200 text-warm-gray-500 rounded">
-                    {styleLabels[creator.content_style] || creator.content_style}
+                    {creator.content_style === 'vlog'
+                      ? <Tooltip tip="视频博客 / 视频日志" dotted={false}>Vlog</Tooltip>
+                      : styleLabels[creator.content_style] || creator.content_style}
                   </span>
                 </div>
                 <div className="mt-2 text-center text-sm text-warm-gray-400">

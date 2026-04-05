@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import Tooltip from '@/components/Tooltip';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 
@@ -97,7 +98,7 @@ export default async function AthleteDetailPage({
               <h1 className="text-3xl font-bold text-brown-800">{athlete.name}</h1>
               {athlete.icf_ranking && (
                 <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                  ICF #{athlete.icf_ranking}
+                  <Tooltip tip="国际皮划艇联合会 (ICF) 世界排名">ICF #{athlete.icf_ranking}</Tooltip>
                 </span>
               )}
             </div>

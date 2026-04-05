@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Tooltip from '@/components/Tooltip';
 
 const CATEGORIES = [
   {
@@ -63,7 +64,7 @@ export default function LearnPage() {
       {/* 页头 */}
       <div style={{ marginBottom: 48 }}>
         <p style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#A08060', marginBottom: 16 }}>
-          SUP Knowledge Hub
+          <Tooltip tip="桨板知识中心" dotted={false}>SUP Knowledge Hub</Tooltip>
         </p>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(36px,5vw,60px)', fontWeight: 300, color: '#2E2118', lineHeight: 1.1, margin: '0 0 20px' }}>
           桨板知识<br /><em style={{ fontStyle: 'italic' }}>系统学习</em>
@@ -82,7 +83,7 @@ export default function LearnPage() {
       }}>
         <div>
           <div style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', marginBottom: 10 }}>
-            Comprehensive Test
+            <Tooltip tip="综合测验" dotted={false}>Comprehensive Test</Tooltip>
           </div>
           <div style={{ fontSize: 24, fontWeight: 600, color: '#fff', marginBottom: 8 }}>全科综合测验</div>
           <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
@@ -119,7 +120,9 @@ export default function LearnPage() {
               <span style={{ fontSize: 28 }}>{cat.icon}</span>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 600, color: '#2E2118' }}>{cat.label}</div>
-                <div style={{ fontSize: 11, color: cat.color, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{cat.labelEn}</div>
+                <div style={{ fontSize: 11, color: cat.color, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  <Tooltip tip={cat.label} dotted={false}>{cat.labelEn}</Tooltip>
+                </div>
               </div>
             </div>
             <p style={{ fontSize: 13, color: '#655D56', lineHeight: 1.65, margin: 0 }}>{cat.desc}</p>
