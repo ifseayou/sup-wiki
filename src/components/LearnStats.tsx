@@ -32,45 +32,7 @@ export default function LearnStats({ totalQuestions }: Props) {
     ? Math.round((stats.total_correct / stats.total_attempted) * 100)
     : null;
 
-  const items = [
-    {
-      label: '题库总量',
-      value: totalQuestions.toLocaleString(),
-      unit: '题',
-      color: '#7A6145',
-      bg: '#F5EFE8',
-    },
-    ...(user && stats ? [
-      {
-        label: '已刷题目',
-        value: stats.total_attempted.toLocaleString(),
-        unit: '题',
-        color: '#1A5276',
-        bg: '#EBF5FB',
-      },
-      {
-        label: '回答正确',
-        value: stats.total_correct.toLocaleString(),
-        unit: '题',
-        color: '#0E6655',
-        bg: '#E9F7EF',
-      },
-      {
-        label: '回答错误',
-        value: stats.total_wrong.toLocaleString(),
-        unit: '题',
-        color: stats.total_wrong > 0 ? '#c0392b' : '#8A8078',
-        bg: stats.total_wrong > 0 ? '#FDEDEC' : '#F5F5F5',
-      },
-      ...(accuracy !== null ? [{
-        label: '正确率',
-        value: `${accuracy}`,
-        unit: '%',
-        color: accuracy >= 80 ? '#0E6655' : accuracy >= 60 ? '#B7470A' : '#c0392b',
-        bg: accuracy >= 80 ? '#E9F7EF' : accuracy >= 60 ? '#FDF2E9' : '#FDEDEC',
-      }] : []),
-    ] : []),
-  ];
+  const hasStarted = stats && stats.total_attempted > 0;
 
   return (
     <div style={{
@@ -78,35 +40,59 @@ export default function LearnStats({ totalQuestions }: Props) {
       background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 12,
       padding: '14px 18px', marginBottom: 32,
     }}>
-      {items.map((item, i) => (
-        <div key={i} style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          background: item.bg, borderRadius: 8, padding: '8px 14px',
-          minWidth: 80,
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: item.color, lineHeight: 1 }}>
-              {item.value}<span style={{ fontSize: 12, fontWeight: 400, marginLeft: 2 }}>{item.unit}</span>
+      {/* 题库总量 — 始终显示 */}
+      <div style={{ background: '#F5EFE8', borderRadius: 8, padding: '8px 16px', textAlign: 'center' }}>
+        <div style={{ fontSize: 22, fontWeight: 700, color: '#7A6145', lineHeight: 1 }}>
+          {totalQuestions.toLocaleString()}<span style={{ fontSize: 12, fontWeight: 400, marginLeft: 2 }}>题</span>
+        </div>
+        <div style={{ fontSize: 11, color: '#8A8078', marginTop: 3 }}>题库总量</div>
+      </div>
+
+      {/* 已有答题记录才展示详细统计 */}
+      {user && hasStarted && (
+        <>
+          <div style={{ width: 1, height: 36, background: '#EDE5D8', flexShrink: 0 }} />
+
+          {[
+            { label: '已刷题目', value: stats!.total_attempted, color: '#1A5276', bg: '#EBF5FB' },
+            { label: '回答正确', value: stats!.total_correct, color: '#0E6655', bg: '#E9F7EF' },
+            { label: '回答错误', value: stats!.total_wrong, color: stats!.total_wrong > 0 ? '#c0392b' : '#8A8078', bg: stats!.total_wrong > 0 ? '#FDEDEC' : '#F5F5F5' },
+          ].map((item, i) => (
+            <div key={i} style={{ background: item.bg, borderRadius: 8, padding: '8px 14px', textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: item.color, lineHeight: 1 }}>
+                {item.value.toLocaleString()}<span style={{ fontSize: 12, fontWeight: 400, marginLeft: 2 }}>题</span>
+              </div>
+              <div style={{ fontSize: 11, color: '#8A8078', marginTop: 3 }}>{item.label}</div>
             </div>
-            <div style={{ fontSize: 11, color: '#8A8078', marginTop: 3 }}>{item.label}</div>
-          </div>
-        </div>
-      ))}
+          ))}
 
-      {!user && (
-        <div style={{ marginLeft: 'auto', fontSize: 12, color: '#8A8078' }}>
-          <Link href="/login?redirect=/learn" style={{ color: '#7A6145', textDecoration: 'none' }}>
-            登录
-          </Link>
-          {' '}后记录学习进度
-        </div>
+          {accuracy !== null && (
+            <div style={{
+              background: accuracy >= 80 ? '#E9F7EF' : accuracy >= 60 ? '#FDF2E9' : '#FDEDEC',
+              borderRadius: 8, padding: '8px 14px', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1, color: accuracy >= 80 ? '#0E6655' : accuracy >= 60 ? '#B7470A' : '#c0392b' }}>
+                {accuracy}<span style={{ fontSize: 12, fontWeight: 400, marginLeft: 1 }}>%</span>
+              </div>
+              <div style={{ fontSize: 11, color: '#8A8078', marginTop: 3 }}>正确率</div>
+            </div>
+          )}
+        </>
       )}
 
-      {user && stats && stats.total_attempted === 0 && (
-        <div style={{ marginLeft: 'auto', fontSize: 12, color: '#A08060' }}>
-          开始答题，自动记录进度 →
-        </div>
-      )}
+      {/* 右侧引导文字 */}
+      <div style={{ marginLeft: 'auto', fontSize: 13, color: '#A08060' }}>
+        {!user ? (
+          <>
+            <Link href="/login?redirect=/learn" style={{ color: '#7A6145', textDecoration: 'none', fontWeight: 500 }}>登录</Link>
+            {' '}后自动记录答题进度
+          </>
+        ) : !hasStarted ? (
+          '开始答题，自动记录进度 →'
+        ) : (
+          <Link href="/my-learning" style={{ color: '#7A6145', textDecoration: 'none' }}>查看学习记录 →</Link>
+        )}
+      </div>
     </div>
   );
 }
