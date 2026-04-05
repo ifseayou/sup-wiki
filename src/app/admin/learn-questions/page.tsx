@@ -1,6 +1,7 @@
 'use client';
 
 import EntityManager from '@/components/admin/EntityManager';
+import ImageUpload from '@/components/admin/ImageUpload';
 import { useAdminAuth } from '../layout';
 
 const CATEGORIES = [
@@ -18,7 +19,7 @@ const DIFFICULTIES = [
   { value: 'advanced', label: '高级' },
 ];
 
-function QuestionForm({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
+function QuestionForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
   const inp = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
 
@@ -84,6 +85,24 @@ function QuestionForm({ data, onChange }: { data: Record<string, unknown>; onCha
         <label className="block text-xs text-warm-gray-400 mb-1">解析说明</label>
         <textarea className={inp} rows={3} value={String(data.explanation || '')} onChange={e => set('explanation', e.target.value)} />
       </div>
+      <div>
+        <label className="block text-xs text-warm-gray-400 mb-1">解析配图</label>
+        <ImageUpload
+          value={String(data.explanation_image || '')}
+          onChange={url => set('explanation_image', url)}
+          folder="quiz-images"
+          token={token}
+          label="解析配图"
+        />
+        <p className="text-xs text-warm-gray-400 mt-1">也可直接填写图片 URL（如 /quiz-images/leash-types.svg）</p>
+        <input
+          className={inp}
+          value={String(data.explanation_image || '')}
+          onChange={e => set('explanation_image', e.target.value)}
+          placeholder="/quiz-images/xxx.svg 或 https://..."
+          style={{ marginTop: 4 }}
+        />
+      </div>
     </div>
   );
 }
@@ -97,7 +116,7 @@ const columns = [
 
 const defaultFormData = {
   question_id: undefined, question: '', type: 'single', options: ['', '', '', ''],
-  correct: 0, explanation: '', category: 'equipment', difficulty: 'beginner',
+  correct: 0, explanation: '', explanation_image: '', category: 'equipment', difficulty: 'beginner',
 };
 
 export default function LearnQuestionsPage() {

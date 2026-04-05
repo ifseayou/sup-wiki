@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="430" viewBox="0 0 660 430">
+  <!-- Background -->
+  <rect width="660" height="430" fill="#FAF7F2" rx="8"/>
+  <!-- Title -->
+  <text x="330" y="34" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#2E2118" text-anchor="middle">拉力流（离岸流）识别与逃脱方法</text>
+
+  <!-- Sea top area -->
+  <rect x="30" y="55" width="600" height="140" rx="6" fill="#D6EAF8"/>
+
+  <!-- Waves on left (foam, white) -->
+  <path d="M30 200 Q60 185 90 198 Q120 211 150 195 Q165 188 180 195" stroke="#fff" stroke-width="3" fill="none"/>
+  <path d="M30 210 Q60 195 90 208 Q120 221 150 205 Q165 198 180 205" stroke="#4A90D9" stroke-width="1.5" fill="none"/>
+  <rect x="30" y="195" width="150" height="60" fill="#B3D9F5" opacity="0.6"/>
+  <text x="95" y="232" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#4A90D9" text-anchor="middle">破浪区（有白沫）</text>
+
+  <!-- Waves on right (foam, white) -->
+  <path d="M480 200 Q510 185 540 198 Q570 211 600 195 Q615 188 630 195" stroke="#fff" stroke-width="3" fill="none"/>
+  <path d="M480 210 Q510 195 540 208 Q570 221 600 205 Q615 198 630 205" stroke="#4A90D9" stroke-width="1.5" fill="none"/>
+  <rect x="480" y="195" width="150" height="60" fill="#B3D9F5" opacity="0.6"/>
+  <text x="565" y="232" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#4A90D9" text-anchor="middle">破浪区（有白沫）</text>
+
+  <!-- Rip current channel (darker, calmer water in middle) -->
+  <rect x="180" y="55" width="300" height="200" rx="0" fill="#2471A3" opacity="0.35"/>
+  <path d="M180 55 L180 255 M480 55 L480 255" stroke="#1A5276" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+  <!-- Rip current arrows (flowing seaward = upward) -->
+  <line x1="280" y1="240" x2="280" y2="80" stroke="#1A5276" stroke-width="2.5" marker-end="url(#darkblue)"/>
+  <line x1="330" y1="240" x2="330" y2="80" stroke="#1A5276" stroke-width="2.5" marker-end="url(#darkblue)"/>
+  <line x1="380" y1="240" x2="380" y2="80" stroke="#1A5276" stroke-width="2.5" marker-end="url(#darkblue)"/>
+  <text x="330" y="155" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#FAF7F2" text-anchor="middle">离岸流</text>
+  <text x="330" y="173" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#FAF7F2" text-anchor="middle">（水面平静，颜色深）</text>
+
+  <!-- Coastline -->
+  <path d="M30 255 Q80 245 130 258 Q180 270 230 255 Q280 240 330 255 Q380 270 430 255 Q480 240 530 255 Q580 268 630 252 L630 275 L30 275 Z" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+  <!-- Sand beach -->
+  <rect x="30" y="255" width="600" height="40" fill="#EDE5D8"/>
+  <text x="330" y="280" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="#7A6145" text-anchor="middle" font-weight="600">海 岸 沙 滩</text>
+
+  <!-- Person in rip current -->
+  <circle cx="330" cy="220" r="10" fill="#FAF7F2" stroke="#2E2118" stroke-width="2"/>
+  <line x1="330" y1="230" x2="326" y2="244" stroke="#2E2118" stroke-width="2"/>
+  <line x1="330" y1="230" x2="334" y2="244" stroke="#2E2118" stroke-width="2"/>
+
+  <!-- WRONG: straight toward shore (downward red) -->
+  <line x1="300" y1="222" x2="300" y2="256" stroke="#C0392B" stroke-width="2.5" marker-end="url(#redarrow2)" stroke-dasharray="5,3"/>
+  <text x="248" y="240" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" fill="#C0392B">❌ 直接</text>
+  <text x="248" y="255" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C0392B">顶流</text>
+
+  <!-- CORRECT: parallel to shore (right arrow green) -->
+  <line x1="340" y1="222" x2="460" y2="222" stroke="#0E6655" stroke-width="2.5" marker-end="url(#greenarrow2)"/>
+  <text x="420" y="212" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="700" fill="#0E6655">✅ 平行岸边游出</text>
+  <!-- Then toward shore -->
+  <line x1="460" y1="222" x2="460" y2="256" stroke="#0E6655" stroke-width="2" marker-end="url(#greenarrow2)" stroke-dasharray="4,3"/>
+  <text x="466" y="245" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#0E6655">再返岸</text>
+
+  <!-- Identification box -->
+  <rect x="30" y="305" width="280" height="112" rx="6" fill="#EDE5D8" stroke="#C4A882" stroke-width="1.5"/>
+  <text x="170" y="326" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#2E2118" text-anchor="middle">识别离岸流的特征</text>
+  <text x="46" y="346" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">🔍 水面泡沫较少（白沫缺口）</text>
+  <text x="46" y="364" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">🔍 颜色比两侧深（浑浊或墨绿）</text>
+  <text x="46" y="382" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">🔍 水面看起来比较"平静"</text>
+  <text x="46" y="400" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">🔍 有时可见向外的漂浮物</text>
+
+  <!-- Escape method box -->
+  <rect x="350" y="305" width="280" height="112" rx="6" fill="#E8F8F5" stroke="#0E6655" stroke-width="1.5"/>
+  <text x="490" y="326" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#0E6655" text-anchor="middle">✅ 正确逃脱方法</text>
+  <text x="366" y="346" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">① 保持冷静，不要消耗体力</text>
+  <text x="366" y="364" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">② 平行海岸线方向游，脱离水流</text>
+  <text x="366" y="382" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">③ 脱出水流范围后再向岸游</text>
+  <text x="366" y="400" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">④ 若体力不支，仰漂等待救援</text>
+
+  <!-- Markers -->
+  <defs>
+    <marker id="darkblue" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#1A5276"/>
+    </marker>
+    <marker id="redarrow2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#C0392B"/>
+    </marker>
+    <marker id="greenarrow2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#0E6655"/>
+    </marker>
+  </defs>
+</svg>

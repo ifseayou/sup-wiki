@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="420" viewBox="0 0 660 420">
+  <!-- Background -->
+  <rect width="660" height="420" fill="#FAF7F2" rx="8"/>
+  <!-- Title -->
+  <text x="330" y="34" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#2E2118" text-anchor="middle">SUP 桨板类型总览（俯视图）</text>
+
+  <!-- Board colors -->
+  <!-- 1. Racing board - narrow, long, pointed -->
+  <g transform="translate(30, 55)">
+    <!-- Board shape: narrow, pointed nose and tail -->
+    <path d="M60 8 Q72 10 76 30 L76 145 Q72 162 60 165 Q48 162 44 145 L44 30 Q48 10 60 8Z" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <!-- Center handle -->
+    <rect x="54" y="85" width="12" height="6" rx="3" fill="#7A6145"/>
+    <!-- Name label -->
+    <text x="60" y="188" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118" text-anchor="middle">竞速板</text>
+    <text x="60" y="203" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#7A6145" text-anchor="middle">Racing</text>
+    <text x="60" y="220" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#2E2118" text-anchor="middle">宽：22–28"</text>
+    <!-- Width indicator -->
+    <line x1="38" y1="88" x2="82" y2="88" stroke="#C4A882" stroke-width="1.5" stroke-dasharray="3,2"/>
+    <line x1="38" y1="84" x2="38" y2="92" stroke="#C4A882" stroke-width="1.5"/>
+    <line x1="82" y1="84" x2="82" y2="92" stroke="#C4A882" stroke-width="1.5"/>
+    <!-- Scenario icons -->
+    <text x="60" y="240" font-family="system-ui, -apple-system, sans-serif" font-size="14" text-anchor="middle">🏁</text>
+    <text x="60" y="258" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#7A6145" text-anchor="middle">竞赛/训练</text>
+  </g>
+
+  <!-- 2. All-around board -->
+  <g transform="translate(145, 55)">
+    <!-- Board shape: round nose, wider -->
+    <path d="M65 6 Q92 12 96 40 L96 140 Q92 158 65 162 Q38 158 34 140 L34 40 Q38 12 65 6Z" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <rect x="59" y="85" width="12" height="6" rx="3" fill="#7A6145"/>
+    <text x="65" y="188" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118" text-anchor="middle">全能板</text>
+    <text x="65" y="203" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#7A6145" text-anchor="middle">All-around</text>
+    <text x="65" y="220" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#2E2118" text-anchor="middle">宽：30–34"</text>
+    <line x1="28" y1="88" x2="102" y2="88" stroke="#C4A882" stroke-width="1.5" stroke-dasharray="3,2"/>
+    <line x1="28" y1="84" x2="28" y2="92" stroke="#C4A882" stroke-width="1.5"/>
+    <line x1="102" y1="84" x2="102" y2="92" stroke="#C4A882" stroke-width="1.5"/>
+    <text x="65" y="240" font-family="system-ui, -apple-system, sans-serif" font-size="14" text-anchor="middle">🌊</text>
+    <text x="65" y="258" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#7A6145" text-anchor="middle">初学/休闲</text>
+  </g>
+
+  <!-- 3. Touring board -->
+  <g transform="translate(263, 55)">
+    <!-- Board shape: pointed nose, medium width -->
+    <path d="M65 4 Q90 15 92 45 L92 138 Q88 156 65 160 Q42 156 38 138 L38 45 Q40 15 65 4Z" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <rect x="59" y="85" width="12" height="6" rx="3" fill="#7A6145"/>
+    <text x="65" y="188" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118" text-anchor="middle">旅行板</text>
+    <text x="65" y="203" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#7A6145" text-anchor="middle">Touring</text>
+    <text x="65" y="220" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#2E2118" text-anchor="middle">宽：28–32"</text>
+    <line x1="32" y1="88" x2="98" y2="88" stroke="#C4A882" stroke-width="1.5" stroke-dasharray="3,2"/>
+    <line x1="32" y1="84" x2="32" y2="92" stroke="#C4A882" stroke-width="1.5"/>
+    <line x1="98" y1="84" x2="98" y2="92" stroke="#C4A882" stroke-width="1.5"/>
+    <text x="65" y="240" font-family="system-ui, -apple-system, sans-serif" font-size="14" text-anchor="middle">🏔️</text>
+    <text x="65" y="258" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#7A6145" text-anchor="middle">长距离探险</text>
+  </g>
+
+  <!-- 4. Yoga board -->
+  <g transform="translate(375, 55)">
+    <!-- Board shape: very wide, square-ish -->
+    <path d="M68 8 Q104 10 108 36 L108 148 Q104 162 68 164 Q32 162 28 148 L28 36 Q32 10 68 8Z" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <rect x="62" y="85" width="12" height="6" rx="3" fill="#7A6145"/>
+    <text x="68" y="188" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118" text-anchor="middle">瑜伽板</text>
+    <text x="68" y="203" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#7A6145" text-anchor="middle">Yoga</text>
+    <text x="68" y="220" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#2E2118" text-anchor="middle">宽：33–36"</text>
+    <line x1="22" y1="88" x2="114" y2="88" stroke="#C4A882" stroke-width="1.5" stroke-dasharray="3,2"/>
+    <line x1="22" y1="84" x2="22" y2="92" stroke="#C4A882" stroke-width="1.5"/>
+    <line x1="114" y1="84" x2="114" y2="92" stroke="#C4A882" stroke-width="1.5"/>
+    <text x="68" y="240" font-family="system-ui, -apple-system, sans-serif" font-size="14" text-anchor="middle">🧘</text>
+    <text x="68" y="258" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#7A6145" text-anchor="middle">瑜伽/稳定</text>
+  </g>
+
+  <!-- 5. Surf board -->
+  <g transform="translate(490, 55)">
+    <!-- Board shape: short, wide nose, swallow tail -->
+    <path d="M68 14 Q100 18 106 52 L106 128 Q100 138 82 140 Q90 152 80 158 Q68 164 56 158 Q46 152 54 140 Q36 138 30 128 L30 52 Q36 18 68 14Z" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <rect x="62" y="82" width="12" height="6" rx="3" fill="#7A6145"/>
+    <text x="68" y="188" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118" text-anchor="middle">冲浪板</text>
+    <text x="68" y="203" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#7A6145" text-anchor="middle">SUP Surf</text>
+    <text x="68" y="220" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#2E2118" text-anchor="middle">宽：29–32"</text>
+    <line x1="24" y1="86" x2="112" y2="86" stroke="#C4A882" stroke-width="1.5" stroke-dasharray="3,2"/>
+    <line x1="24" y1="82" x2="24" y2="90" stroke="#C4A882" stroke-width="1.5"/>
+    <line x1="112" y1="82" x2="112" y2="90" stroke="#C4A882" stroke-width="1.5"/>
+    <text x="68" y="240" font-family="system-ui, -apple-system, sans-serif" font-size="14" text-anchor="middle">🌊</text>
+    <text x="68" y="258" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#7A6145" text-anchor="middle">浪区冲浪</text>
+    <!-- Fish tail label -->
+    <text x="68" y="275" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#C0392B" text-anchor="middle">燕尾设计</text>
+  </g>
+
+  <!-- Bottom comparison summary -->
+  <rect x="30" y="300" width="600" height="108" rx="8" fill="#EDE5D8" stroke="#C4A882" stroke-width="1.5"/>
+  <text x="330" y="323" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#2E2118" text-anchor="middle">板型与特性对比</text>
+  <!-- Table headers -->
+  <text x="100" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">板型</text>
+  <text x="210" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">稳定性</text>
+  <text x="310" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">速度</text>
+  <text x="410" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">灵活性</text>
+  <text x="540" y="343" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">适合人群</text>
+  <line x1="50" y1="348" x2="610" y2="348" stroke="#C4A882" stroke-width="1"/>
+  <!-- Row 1 -->
+  <text x="100" y="365" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">竞速板</text>
+  <text x="210" y="365" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C0392B" text-anchor="middle">★★☆</text>
+  <text x="310" y="365" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#0E6655" text-anchor="middle">★★★</text>
+  <text x="410" y="365" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C0392B" text-anchor="middle">★☆☆</text>
+  <text x="540" y="365" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">进阶/竞速选手</text>
+  <!-- Row 2 -->
+  <text x="100" y="385" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">全能板</text>
+  <text x="210" y="385" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#0E6655" text-anchor="middle">★★★</text>
+  <text x="310" y="385" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">★★☆</text>
+  <text x="410" y="385" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">★★☆</text>
+  <text x="540" y="385" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">初学者/休闲</text>
+  <!-- Row 3 -->
+  <text x="100" y="405" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">瑜伽板</text>
+  <text x="210" y="405" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#0E6655" text-anchor="middle">★★★</text>
+  <text x="310" y="405" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C0392B" text-anchor="middle">★☆☆</text>
+  <text x="410" y="405" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">★★☆</text>
+  <text x="540" y="405" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">瑜伽/冥想练习</text>
+</svg>

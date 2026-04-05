@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="420" viewBox="0 0 660 420">
+  <!-- Background -->
+  <rect width="660" height="420" fill="#FAF7F2" rx="8"/>
+  <!-- Title -->
+  <text x="330" y="36" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#2E2118" text-anchor="middle">腰包式踝绳（Hip Leash）优势对比</text>
+  <!-- Divider -->
+  <line x1="330" y1="55" x2="330" y2="360" stroke="#EDE5D8" stroke-width="2"/>
+
+  <!-- LEFT: Traditional ankle leash -->
+  <text x="165" y="72" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#C0392B" text-anchor="middle">❌ 传统踝绳</text>
+
+  <!-- Person 1 standing on board - left -->
+  <g transform="translate(100, 85)">
+    <!-- Board -->
+    <ellipse cx="65" cy="195" rx="55" ry="14" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <!-- Legs -->
+    <line x1="55" y1="165" x2="50" y2="195" stroke="#2E2118" stroke-width="3"/>
+    <line x1="75" y1="165" x2="80" y2="195" stroke="#2E2118" stroke-width="3"/>
+    <!-- Body -->
+    <line x1="65" y1="90" x2="65" y2="165" stroke="#2E2118" stroke-width="3"/>
+    <!-- Arms -->
+    <line x1="65" y1="110" x2="38" y2="140" stroke="#2E2118" stroke-width="3"/>
+    <line x1="65" y1="110" x2="92" y2="140" stroke="#2E2118" stroke-width="3"/>
+    <!-- Head -->
+    <circle cx="65" cy="78" r="14" fill="#FAF7F2" stroke="#2E2118" stroke-width="2.5"/>
+    <!-- Ankle leash - red/orange -->
+    <line x1="80" y1="193" x2="120" y2="193" stroke="#C0392B" stroke-width="3"/>
+    <!-- Ankle connector point -->
+    <circle cx="80" cy="193" r="4" fill="#C0392B"/>
+    <!-- Leash going to board tail -->
+    <line x1="120" y1="193" x2="120" y2="205" stroke="#C0392B" stroke-width="2" stroke-dasharray="4,2"/>
+    <text x="125" y="193" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#C0392B">← 踝部</text>
+  </g>
+
+  <!-- Left danger note -->
+  <rect x="30" y="305" width="280" height="60" rx="6" fill="#FFE8E8" stroke="#C0392B" stroke-width="1.5"/>
+  <text x="170" y="326" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#C0392B" text-anchor="middle">⚠ 跌落时可能绊脚</text>
+  <text x="170" y="345" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">板弹回时，踝绳与腿部缠绕</text>
+  <text x="170" y="360" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">影响游泳逃生</text>
+
+  <!-- RIGHT: Hip leash -->
+  <text x="495" y="72" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#0E6655" text-anchor="middle">✅ 腰包式踝绳</text>
+
+  <!-- Person 2 standing on board - right -->
+  <g transform="translate(430, 85)">
+    <!-- Board -->
+    <ellipse cx="65" cy="195" rx="55" ry="14" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <!-- Legs -->
+    <line x1="55" y1="165" x2="50" y2="195" stroke="#2E2118" stroke-width="3"/>
+    <line x1="75" y1="165" x2="80" y2="195" stroke="#2E2118" stroke-width="3"/>
+    <!-- Body -->
+    <line x1="65" y1="90" x2="65" y2="165" stroke="#2E2118" stroke-width="3"/>
+    <!-- Arms -->
+    <line x1="65" y1="110" x2="38" y2="140" stroke="#2E2118" stroke-width="3"/>
+    <line x1="65" y1="110" x2="92" y2="140" stroke="#2E2118" stroke-width="3"/>
+    <!-- Head -->
+    <circle cx="65" cy="78" r="14" fill="#FAF7F2" stroke="#2E2118" stroke-width="2.5"/>
+    <!-- Hip pack - small rectangle at waist -->
+    <rect x="70" y="148" width="28" height="14" rx="3" fill="#0E6655" stroke="#2E2118" stroke-width="1.5"/>
+    <!-- Hip leash - green -->
+    <line x1="98" y1="155" x2="130" y2="155" stroke="#0E6655" stroke-width="3"/>
+    <circle cx="84" cy="155" r="4" fill="#0E6655"/>
+    <!-- Leash to board -->
+    <line x1="130" y1="155" x2="130" y2="195" stroke="#0E6655" stroke-width="2" stroke-dasharray="4,2"/>
+    <text x="5" y="155" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#0E6655">腰部 →</text>
+    <text x="5" y="168" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#0E6655">腰包</text>
+  </g>
+
+  <!-- Right benefit note -->
+  <rect x="350" y="305" width="280" height="60" rx="6" fill="#E8F8F5" stroke="#0E6655" stroke-width="1.5"/>
+  <text x="490" y="326" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#0E6655" text-anchor="middle">✅ 跌落后自由游泳</text>
+  <text x="490" y="345" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">腿部完全自由，游泳不受限</text>
+  <text x="490" y="360" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">紧急时拉快解扣断开连接</text>
+
+  <!-- Bottom note -->
+  <rect x="60" y="378" width="540" height="32" rx="5" fill="#2E2118"/>
+  <text x="330" y="399" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#FAF7F2" text-anchor="middle">腰包式踝绳设有快速释放扣，紧急情况可一拉断开，是长距离划行的首选</text>
+</svg>

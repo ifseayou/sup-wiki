@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="420" viewBox="0 0 660 420">
+  <!-- Background -->
+  <rect width="660" height="420" fill="#FAF7F2" rx="8"/>
+  <!-- Title -->
+  <text x="330" y="36" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#2E2118" text-anchor="middle">踝绳类型对比：线绳型 vs 直型</text>
+  <!-- Divider line -->
+  <line x1="330" y1="55" x2="330" y2="395" stroke="#EDE5D8" stroke-width="2"/>
+
+  <!-- LEFT: Coil Leash -->
+  <text x="165" y="75" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" fill="#2E2118" text-anchor="middle">线绳型踝绳（Coil Leash）</text>
+
+  <!-- Coil leash drawing - spiral spring shape -->
+  <g transform="translate(110, 90)">
+    <!-- Board simple shape -->
+    <ellipse cx="55" cy="30" rx="40" ry="12" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <text x="55" y="34" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#2E2118" text-anchor="middle">桨板</text>
+    <!-- Coil spring leash -->
+    <path d="M55 42 Q45 52 65 58 Q45 64 65 70 Q45 76 65 82 Q45 88 65 94 Q45 100 65 106 Q50 112 55 120" stroke="#7A6145" stroke-width="3" fill="none"/>
+    <!-- Ankle -->
+    <circle cx="55" cy="125" r="8" fill="#C4A882" stroke="#7A6145" stroke-width="1.5"/>
+    <text x="55" y="128" font-family="system-ui, -apple-system, sans-serif" font-size="8" fill="#2E2118" text-anchor="middle">脚踝</text>
+    <!-- Label -->
+    <text x="95" y="85" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="start">螺旋收缩</text>
+    <text x="95" y="100" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="start">不拖地</text>
+  </g>
+
+  <!-- Coil Leash pros/cons -->
+  <g transform="translate(30, 240)">
+    <rect x="0" y="0" width="270" height="145" rx="6" fill="#EDE5D8" stroke="#C4A882" stroke-width="1"/>
+    <text x="12" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#0E6655">✓ 适用场景</text>
+    <text x="12" y="44" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#2E2118">✅ 平静湖面 / 河流</text>
+    <text x="12" y="64" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#2E2118">✅ 竞速训练</text>
+    <text x="12" y="84" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#2E2118">✅ 休闲划行（绳不拖地）</text>
+    <line x1="10" y1="95" x2="260" y2="95" stroke="#C4A882" stroke-width="1"/>
+    <text x="12" y="114" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#C0392B">✗ 不适用</text>
+    <text x="12" y="134" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#C0392B">❌ 冲浪（弹回会缠脚）</text>
+  </g>
+
+  <!-- RIGHT: Straight Leash -->
+  <text x="495" y="75" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" fill="#2E2118" text-anchor="middle">直型踝绳（Straight Leash）</text>
+
+  <!-- Straight leash drawing -->
+  <g transform="translate(440, 90)">
+    <!-- Board simple shape -->
+    <ellipse cx="55" cy="30" rx="40" ry="12" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <text x="55" y="34" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#2E2118" text-anchor="middle">桨板</text>
+    <!-- Straight leash -->
+    <line x1="55" y1="42" x2="55" y2="120" stroke="#7A6145" stroke-width="3"/>
+    <!-- Ankle -->
+    <circle cx="55" cy="125" r="8" fill="#C4A882" stroke="#7A6145" stroke-width="1.5"/>
+    <text x="55" y="128" font-family="system-ui, -apple-system, sans-serif" font-size="8" fill="#2E2118" text-anchor="middle">脚踝</text>
+    <!-- Label -->
+    <text x="5" y="85" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="end">直线连接</text>
+    <text x="5" y="100" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="end">更自然</text>
+  </g>
+
+  <!-- Straight Leash pros/cons -->
+  <g transform="translate(360, 240)">
+    <rect x="0" y="0" width="270" height="145" rx="6" fill="#EDE5D8" stroke="#C4A882" stroke-width="1"/>
+    <text x="12" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#0E6655">✓ 适用场景</text>
+    <text x="12" y="44" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#2E2118">✅ 冲浪</text>
+    <text x="12" y="64" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#2E2118">✅ 急浪区</text>
+    <line x1="10" y1="78" x2="260" y2="78" stroke="#C4A882" stroke-width="1"/>
+    <text x="12" y="97" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#C0392B">✗ 不适用</text>
+    <text x="12" y="117" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#C0392B">❌ 竞速（绳拖地，阻力大）</text>
+    <text x="12" y="137" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#C0392B">❌ 平静水域（绳悬垂）</text>
+  </g>
+</svg>

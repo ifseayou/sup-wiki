@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="400" viewBox="0 0 660 400">
+  <!-- Background -->
+  <rect width="660" height="400" fill="#FAF7F2" rx="8"/>
+  <!-- Title -->
+  <text x="330" y="34" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#2E2118" text-anchor="middle">桨叶入水角度 —— 正确 vs 错误</text>
+
+  <!-- Divider -->
+  <line x1="330" y1="55" x2="330" y2="340" stroke="#EDE5D8" stroke-width="2"/>
+
+  <!-- LEFT: Wrong low angle -->
+  <text x="165" y="72" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#C0392B" text-anchor="middle">❌ 低角度入水（效率差）</text>
+
+  <!-- Board and water line - left -->
+  <rect x="30" y="230" width="250" height="14" rx="4" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+  <text x="155" y="242" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#2E2118" text-anchor="middle">桨板</text>
+  <!-- Water -->
+  <rect x="30" y="244" width="250" height="20" rx="2" fill="#4A90D9" opacity="0.2"/>
+  <line x1="30" y1="244" x2="280" y2="244" stroke="#4A90D9" stroke-width="1.5"/>
+
+  <!-- Person (wrong) - left -->
+  <!-- Head -->
+  <circle cx="160" cy="148" r="14" fill="#FAF7F2" stroke="#2E2118" stroke-width="2.5"/>
+  <!-- Body -->
+  <line x1="160" y1="162" x2="160" y2="218" stroke="#2E2118" stroke-width="4"/>
+  <!-- Legs -->
+  <line x1="160" y1="218" x2="152" y2="230" stroke="#2E2118" stroke-width="3"/>
+  <line x1="160" y1="218" x2="168" y2="230" stroke="#2E2118" stroke-width="3"/>
+  <!-- Arms holding paddle at low angle -->
+  <line x1="160" y1="178" x2="180" y2="188" stroke="#2E2118" stroke-width="3"/>
+  <line x1="160" y1="190" x2="95" y2="230" stroke="#2E2118" stroke-width="3"/>
+
+  <!-- Paddle at low angle (about 45 degrees) -->
+  <line x1="200" y1="160" x2="75" y2="244" stroke="#7A6145" stroke-width="3"/>
+  <!-- Blade at bottom -->
+  <path d="M65 238 Q75 228 85 235 Q90 248 80 252 Q68 254 65 248 Z" fill="#C4A882" stroke="#7A6145" stroke-width="1.5"/>
+
+  <!-- Angle indicator -->
+  <path d="M95 244 A30 30 0 0 1 119 222" stroke="#C0392B" stroke-width="2" fill="none"/>
+  <text x="72" y="266" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#C0392B" font-weight="700">≈45°</text>
+  <text x="80" y="282" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C0392B">低角度 = 侧推</text>
+  <text x="80" y="298" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C0392B">浪费力气</text>
+
+  <!-- Entry point label -->
+  <circle cx="75" cy="244" r="5" fill="#C0392B"/>
+  <text x="55" y="215" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#C0392B">入水点</text>
+  <line x1="60" y1="218" x2="70" y2="240" stroke="#C0392B" stroke-width="1" stroke-dasharray="3,2"/>
+
+  <!-- RIGHT: Correct high angle -->
+  <text x="495" y="72" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#0E6655" text-anchor="middle">✅ 高角度入水（接近垂直）</text>
+
+  <!-- Board and water line - right -->
+  <rect x="380" y="230" width="250" height="14" rx="4" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+  <text x="505" y="242" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#2E2118" text-anchor="middle">桨板</text>
+  <!-- Water -->
+  <rect x="380" y="244" width="250" height="20" rx="2" fill="#4A90D9" opacity="0.2"/>
+  <line x1="380" y1="244" x2="630" y2="244" stroke="#4A90D9" stroke-width="1.5"/>
+
+  <!-- Person (correct) - right -->
+  <!-- Head -->
+  <circle cx="500" cy="148" r="14" fill="#FAF7F2" stroke="#2E2118" stroke-width="2.5"/>
+  <!-- Body -->
+  <line x1="500" y1="162" x2="500" y2="218" stroke="#2E2118" stroke-width="4"/>
+  <!-- Legs -->
+  <line x1="500" y1="218" x2="492" y2="230" stroke="#2E2118" stroke-width="3"/>
+  <line x1="500" y1="218" x2="508" y2="230" stroke="#2E2118" stroke-width="3"/>
+  <!-- Arms holding paddle at high angle -->
+  <line x1="500" y1="178" x2="528" y2="163" stroke="#2E2118" stroke-width="3"/>
+  <line x1="500" y1="190" x2="458" y2="215" stroke="#2E2118" stroke-width="3"/>
+
+  <!-- Paddle at high angle (about 80 degrees) -->
+  <line x1="538" y1="130" x2="450" y2="244" stroke="#7A6145" stroke-width="3"/>
+  <!-- Blade at bottom -->
+  <path d="M440 240 Q452 232 460 240 Q462 254 454 258 Q442 258 440 250 Z" fill="#C4A882" stroke="#7A6145" stroke-width="1.5"/>
+
+  <!-- Angle indicator -->
+  <path d="M465 244 A28 28 0 0 1 474 218" stroke="#0E6655" stroke-width="2" fill="none"/>
+  <text x="428" y="268" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#0E6655" font-weight="700">≈80°</text>
+  <text x="422" y="284" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#0E6655">高角度 = 向后推</text>
+  <text x="422" y="300" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#0E6655">推进力最大化</text>
+
+  <!-- Entry point label and distance mark -->
+  <circle cx="450" cy="244" r="5" fill="#0E6655"/>
+  <text x="468" y="220" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#0E6655">入水点</text>
+  <text x="540" y="262" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#7A6145">脚前方30-40cm</text>
+  <!-- Distance arrow -->
+  <line x1="495" y1="246" x2="452" y2="246" stroke="#7A6145" stroke-width="1" marker-end="url(#arrowbrown)"/>
+
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arrowbrown" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#7A6145"/>
+    </marker>
+  </defs>
+
+  <!-- Bottom summary -->
+  <rect x="50" y="320" width="560" height="68" rx="8" fill="#2E2118"/>
+  <text x="330" y="344" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#FAF7F2" text-anchor="middle">正确入水技术要点</text>
+  <text x="330" y="364" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C4A882" text-anchor="middle">① 桨叶垂直插入水中（75–85°角）② 入水点在脚前方30–40cm</text>
+  <text x="330" y="382" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C4A882" text-anchor="middle">③ 收桨于脚部旁侧，不拖尾 ④ 身体旋转发力，而非仅靠手臂</text>
+</svg>

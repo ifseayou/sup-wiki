@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="410" viewBox="0 0 660 410">
+  <!-- Background -->
+  <rect width="660" height="410" fill="#FAF7F2" rx="8"/>
+  <!-- Title -->
+  <text x="330" y="34" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#2E2118" text-anchor="middle">鳍（Fin）尺寸与划行性能关系</text>
+
+  <!-- Three fin types -->
+
+  <!-- 1. Small fin -->
+  <g transform="translate(50, 65)">
+    <text x="90" y="18" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#2E2118" text-anchor="middle">小型鳍</text>
+    <text x="90" y="36" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">4–6 英寸</text>
+
+    <!-- Board bottom (side view - flat rectangle) -->
+    <rect x="20" y="48" width="140" height="16" rx="3" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <text x="90" y="60" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#2E2118" text-anchor="middle">桨板底部</text>
+
+    <!-- Small fin shape (short, wide base triangle) -->
+    <path d="M75 64 Q78 82 100 92 Q100 98 80 98 Q60 98 60 92 Q82 82 75 64Z" fill="#7A6145" stroke="#2E2118" stroke-width="1.5"/>
+
+    <!-- Size arrow -->
+    <line x1="108" y1="64" x2="108" y2="98" stroke="#7A6145" stroke-width="1.5"/>
+    <line x1="104" y1="64" x2="112" y2="64" stroke="#7A6145" stroke-width="1.5"/>
+    <line x1="104" y1="98" x2="112" y2="98" stroke="#7A6145" stroke-width="1.5"/>
+    <text x="118" y="85" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#7A6145">~5"</text>
+
+    <!-- Properties -->
+    <rect x="0" y="115" width="175" height="148" rx="6" fill="#EDE5D8" stroke="#C4A882" stroke-width="1"/>
+    <text x="88" y="136" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118" text-anchor="middle">小鳍特性</text>
+    <text x="12" y="156" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#0E6655">✅ 转向灵活</text>
+    <text x="12" y="174" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#0E6655">✅ 阻力小，速度略快</text>
+    <text x="12" y="192" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#C0392B">❌ 直线追踪性差</text>
+    <text x="12" y="210" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#C0392B">❌ 容易偏航</text>
+    <text x="12" y="232" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145">适合：冲浪/急流</text>
+    <text x="12" y="250" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145">需要频繁转向场景</text>
+  </g>
+
+  <!-- 2. Standard fin -->
+  <g transform="translate(240, 65)">
+    <text x="90" y="18" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#2E2118" text-anchor="middle">标准鳍</text>
+    <text x="90" y="36" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">8–10 英寸</text>
+
+    <!-- Board bottom -->
+    <rect x="20" y="48" width="140" height="16" rx="3" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <text x="90" y="60" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#2E2118" text-anchor="middle">桨板底部</text>
+
+    <!-- Standard fin shape (medium triangle) -->
+    <path d="M78 64 Q74 92 65 115 Q78 120 90 120 Q102 120 115 115 Q106 92 102 64 Q98 72 90 74 Q82 72 78 64Z" fill="#7A6145" stroke="#2E2118" stroke-width="1.5"/>
+
+    <!-- Size arrow -->
+    <line x1="120" y1="64" x2="120" y2="120" stroke="#7A6145" stroke-width="1.5"/>
+    <line x1="116" y1="64" x2="124" y2="64" stroke="#7A6145" stroke-width="1.5"/>
+    <line x1="116" y1="120" x2="124" y2="120" stroke="#7A6145" stroke-width="1.5"/>
+    <text x="128" y="96" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#7A6145">~9"</text>
+
+    <!-- Properties -->
+    <rect x="0" y="135" width="175" height="128" rx="6" fill="#EDE5D8" stroke="#C4A882" stroke-width="1"/>
+    <text x="88" y="156" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118" text-anchor="middle">标准鳍特性</text>
+    <text x="12" y="176" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#0E6655">✅ 追踪与灵活性平衡</text>
+    <text x="12" y="194" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#0E6655">✅ 全能使用场景</text>
+    <text x="12" y="212" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#7A6145">⚡ 休闲、训练均适用</text>
+    <text x="12" y="244" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145">适合：全能板/日常训练</text>
+  </g>
+
+  <!-- 3. Racing/large fin -->
+  <g transform="translate(430, 65)">
+    <text x="90" y="18" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#2E2118" text-anchor="middle">竞速大鳍</text>
+    <text x="90" y="36" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">10–12+ 英寸</text>
+
+    <!-- Board bottom -->
+    <rect x="20" y="48" width="140" height="16" rx="3" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+    <text x="90" y="60" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#2E2118" text-anchor="middle">桨板底部</text>
+
+    <!-- Large racing fin shape (tall, narrow, swept back) -->
+    <path d="M82 64 Q76 90 60 140 Q72 145 90 145 Q108 145 120 140 Q104 90 98 64 Q95 76 90 78 Q85 76 82 64Z" fill="#7A6145" stroke="#2E2118" stroke-width="1.5"/>
+
+    <!-- Size arrow -->
+    <line x1="128" y1="64" x2="128" y2="145" stroke="#7A6145" stroke-width="1.5"/>
+    <line x1="124" y1="64" x2="132" y2="64" stroke="#7A6145" stroke-width="1.5"/>
+    <line x1="124" y1="145" x2="132" y2="145" stroke="#7A6145" stroke-width="1.5"/>
+    <text x="136" y="108" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#7A6145">~11"</text>
+
+    <!-- Properties -->
+    <rect x="0" y="162" width="175" height="108" rx="6" fill="#EDE5D8" stroke="#C4A882" stroke-width="1"/>
+    <text x="88" y="182" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118" text-anchor="middle">大鳍特性</text>
+    <text x="12" y="202" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#0E6655">✅ 直线追踪性极佳</text>
+    <text x="12" y="220" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#0E6655">✅ 适合长距离、竞速</text>
+    <text x="12" y="238" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#C0392B">❌ 转向笨重，不灵活</text>
+    <text x="12" y="258" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145">适合：竞速板/马拉松</text>
+  </g>
+
+  <!-- Summary bar -->
+  <rect x="30" y="318" width="600" height="74" rx="8" fill="#2E2118"/>
+  <text x="330" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#FAF7F2" text-anchor="middle">关键结论：鳍越大不等于越好</text>
+  <text x="330" y="360" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C4A882" text-anchor="middle">大鳍提升直线追踪性，但降低灵活性；小鳍反之</text>
+  <text x="330" y="378" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C4A882" text-anchor="middle">应根据用途（竞速/冲浪/休闲）和水域选择合适尺寸的鳍</text>
+</svg>

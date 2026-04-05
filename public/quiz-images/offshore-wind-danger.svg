@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="430" viewBox="0 0 660 430">
+  <!-- Background -->
+  <rect width="660" height="430" fill="#FAF7F2" rx="8"/>
+  <!-- Title -->
+  <text x="330" y="34" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#2E2118" text-anchor="middle">离岸风 vs 向岸风：安全判断</text>
+
+  <!-- Main map area -->
+  <!-- Sea (top half) -->
+  <rect x="30" y="55" width="600" height="200" rx="6" fill="#D6EAF8"/>
+  <text x="330" y="80" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#4A90D9" text-anchor="middle" opacity="0.6">大 海</text>
+
+  <!-- Coastline (irregular wavy line) -->
+  <path d="M30 255 Q80 245 120 258 Q160 270 200 252 Q240 234 280 255 Q320 276 360 252 Q400 228 440 255 Q480 282 520 258 Q560 234 600 252 L630 260 L630 275 L30 275 Z" fill="#C4A882" stroke="#7A6145" stroke-width="2"/>
+  <!-- Land (bottom) -->
+  <rect x="30" y="255" width="600" height="160" rx="0" fill="#EDE5D8"/>
+  <!-- Coastline label -->
+  <text x="330" y="295" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#7A6145" text-anchor="middle" font-weight="600">海 岸 线</text>
+
+  <!-- ============ DANGEROUS: Offshore wind (left side) ============ -->
+  <!-- Wind arrows going FROM shore TO sea (offshore = outward) -->
+  <g transform="translate(100, 105)">
+    <text x="0" y="-8" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#C0392B" text-anchor="middle">⚠ 离岸风（危险）</text>
+    <!-- Wind arrows pointing away from shore (upward in diagram = seaward) -->
+    <line x1="-50" y1="130" x2="-50" y2="18" stroke="#C0392B" stroke-width="2.5" marker-end="url(#redarrow)"/>
+    <line x1="0" y1="130" x2="0" y2="18" stroke="#C0392B" stroke-width="2.5" marker-end="url(#redarrow)"/>
+    <line x1="50" y1="130" x2="50" y2="18" stroke="#C0392B" stroke-width="2.5" marker-end="url(#redarrow)"/>
+    <!-- Person on board being blown away -->
+    <circle cx="0" cy="100" r="9" fill="#FAF7F2" stroke="#2E2118" stroke-width="2"/>
+    <line x1="0" y1="109" x2="-4" y2="125" stroke="#2E2118" stroke-width="2"/>
+    <line x1="0" y1="109" x2="4" y2="125" stroke="#2E2118" stroke-width="2"/>
+    <line x1="0" y1="114" x2="-8" y2="110" stroke="#2E2118" stroke-width="2"/>
+    <line x1="0" y1="114" x2="8" y2="110" stroke="#2E2118" stroke-width="2"/>
+    <!-- Board under person -->
+    <ellipse cx="0" cy="127" rx="20" ry="5" fill="#C4A882" stroke="#7A6145" stroke-width="1.5"/>
+    <!-- Trail showing person being pushed further out -->
+    <path d="M0 95 Q-15 70 -30 42" stroke="#C0392B" stroke-width="1.5" fill="none" stroke-dasharray="5,3"/>
+    <text x="-65" y="60" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#C0392B">越吹越远！</text>
+  </g>
+
+  <!-- Red warning box for offshore -->
+  <rect x="30" y="315" width="270" height="100" rx="6" fill="#FFE8E8" stroke="#C0392B" stroke-width="2"/>
+  <text x="165" y="338" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#C0392B" text-anchor="middle">❌ 离岸风极度危险</text>
+  <text x="165" y="358" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">风从岸边吹向海洋</text>
+  <text x="165" y="376" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">无法凭一己之力划回岸边</text>
+  <text x="165" y="394" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">若装备故障将随风漂向远海</text>
+  <text x="165" y="410" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C0392B" font-weight="600" text-anchor="middle">须立即请求救援！</text>
+
+  <!-- Vertical divider -->
+  <line x1="330" y1="60" x2="330" y2="305" stroke="#EDE5D8" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+  <!-- ============ SAFE: Onshore wind (right side) ============ -->
+  <!-- Wind arrows going FROM sea TO shore (onshore = inward) -->
+  <g transform="translate(500, 105)">
+    <text x="0" y="-8" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#0E6655" text-anchor="middle">✅ 向岸风（相对安全）</text>
+    <!-- Wind arrows pointing toward shore (downward in diagram) -->
+    <line x1="-50" y1="18" x2="-50" y2="130" stroke="#0E6655" stroke-width="2.5" marker-end="url(#greenarrow)"/>
+    <line x1="0" y1="18" x2="0" y2="130" stroke="#0E6655" stroke-width="2.5" marker-end="url(#greenarrow)"/>
+    <line x1="50" y1="18" x2="50" y2="130" stroke="#0E6655" stroke-width="2.5" marker-end="url(#greenarrow)"/>
+    <!-- Person on board being blown toward shore -->
+    <circle cx="0" cy="60" r="9" fill="#FAF7F2" stroke="#2E2118" stroke-width="2"/>
+    <line x1="0" y1="69" x2="-4" y2="85" stroke="#2E2118" stroke-width="2"/>
+    <line x1="0" y1="69" x2="4" y2="85" stroke="#2E2118" stroke-width="2"/>
+    <line x1="0" y1="74" x2="-8" y2="70" stroke="#2E2118" stroke-width="2"/>
+    <line x1="0" y1="74" x2="8" y2="70" stroke="#2E2118" stroke-width="2"/>
+    <!-- Board under person -->
+    <ellipse cx="0" cy="87" rx="20" ry="5" fill="#C4A882" stroke="#7A6145" stroke-width="1.5"/>
+    <!-- Arrow showing being pushed toward shore -->
+    <path d="M0 92 Q10 108 15 125" stroke="#0E6655" stroke-width="1.5" fill="none" stroke-dasharray="5,3"/>
+    <text x="-55" y="130" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#0E6655">推向岸边</text>
+  </g>
+
+  <!-- Green note for onshore -->
+  <rect x="360" y="315" width="270" height="100" rx="6" fill="#E8F8F5" stroke="#0E6655" stroke-width="2"/>
+  <text x="495" y="338" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#0E6655" text-anchor="middle">✅ 向岸风相对安全</text>
+  <text x="495" y="358" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">风从海面吹向岸边</text>
+  <text x="495" y="376" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">即使体力不支，风会帮助推回</text>
+  <text x="495" y="394" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118" text-anchor="middle">注意：大浪向岸风对初学者</text>
+  <text x="495" y="410" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145" text-anchor="middle">依然存在翻板风险</text>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="redarrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#C0392B"/>
+    </marker>
+    <marker id="greenarrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#0E6655"/>
+    </marker>
+  </defs>
+</svg>

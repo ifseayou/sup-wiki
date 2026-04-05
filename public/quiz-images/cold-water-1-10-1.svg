@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="430" viewBox="0 0 660 430">
+  <!-- Background - cold water blue tint -->
+  <rect width="660" height="430" fill="#EBF5FB" rx="8"/>
+  <!-- Darker water texture -->
+  <rect width="660" height="430" fill="url(#watergrad)" rx="8" opacity="0.3"/>
+
+  <defs>
+    <linearGradient id="watergrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2471A3"/>
+      <stop offset="100%" stop-color="#1A5276"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Title -->
+  <text x="330" y="36" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#2E2118" text-anchor="middle">冷水落水 1-10-1 法则</text>
+
+  <!-- Subtitle -->
+  <rect x="100" y="46" width="460" height="28" rx="5" fill="#2E2118"/>
+  <text x="330" y="65" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#FAF7F2" text-anchor="middle">水温低于 15°C 时，掌握这三个数字可以救命</text>
+
+  <!-- Timeline bar -->
+  <rect x="50" y="100" width="560" height="12" rx="6" fill="#AED6F1"/>
+  <!-- Phase 1 fill -->
+  <rect x="50" y="100" width="80" height="12" rx="6" fill="#C0392B"/>
+  <!-- Phase 2 fill -->
+  <rect x="130" y="100" width="240" height="12" rx="0" fill="#E67E22"/>
+  <!-- Phase 3 fill -->
+  <rect x="370" y="100" width="240" height="12" rx="0" fill="#0E6655"/>
+
+  <!-- Phase markers -->
+  <line x1="130" y1="92" x2="130" y2="118" stroke="#2E2118" stroke-width="2"/>
+  <line x1="370" y1="92" x2="370" y2="118" stroke="#2E2118" stroke-width="2"/>
+  <line x1="610" y1="92" x2="610" y2="118" stroke="#2E2118" stroke-width="2"/>
+
+  <!-- ====== PHASE 1: 1 minute ====== -->
+  <g transform="translate(40, 128)">
+    <!-- Number badge -->
+    <circle cx="45" cy="28" r="28" fill="#C0392B" stroke="#8B0000" stroke-width="2.5"/>
+    <text x="45" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="700" fill="#FAF7F2" text-anchor="middle">1</text>
+    <text x="45" y="42" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#FAF7F2" text-anchor="middle">分钟</text>
+
+    <!-- Content box -->
+    <rect x="82" y="0" width="220" height="128" rx="8" fill="#FAF7F2" stroke="#C0392B" stroke-width="2"/>
+    <text x="192" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#C0392B" text-anchor="middle">冷休克反应期</text>
+    <line x1="96" y1="28" x2="288" y2="28" stroke="#EDE5D8" stroke-width="1"/>
+    <!-- Person icon in water gasping -->
+    <circle cx="130" cy="68" r="12" fill="#FAF7F2" stroke="#2E2118" stroke-width="2"/>
+    <!-- Water lines around head -->
+    <path d="M108 74 Q118 70 128 74 Q138 78 148 74" stroke="#4A90D9" stroke-width="1.5" fill="none"/>
+    <path d="M106 80 Q116 76 126 80 Q136 84 150 80" stroke="#4A90D9" stroke-width="1.5" fill="none"/>
+    <!-- Breath puffs -->
+    <path d="M132 56 Q135 48 132 42" stroke="#7A6145" stroke-width="1.5" fill="none"/>
+    <path d="M138 54 Q143 46 140 40" stroke="#7A6145" stroke-width="1.5" fill="none"/>
+    <!-- Labels -->
+    <text x="168" y="52" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">⚡ 突然喘气</text>
+    <text x="168" y="70" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">⚡ 心率加速</text>
+    <text x="168" y="88" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">⚡ 肌肉僵硬</text>
+    <text x="96" y="115" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#C0392B">→ 屏住呼吸，稳住情绪！</text>
+  </g>
+
+  <!-- ====== PHASE 2: 10 minutes ====== -->
+  <g transform="translate(40, 285)">
+    <!-- Number badge -->
+    <circle cx="45" cy="28" r="28" fill="#E67E22" stroke="#CA6F1E" stroke-width="2.5"/>
+    <text x="45" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" fill="#FAF7F2" text-anchor="middle">10</text>
+    <text x="45" y="42" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#FAF7F2" text-anchor="middle">分钟</text>
+
+    <!-- Content box -->
+    <rect x="82" y="0" width="220" height="128" rx="8" fill="#FAF7F2" stroke="#E67E22" stroke-width="2"/>
+    <text x="192" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#E67E22" text-anchor="middle">有效游泳时间窗口</text>
+    <line x1="96" y1="28" x2="288" y2="28" stroke="#EDE5D8" stroke-width="1"/>
+    <!-- Swimming person icon -->
+    <circle cx="128" cy="60" r="11" fill="#FAF7F2" stroke="#2E2118" stroke-width="2"/>
+    <line x1="128" y1="71" x2="128" y2="88" stroke="#2E2118" stroke-width="2.5"/>
+    <line x1="116" y1="78" x2="128" y2="72" stroke="#2E2118" stroke-width="2.5"/>
+    <line x1="140" y1="75" x2="128" y2="72" stroke="#2E2118" stroke-width="2.5"/>
+    <line x1="120" y1="88" x2="128" y2="80" stroke="#2E2118" stroke-width="2.5"/>
+    <line x1="136" y1="88" x2="128" y2="80" stroke="#2E2118" stroke-width="2.5"/>
+    <!-- Water lines -->
+    <path d="M106 84 Q116 80 126 84 Q136 88 150 84" stroke="#4A90D9" stroke-width="1.5" fill="none"/>
+
+    <!-- Labels -->
+    <text x="165" y="52" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">🏊 肢体仍能活动</text>
+    <text x="165" y="70" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">🏊 可游向浮物</text>
+    <text x="165" y="88" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">🏊 发出求救信号</text>
+    <text x="96" y="115" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#C0392B">→ 立即采取行动！</text>
+  </g>
+
+  <!-- ====== PHASE 3: 1 hour ====== -->
+  <g transform="translate(380, 128)">
+    <!-- Number badge -->
+    <circle cx="45" cy="28" r="28" fill="#0E6655" stroke="#0A4F42" stroke-width="2.5"/>
+    <text x="45" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="700" fill="#FAF7F2" text-anchor="middle">1</text>
+    <text x="45" y="42" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="#FAF7F2" text-anchor="middle">小时</text>
+
+    <!-- Content box -->
+    <rect x="82" y="0" width="220" height="128" rx="8" fill="#FAF7F2" stroke="#0E6655" stroke-width="2"/>
+    <text x="192" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#0E6655" text-anchor="middle">意识清醒时间</text>
+    <line x1="96" y1="28" x2="288" y2="28" stroke="#EDE5D8" stroke-width="1"/>
+    <!-- Person holding float icon -->
+    <circle cx="130" cy="62" r="11" fill="#FAF7F2" stroke="#2E2118" stroke-width="2"/>
+    <!-- Float ring -->
+    <ellipse cx="130" cy="82" rx="22" ry="10" fill="none" stroke="#E67E22" stroke-width="3"/>
+    <ellipse cx="130" cy="82" rx="22" ry="10" fill="#E67E22" stroke="#E67E22" stroke-width="1" opacity="0.3"/>
+    <line x1="130" y1="73" x2="130" y2="82" stroke="#2E2118" stroke-width="2.5"/>
+    <!-- Water lines -->
+    <path d="M100 88 Q115 84 130 88 Q145 92 160 88" stroke="#4A90D9" stroke-width="1.5" fill="none"/>
+
+    <!-- Labels -->
+    <text x="162" y="52" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">✅ 保持意识清醒</text>
+    <text x="162" y="70" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">✅ 抱住漂浮物</text>
+    <text x="162" y="88" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">✅ 等待救援到来</text>
+    <text x="96" y="115" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#0E6655">→ 坚持等待救援！</text>
+  </g>
+
+  <!-- Phase 3 bottom additional info -->
+  <g transform="translate(380, 285)">
+    <rect x="82" y="0" width="220" height="128" rx="8" fill="#FAF7F2" stroke="#0E6655" stroke-width="1.5"/>
+    <text x="192" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#0E6655" text-anchor="middle">低温症（失温）发生</text>
+    <line x1="96" y1="28" x2="288" y2="28" stroke="#EDE5D8" stroke-width="1"/>
+    <text x="96" y="52" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">核心体温开始下降</text>
+    <text x="96" y="70" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">肌肉控制变弱</text>
+    <text x="96" y="88" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#2E2118">穿 PFD 可延长存活时间</text>
+    <text x="96" y="110" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#7A6145">冬季/冷水须穿防寒衣</text>
+  </g>
+
+  <!-- Bottom urgent reminder -->
+  <rect x="50" y="390" width="560" height="32" rx="6" fill="#C0392B"/>
+  <text x="330" y="411" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" fill="#FAF7F2" text-anchor="middle">⚠ 落水后立刻行动！不要浪费宝贵的 10 分钟有效游泳窗口！</text>
+</svg>

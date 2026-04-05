@@ -11,6 +11,7 @@ interface Question {
   options: string[];
   correct: number | number[];
   explanation: string | null;
+  explanation_image: string | null;
   category: string;
   difficulty: string;
 }
@@ -285,13 +286,25 @@ function QuizContent() {
         </div>
 
         {/* 解析 */}
-        {showExplanation && q.explanation && (
+        {showExplanation && (q.explanation || q.explanation_image) && (
           <div style={{
             marginTop: 20, padding: '14px 16px', background: '#FAF7F2',
             border: '1px solid #EDE5D8', borderRadius: 8,
           }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#7A6145', marginBottom: 6 }}>💡 解析</div>
-            <p style={{ fontSize: 13, color: '#3D3730', lineHeight: 1.75, margin: 0 }}>{q.explanation}</p>
+            {q.explanation && (
+              <p style={{ fontSize: 13, color: '#3D3730', lineHeight: 1.75, margin: 0 }}>{q.explanation}</p>
+            )}
+            {q.explanation_image && (
+              <img
+                src={q.explanation_image}
+                alt="解析图示"
+                style={{
+                  display: 'block', maxWidth: '100%', marginTop: q.explanation ? 12 : 0,
+                  borderRadius: 6, border: '1px solid #EDE5D8',
+                }}
+              />
+            )}
           </div>
         )}
 

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const where = `WHERE ${conditions.join(' AND ')}`;
 
     const [rows] = await pool.execute<RowDataPacket[]>(
-      `SELECT question_id, question, type, options, correct, explanation, category, difficulty
+      `SELECT question_id, question, type, options, correct, explanation, explanation_image, category, difficulty
        FROM sup_quiz_questions ${where}
        ORDER BY RAND() LIMIT ${limit}`,
       params

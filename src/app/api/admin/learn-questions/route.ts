@@ -37,13 +37,13 @@ export const GET = withAdmin(async (request: NextRequest) => {
 export const POST = withAdmin(async (request: NextRequest) => {
   try {
     const body = await request.json();
-    const { question, type = 'single', options, correct, explanation, category, difficulty = 'beginner', status = 'published' } = body;
+    const { question, type = 'single', options, correct, explanation, explanation_image, category, difficulty = 'beginner', status = 'published' } = body;
     if (!question || !category || correct === undefined) {
       return NextResponse.json({ error: '缺少必填字段' }, { status: 400 });
     }
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO sup_quiz_questions (question, type, options, correct, explanation, category, difficulty, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [question, type, JSON.stringify(options || []), JSON.stringify(correct), explanation || null, category, difficulty, status]
+      `INSERT INTO sup_quiz_questions (question, type, options, correct, explanation, explanation_image, category, difficulty, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [question, type, JSON.stringify(options || []), JSON.stringify(correct), explanation || null, explanation_image || null, category, difficulty, status]
     );
     return NextResponse.json({ success: true, question_id: result.insertId }, { status: 201 });
   } catch (error) {
