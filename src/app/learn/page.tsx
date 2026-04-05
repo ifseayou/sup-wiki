@@ -1,5 +1,17 @@
 import Link from 'next/link';
 import Tooltip from '@/components/Tooltip';
+import LearnStats from '@/components/LearnStats';
+import pool from '@/lib/db';
+import type { RowDataPacket } from 'mysql2';
+
+async function getTotalQuestions(): Promise<number> {
+  try {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      "SELECT COUNT(*) as total FROM sup_quiz_questions WHERE status = 'published'"
+    );
+    return (rows[0] as { total: number }).total;
+  } catch { return 0; }
+}
 
 const CATEGORIES = [
   {
@@ -58,9 +70,13 @@ const CATEGORIES = [
   },
 ];
 
-export default function LearnPage() {
+export default async function LearnPage() {
+  const totalQuestions = await getTotalQuestions();
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 24px' }}>
+      {/* 学习进度统计 */}
+      <LearnStats totalQuestions={totalQuestions} />
+
       {/* 页头 */}
       <div style={{ marginBottom: 48 }}>
         <p style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#A08060', marginBottom: 16 }}>

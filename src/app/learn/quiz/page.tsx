@@ -146,18 +146,28 @@ function QuizContent() {
 
   useEffect(() => { fetchQuestions(); }, [fetchQuestions]);
 
-  // 答题结束后上报错题
+  // 答题结束后上报错题 + 统计
   useEffect(() => {
     if (!finished || !token) return;
     const wrongIds = questions
       .map((q, i) => ({ q, i }))
       .filter(({ i }) => !isCorrect(i))
       .map(({ q }) => q.question_id);
-    if (wrongIds.length === 0) return;
-    fetch('/api/user/wrong-answers', {
+    const correctCount = questions.length - wrongIds.length;
+
+    // 上报错题记录
+    if (wrongIds.length > 0) {
+      fetch('/api/user/wrong-answers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ question_ids: wrongIds }),
+      }).catch(() => {});
+    }
+    // 上报答题统计（总数 + 正确数）
+    fetch('/api/user/stats', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ question_ids: wrongIds }),
+      body: JSON.stringify({ attempted: questions.length, correct: correctCount }),
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
