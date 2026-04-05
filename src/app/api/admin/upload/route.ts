@@ -7,7 +7,7 @@ const OSS_SK = process.env.OSS_ACCESS_KEY_SECRET || '';
 const OSS_BUCKET = process.env.OSS_BUCKET || 'sport-hacker-assets';
 const OSS_ENDPOINT = `${OSS_BUCKET}.oss-cn-hangzhou.aliyuncs.com`;
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
 const MAX_SIZE = 5 * 1024 * 1024;
 
 function ossSign(method: string, contentType: string, date: string, ossKey: string): string {
