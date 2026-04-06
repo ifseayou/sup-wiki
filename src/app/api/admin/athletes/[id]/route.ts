@@ -16,6 +16,7 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
     }
     if (body.achievements !== undefined) { fields.push('achievements = ?'); values.push(JSON.stringify(body.achievements)); }
     if (body.social_links !== undefined) { fields.push('social_links = ?'); values.push(JSON.stringify(body.social_links)); }
+    if (body.photos !== undefined) { fields.push('photos = ?'); values.push(JSON.stringify(body.photos)); }
     if (fields.length === 0) return NextResponse.json({ error: '没有要更新的字段' }, { status: 400 });
     values.push(Number(id));
     const [result] = await pool.execute<ResultSetHeader>(`UPDATE sup_athletes SET ${fields.join(', ')} WHERE athlete_id = ?`, values);

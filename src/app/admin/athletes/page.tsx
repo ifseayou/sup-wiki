@@ -1,15 +1,21 @@
 'use client';
 
 import EntityManager from '@/components/admin/EntityManager';
-import ImageUpload from '@/components/admin/ImageUpload';
+import ImageUpload, { MultiImageUpload } from '@/components/admin/ImageUpload';
 import { useAdminAuth } from '../layout';
 
 function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
   const inp = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
+  const photos = Array.isArray(data.photos) ? (data.photos as string[]) : [];
   return (
     <div className="space-y-4">
-      <ImageUpload value={String(data.photo || '')} onChange={url => set('photo', url)} folder="athletes" token={token} label="运动员照片" />
+      <div className="grid grid-cols-2 gap-4">
+        <ImageUpload value={String(data.photo || '')} onChange={url => set('photo', url)} folder="athletes" token={token} label="主头像（列表展示用）" />
+        <div>
+          <MultiImageUpload values={photos} onChange={urls => set('photos', urls)} folder="athletes" token={token} label="更多照片（详情页展示）" max={8} />
+        </div>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">姓名 *</label>
@@ -54,7 +60,7 @@ const columns = [
   { key: 'discipline', label: '项目', render: (v: unknown) => ({'race':'竞速','surf':'冲浪','distance':'长距离','technical':'技巧'}[String(v)] || String(v)) },
   { key: 'icf_ranking', label: 'ICF排名', render: (v: unknown) => v ? `#${v}` : '—' },
 ];
-const defaultFormData = { athlete_id: undefined, name: '', name_en: '', nationality: '', photo: '', bio: '', discipline: 'race', icf_ranking: '', achievements: [], social_links: {} };
+const defaultFormData = { athlete_id: undefined, name: '', name_en: '', nationality: '', photo: '', photos: [], bio: '', discipline: 'race', icf_ranking: '', achievements: [], social_links: {} };
 
 export default function AthletesAdminPage() {
   const { token } = useAdminAuth();

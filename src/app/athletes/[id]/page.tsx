@@ -11,6 +11,7 @@ interface AthleteRow extends RowDataPacket {
   name_en: string | null;
   nationality: string | null;
   photo: string | null;
+  photos: string | null;
   bio: string | null;
   discipline: string;
   achievements: string | null;
@@ -82,6 +83,11 @@ export default async function AthleteDetailPage({
   const sortedAchievements = [...achievements].sort((a, b) => b.year - a.year);
 
   const bioHtml = athlete.bio ? marked.parse(athlete.bio) as string : '';
+
+  // 多张照片
+  const extraPhotos: string[] = Array.isArray(athlete.photos)
+    ? athlete.photos
+    : (athlete.photos ? JSON.parse(String(athlete.photos)) : []);
 
   return (
     <div style={{ maxWidth: 880, margin: '0 auto', padding: '40px 24px' }}>
@@ -161,6 +167,28 @@ export default async function AthleteDetailPage({
           )}
         </div>
       </div>
+
+      {/* ── 更多照片 ─────────────────────────────────────────── */}
+      {extraPhotos.length > 0 && (
+        <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '20px 24px', marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{ width: 3, height: 18, background: '#7A6145', borderRadius: 2 }} />
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: '#2E2118', margin: 0 }}>照片</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+            {extraPhotos.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid #EDE5D8', aspectRatio: '1', background: '#F5EDE4' }}>
+                <img src={url} alt={`${athlete.name} ${i + 1}`}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.2s' }}
+                  onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
+                  onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── 生平介绍（Markdown 渲染）─────────────────────────── */}
       {bioHtml && (

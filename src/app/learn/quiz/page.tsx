@@ -8,6 +8,7 @@ import { useUser } from '@/components/UserContext';
 interface Question {
   question_id: number;
   question: string;
+  question_image: string | null;
   type: 'single' | 'multiple' | 'truefalse';
   options: string[];
   correct: number | number[];
@@ -264,6 +265,9 @@ function QuizContent() {
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <span style={{ fontSize: 16, flexShrink: 0 }}>{correct ? '✅' : '❌'}</span>
                   <div style={{ flex: 1 }}>
+                    {q.question_image && (
+                      <img src={q.question_image} alt="" style={{ width: '100%', maxHeight: 160, objectFit: 'contain', borderRadius: 6, marginBottom: 8, border: '1px solid #EDE5D8' }} />
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ fontSize: 14, fontWeight: 500, color: '#2E2118', marginBottom: 6, flex: 1 }}>
                         {i + 1}. {q.question}
@@ -360,6 +364,17 @@ function QuizContent() {
           </div>
           <BookmarkBtn questionId={q.question_id} token={token} onNeedLogin={() => setShowLoginPrompt(true)} />
         </div>
+
+        {/* 题目图（识板/识人类题目） */}
+        {q.question_image && (
+          <div style={{ marginBottom: 20, borderRadius: 10, overflow: 'hidden', border: '1px solid #EDE5D8', background: '#F5F0E8' }}>
+            <img
+              src={q.question_image}
+              alt="题目图"
+              style={{ width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block' }}
+            />
+          </div>
+        )}
 
         {/* 题干 */}
         <p style={{ fontSize: 17, fontWeight: 500, color: '#2E2118', lineHeight: 1.65, marginBottom: 24 }}>

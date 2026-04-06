@@ -7,7 +7,7 @@ export const PUT = withAdmin(async (request: NextRequest) => {
   try {
     const id = request.url.split('/').at(-1);
     const body = await request.json();
-    const allowed = ['question', 'type', 'explanation', 'explanation_image', 'category', 'difficulty', 'status'];
+    const allowed = ['question', 'question_image', 'type', 'explanation', 'explanation_image', 'category', 'difficulty', 'status'];
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
     for (const f of allowed) {

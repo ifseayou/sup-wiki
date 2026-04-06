@@ -68,6 +68,26 @@ const CATEGORIES = [
     color: '#515A5A',
     bg: '#F2F3F4',
   },
+  {
+    key: 'board_id',
+    label: '看图识板',
+    labelEn: 'Board ID',
+    icon: '🖼️',
+    desc: '根据图片识别桨板品牌与型号，练就火眼金睛',
+    color: '#7A6145',
+    bg: '#F5EFE8',
+    badge: '图片题',
+  },
+  {
+    key: 'athlete_id',
+    label: '认识运动员',
+    labelEn: 'Athlete ID',
+    icon: '🏅',
+    desc: '看脸认人，掌握国际顶尖桨板运动员的中英文名',
+    color: '#1A5276',
+    bg: '#EBF5FB',
+    badge: '图片题',
+  },
 ];
 
 export default async function LearnPage() {
@@ -142,6 +162,11 @@ export default async function LearnPage() {
               </div>
             </div>
             <p style={{ fontSize: 13, color: '#655D56', lineHeight: 1.65, margin: 0 }}>{cat.desc}</p>
+            {(cat as typeof cat & { badge?: string }).badge && (
+              <span style={{ fontSize: 10, background: cat.color, color: '#fff', padding: '2px 7px', borderRadius: 8, width: 'fit-content', opacity: 0.85 }}>
+                {(cat as typeof cat & { badge?: string }).badge}
+              </span>
+            )}
             <Link
               href={`/learn/quiz?category=${cat.key}`}
               style={{

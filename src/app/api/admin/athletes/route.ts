@@ -35,13 +35,13 @@ export const GET = withAdmin(async (request: NextRequest) => {
 export const POST = withAdmin(async (request: NextRequest) => {
   try {
     const body = await request.json();
-    const { name, name_en, nationality, photo, bio, discipline, achievements, icf_ranking, social_links, status = 'draft' } = body;
+    const { name, name_en, nationality, photo, photos, bio, discipline, achievements, icf_ranking, social_links, status = 'draft' } = body;
     if (!name) return NextResponse.json({ error: '缺少必填字段: name' }, { status: 400 });
 
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO sup_athletes (name, name_en, nationality, photo, bio, discipline, achievements, icf_ranking, social_links, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, name_en || null, nationality || null, photo || null, bio || null, discipline || 'race', achievements ? JSON.stringify(achievements) : null, icf_ranking || null, social_links ? JSON.stringify(social_links) : null, status]
+      `INSERT INTO sup_athletes (name, name_en, nationality, photo, photos, bio, discipline, achievements, icf_ranking, social_links, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, name_en || null, nationality || null, photo || null, photos ? JSON.stringify(photos) : null, bio || null, discipline || 'race', achievements ? JSON.stringify(achievements) : null, icf_ranking || null, social_links ? JSON.stringify(social_links) : null, status]
     );
     return NextResponse.json({ success: true, athlete_id: result.insertId }, { status: 201 });
   } catch (error) {
