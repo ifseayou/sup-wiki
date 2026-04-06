@@ -27,18 +27,21 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: data.error || '验证码无效或已过期' }, { status: 401 });
       }
 
-      // 防御性解析 sport_hacker 返回的用户信息
+      // 解析 sport_hacker 返回的用户信息
+      // 实际返回结构: { user_id, nickname, avatar }
       const userInfo = data.user || data;
+      const shUserId = userInfo.user_id || userInfo.userId || userInfo.id;
+
+      if (!shUserId) {
+        console.error('sport_hacker verify 返回数据中缺少 user_id:', data);
+        return NextResponse.json({ error: '验证失败，请重试' }, { status: 500 });
+      }
+
       shUser = {
-        openid: userInfo.openid || userInfo.open_id || '',
+        openid: `sh_${shUserId}`,  // 用 sh_前缀+user_id 作为 sup_users 中的唯一标识
         nickname: userInfo.nickname || userInfo.name || '运动骇客用户',
         avatar: userInfo.avatar || userInfo.avatarUrl || userInfo.avatar_url || '',
       };
-
-      if (!shUser.openid) {
-        console.error('sport_hacker verify 返回数据中缺少 openid:', data);
-        return NextResponse.json({ error: '验证失败，请重试' }, { status: 500 });
-      }
     } catch (err) {
       console.error('调用 sport_hacker verify 失败:', err);
       return NextResponse.json({ error: '验证服务暂时不可用，请稍后重试' }, { status: 503 });
