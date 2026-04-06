@@ -18,7 +18,7 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
-  const { user, logout, loading } = useUser();
+  const { user, logout, loading, hasSportHacker } = useUser();
 
   return (
     <header style={{ position: 'sticky', top: 0, zIndex: 50, background: '#FAF7F2', borderBottom: '1px solid #EDE5D8' }}>
@@ -73,6 +73,9 @@ export default function Header() {
                   {userMenuOpen && (
                     <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 10, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.08)', zIndex: 100 }}>
                       <Link href="/my-learning" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: '#2E2118', textDecoration: 'none', borderBottom: '1px solid #EDE5D8' }}>📚 我的学习</Link>
+                      {!hasSportHacker && (
+                        <Link href="/link-account" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: '#7A6145', textDecoration: 'none', borderBottom: '1px solid #EDE5D8' }}>🔗 关联运动骇客</Link>
+                      )}
                       <button onClick={() => { logout(); setUserMenuOpen(false); }} style={{ display: 'block', width: '100%', padding: '10px 16px', fontSize: 13, color: '#c0392b', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>退出登录</button>
                     </div>
                   )}
