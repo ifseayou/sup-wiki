@@ -208,6 +208,207 @@ export default async function LearnPage() {
           ))}
         </div>
       </div>
+
+      {/* ── 媒体与官方平台 ─────────────────────────────────────── */}
+      <div style={{ marginTop: 56, borderTop: '1px solid #EDE5D8', paddingTop: 40 }}>
+        <div style={{ marginBottom: 32 }}>
+          <p style={{ fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#A08060', marginBottom: 10 }}>
+            Media &amp; Official Platforms
+          </p>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 400, color: '#2E2118', margin: '0 0 10px' }}>
+            媒体与官方平台
+          </h2>
+          <p style={{ fontSize: 14, color: '#655D56', lineHeight: 1.7, maxWidth: 560, margin: 0 }}>
+            收录国内外权威 SUP 媒体、官方机构与赛事平台，帮助你获取第一手资讯、规则和成绩数据。
+          </p>
+        </div>
+
+        {/* 国内平台 */}
+        <div style={{ marginBottom: 40 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <span style={{ fontSize: 18 }}>🇨🇳</span>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: '#2E2118', margin: 0 }}>国内平台</h3>
+            <div style={{ flex: 1, height: 1, background: '#EDE5D8' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            {[
+              {
+                name: '国家体育总局水上运动管理中心',
+                nameEn: 'CWSC – Water Sports',
+                url: 'https://www.sport.gov.cn/sszx/',
+                tag: '官方机构', tagColor: '#1A5276', tagBg: '#EBF5FB',
+                icon: '🏛️',
+                desc: '桨板项目在国内的最高主管机构，负责全国俱乐部管理、技能认证和官方赛事组织，发布竞速等项目规则。',
+              },
+              {
+                name: '中国桨板俱乐部联赛 CPL',
+                nameEn: 'China Paddleboard League',
+                url: 'https://www.sport.gov.cn/sszx/',
+                tag: '官方赛事', tagColor: '#B7470A', tagBg: '#FDF2E9',
+                icon: '🏆',
+                desc: '国内顶级桨板竞速联赛，每年多站巡回，是国内职业桨板选手的主要竞技舞台，由国家体育总局水上中心主办。',
+              },
+              {
+                name: '中国百城桨板公开赛',
+                nameEn: 'China 100 Cities SUP Open',
+                url: 'https://www.sport.gov.cn/sszx/',
+                tag: '官方赛事', tagColor: '#B7470A', tagBg: '#FDF2E9',
+                icon: '🏅',
+                desc: '以群众推广为核心的全国性桨板赛事，覆盖贵州、山东、浙江等 100 余座城市，致力于将桨板运动推广至内陆。',
+              },
+              {
+                name: '泳友之家·桨板版块',
+                nameEn: 'Yongyou SUP Community',
+                url: 'https://moto189.com/forum.php?fid=84',
+                tag: '中文社区', tagColor: '#0E6655', tagBg: '#E9F7EF',
+                icon: '💬',
+                desc: '国内目前最活跃的桨板中文垂直讨论社区，设桨板资讯与桨板运动两大版块，涵盖赛事动态、规则解读、俱乐部信息。',
+              },
+              {
+                name: '亚洲桨板锦标赛',
+                nameEn: 'Asian SUP Championship',
+                url: 'http://asiansupchampionship.com/',
+                tag: '官方赛事', tagColor: '#B7470A', tagBg: '#FDF2E9',
+                icon: '🌏',
+                desc: '亚洲范围内的桨板竞技赛事，近年与国内城市联合举办，是亚洲各国桨板选手争夺区域桂冠的重要平台。',
+              },
+            ].map(p => (
+              <a
+                key={p.name}
+                href={p.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: 10,
+                  background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 12, padding: '18px 20px',
+                  transition: 'box-shadow 0.15s, border-color 0.15s', cursor: 'pointer' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 22, flexShrink: 0 }}>{p.icon}</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#2E2118', lineHeight: 1.3 }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: '#A08060', marginTop: 2 }}>{p.nameEn}</div>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 14, color: '#C0B4A4', flexShrink: 0, marginTop: 2 }}>↗</span>
+                </div>
+                <p style={{ fontSize: 12, color: '#655D56', lineHeight: 1.65, margin: 0 }}>{p.desc}</p>
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, width: 'fit-content',
+                  background: p.tagBg, color: p.tagColor, fontWeight: 500 }}>{p.tag}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* 国际平台 */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <span style={{ fontSize: 18 }}>🌐</span>
+            <h3 style={{ fontSize: 16, fontWeight: 600, color: '#2E2118', margin: 0 }}>国际平台</h3>
+            <div style={{ flex: 1, height: 1, background: '#EDE5D8' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+            {[
+              {
+                name: 'ICF 国际皮划艇联合会',
+                nameEn: 'International Canoe Federation',
+                url: 'https://www.canoeicf.com/disciplines/stand-up-paddling',
+                tag: '官方机构', tagColor: '#1A5276', tagBg: '#EBF5FB',
+                icon: '🏛️',
+                desc: 'IOC 认可的竞技 SUP 最高机构，制定竞速规则，举办世界杯与世界锦标赛，维护官方世界排名。',
+              },
+              {
+                name: 'ISA 国际冲浪协会',
+                nameEn: 'International Surfing Association',
+                url: 'https://isasurf.org/',
+                tag: '官方机构', tagColor: '#1A5276', tagBg: '#EBF5FB',
+                icon: '🏛️',
+                desc: 'IOC 认可的 SUP 奥运项目管辖机构，举办涵盖 SUP 冲浪、竞速和俯卧板的综合世界锦标赛。',
+              },
+              {
+                name: 'APP World Tour',
+                nameEn: 'Action Sports Paddling World Tour',
+                url: 'https://www.appworldtour.com/',
+                tag: '职业赛事', tagColor: '#6C3483', tagBg: '#F4ECF7',
+                icon: '🏄',
+                desc: '2010 年创办的国际职业 SUP 巡回赛（前身 Stand Up World Tour），涵盖冲浪和竞速两项，产生男女职业世界冠军。',
+              },
+              {
+                name: 'TotalSUP',
+                nameEn: 'TotalSUP',
+                url: 'https://www.totalsup.com/',
+                tag: '专业媒体', tagColor: '#7A6145', tagBg: '#F5EFE8',
+                icon: '📰',
+                desc: '创立于 2013 年，国际 SUP 第一大媒体，提供英语/法语双语内容，每日更新赛事报道、装备评测、运动员专访和赛事日历。',
+              },
+              {
+                name: 'SUP Racer',
+                nameEn: 'SUP Racer / Paddle Daily',
+                url: 'https://supracer.com/',
+                tag: '专业媒体', tagColor: '#7A6145', tagBg: '#F5EFE8',
+                icon: '📰',
+                desc: '专注竞速方向，维护独立的 SUP 世界排名系统（2013 年至今，覆盖 100+ 赛事），深度赛事故事和运动员专访是其核心优势。',
+              },
+              {
+                name: 'SUPboarder Magazine',
+                nameEn: 'SUPboarder Magazine',
+                url: 'https://supboardermag.com/',
+                tag: '专业媒体', tagColor: '#7A6145', tagBg: '#F5EFE8',
+                icon: '📰',
+                desc: '2012 年创办的英国 SUP 专业杂志，以独立装备评测著称（"by paddlers, for paddlers"），同时提供视频教学和付费专区内容。',
+              },
+              {
+                name: 'SUP World Magazine',
+                nameEn: 'SUP World Mag',
+                url: 'https://www.supworldmag.com/',
+                tag: '专业媒体', tagColor: '#7A6145', tagBg: '#F5EFE8',
+                icon: '📰',
+                desc: '国际印刷+数字一体 SUP 杂志（每年一期专题增刊），涵盖竞速、冲浪、远征、翼板等多种形式，是纸质 SUP 杂志中的代表。',
+              },
+              {
+                name: 'Supconnect',
+                nameEn: 'Supconnect',
+                url: 'https://www.supconnect.com/',
+                tag: '专业媒体', tagColor: '#7A6145', tagBg: '#F5EFE8',
+                icon: '📰',
+                desc: '成立于 2007 年，历史最悠久的 SUP 数字媒体，以深度桨板选购指南和 175+ 款产品横评为核心，每周覆盖 25 万+ 读者。',
+              },
+              {
+                name: 'SUP Mag UK',
+                nameEn: 'Stand Up Paddle Magazine UK',
+                url: 'https://standuppaddlemag.co.uk/',
+                tag: '专业媒体', tagColor: '#7A6145', tagBg: '#F5EFE8',
+                icon: '📰',
+                desc: '英国最主要的 SUP 数字+印刷杂志，聚焦英国及欧洲市场动态，兼顾全球旅行目的地和国际赛事报道。',
+              },
+            ].map(p => (
+              <a
+                key={p.name}
+                href={p.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: 10,
+                  background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 12, padding: '18px 20px',
+                  transition: 'box-shadow 0.15s, border-color 0.15s', cursor: 'pointer' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 22, flexShrink: 0 }}>{p.icon}</span>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#2E2118', lineHeight: 1.3 }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: '#A08060', marginTop: 2 }}>{p.nameEn}</div>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 14, color: '#C0B4A4', flexShrink: 0, marginTop: 2 }}>↗</span>
+                </div>
+                <p style={{ fontSize: 12, color: '#655D56', lineHeight: 1.65, margin: 0 }}>{p.desc}</p>
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, width: 'fit-content',
+                  background: p.tagBg, color: p.tagColor, fontWeight: 500 }}>{p.tag}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
