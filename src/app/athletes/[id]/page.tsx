@@ -178,11 +178,10 @@ export default async function AthleteDetailPage({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
             {extraPhotos.map((url, i) => (
               <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                className="athlete-photo-thumb"
                 style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid #EDE5D8', aspectRatio: '1', background: '#F5EDE4' }}>
                 <img src={url} alt={`${athlete.name} ${i + 1}`}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.2s' }}
-                  onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}
-                  onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
                 />
               </a>
             ))}

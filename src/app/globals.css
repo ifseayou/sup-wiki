@@ -204,3 +204,5 @@ body {
 }
 .article-guide-body a { color: #7A6145; text-decoration: underline; text-decoration-color: #C4A882; }
 .article-guide-body a:hover { color: #2E2118; }
+
+.athlete-photo-thumb:hover img { transform: scale(1.05); }
