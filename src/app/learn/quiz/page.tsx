@@ -130,7 +130,9 @@ function QuizContent() {
       const params = new URLSearchParams({ limit: '20' });
       if (category) params.set('category', category);
       if (difficulty) params.set('difficulty', difficulty);
-      const res = await fetch(`/api/learn/questions?${params}`);
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`/api/learn/questions?${params}`, { headers });
       const data = await res.json();
       if (data.items?.length) {
         setQuestions(data.items);
@@ -143,7 +145,7 @@ function QuizContent() {
     } finally {
       setLoading(false);
     }
-  }, [category, difficulty]);
+  }, [category, difficulty, token]);
 
   useEffect(() => { fetchQuestions(); }, [fetchQuestions]);
 
@@ -164,11 +166,15 @@ function QuizContent() {
         body: JSON.stringify({ question_ids: wrongIds }),
       }).catch(() => {});
     }
-    // 上报答题统计（总数 + 正确数）
+    // 上报答题统计（总数 + 正确数 + 所有题目 ID，用于智能派题）
     fetch('/api/user/stats', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ attempted: questions.length, correct: correctCount }),
+      body: JSON.stringify({
+        attempted: questions.length,
+        correct: correctCount,
+        question_ids: questions.map(q => q.question_id),
+      }),
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);

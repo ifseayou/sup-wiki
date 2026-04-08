@@ -36,11 +36,12 @@ export async function POST(request: NextRequest) {
   const user = auth(request);
   if (!user) return NextResponse.json({ error: '请先登录' }, { status: 401 });
 
-  const { attempted, correct } = await request.json();
+  const { attempted, correct, question_ids } = await request.json();
   if (typeof attempted !== 'number' || typeof correct !== 'number') {
     return NextResponse.json({ error: '参数错误' }, { status: 400 });
   }
 
+  // 更新总统计
   await pool.execute(
     `INSERT INTO sup_quiz_user_stats (user_id, total_attempted, total_correct)
      VALUES (?, ?, ?)
@@ -49,6 +50,19 @@ export async function POST(request: NextRequest) {
        total_correct   = total_correct   + VALUES(total_correct)`,
     [user.user_id, attempted, correct]
   );
+
+  // 记录每道题的做题次数（用于智能派题）
+  if (Array.isArray(question_ids) && question_ids.length > 0) {
+    const qids = question_ids.filter((id: unknown) => typeof id === 'number' && id > 0) as number[];
+    if (qids.length > 0) {
+      await pool.query(
+        `INSERT INTO sup_quiz_attempts (user_id, question_id, attempt_count)
+         VALUES ${qids.map(() => '(?,?,1)').join(',')}
+         ON DUPLICATE KEY UPDATE attempt_count = attempt_count + 1, last_seen_at = NOW()`,
+        qids.flatMap(qid => [user.user_id, qid])
+      );
+    }
+  }
 
   const [rows] = await pool.execute<RowDataPacket[]>(
     'SELECT total_attempted, total_correct FROM sup_quiz_user_stats WHERE user_id = ?',
