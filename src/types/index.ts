@@ -31,7 +31,57 @@ export type EventType = 'race' | 'festival' | 'training' | 'exhibition';
 export type EventRunStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
 
 // 实体类型（用于批量导入等）
-export type EntityType = 'brand' | 'product' | 'athlete' | 'creator' | 'event';
+export type EntityType = 'brand' | 'product' | 'athlete' | 'creator' | 'event' | 'shop_item';
+
+// 商城商品分类
+export type ShopCategory = 'board' | 'paddle' | 'life_jacket' | 'accessory';
+
+// 桨板分级（仅 board 类）
+export type BoardType = 'race' | 'allround' | 'touring' | 'yoga' | 'inflatable';
+
+// 库存状态
+export type StockStatus = 'in_stock' | 'low_stock' | 'pre_order' | 'sold_out';
+
+// 商城视频
+export interface ShopVideo {
+  title: string;
+  url: string;
+  cover?: string;
+}
+
+// 商城商品
+export interface ShopItem {
+  shop_item_id: number;
+  category: ShopCategory;
+  board_type?: BoardType | null;
+  brand_id?: number | null;
+  brand_name?: string | null;
+  product_id?: number | null;
+  name: string;
+  slug: string;
+  subtitle?: string;
+  description?: string;
+  highlights?: string[];
+  cost_price?: number;
+  market_price?: number;
+  discount_price?: number;
+  stock_status: StockStatus;
+  images?: string[];
+  videos?: ShopVideo[];
+  spec?: Record<string, string | number>;
+  status: ContentStatus;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// 商城筛选参数
+export interface ShopItemFilter {
+  category?: ShopCategory;
+  board_type?: BoardType;
+  brand_id?: number;
+  search?: string;
+}
 
 // 品牌
 export interface Brand {

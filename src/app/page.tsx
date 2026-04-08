@@ -12,6 +12,34 @@ interface EventPreviewRow extends RowDataPacket {
   event_status: string;
 }
 
+interface ShopPreviewRow extends RowDataPacket {
+  shop_item_id: number;
+  name: string;
+  subtitle: string | null;
+  discount_price: number | null;
+  market_price: number | null;
+  images: unknown;
+  category: string;
+  brand_name: string | null;
+}
+
+async function getFeaturedShopItems() {
+  try {
+    const [rows] = await pool.execute<ShopPreviewRow[]>(
+      `SELECT s.shop_item_id, s.name, s.subtitle, s.discount_price, s.market_price, s.images, s.category,
+              b.name as brand_name
+       FROM sup_shop_items s
+       LEFT JOIN sup_brands b ON s.brand_id = b.brand_id
+       WHERE s.status = 'published'
+       ORDER BY s.sort_order DESC, s.created_at DESC
+       LIMIT 6`
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
 async function getUpcomingEvents() {
   try {
     const [rows] = await pool.execute<EventPreviewRow[]>(
@@ -33,6 +61,7 @@ const sections = [
   { href: '/athletes', label: '运动员', en: 'Athletes',  desc: 'ICF 排名与运动档案' },
   { href: '/creators', label: '博主',  en: 'Creators',  desc: '桨板内容创作者' },
   { href: '/events',   label: '赛事',  en: 'Events',    desc: '国内桨板赛事日历' },
+  { href: '/shop',     label: '商城',  en: 'Shop',      desc: '官方代理 严选好物' },
 ];
 
 const typeMap: Record<string, string> = {
@@ -40,7 +69,7 @@ const typeMap: Record<string, string> = {
 };
 
 export default async function Home() {
-  const events = await getUpcomingEvents();
+  const [events, shopItems] = await Promise.all([getUpcomingEvents(), getFeaturedShopItems()]);
 
   return (
     <div>
@@ -154,16 +183,63 @@ export default async function Home() {
         </section>
       )}
 
+      {/* ── Featured Shop Items ── */}
+      {shopItems.length > 0 && (
+        <section style={{ padding: '60px 0', borderBottom: '1px solid #EDE5D8' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 40 }}>
+              <div>
+                <p style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#A08060', marginBottom: 8 }}>
+                  Official Store
+                </p>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 400, color: '#2E2118', margin: 0, lineHeight: 1 }}>
+                  严选好物
+                </h2>
+              </div>
+              <Link href="/shop" className="hero-link">全部商品</Link>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 20 }}>
+              {shopItems.map(item => {
+                const imgs = Array.isArray(item.images) ? item.images : (item.images ? JSON.parse(String(item.images)) : []);
+                return (
+                  <Link key={item.shop_item_id} href={`/shop/${item.shop_item_id}`} style={{ textDecoration: 'none' }}>
+                    <div style={{ background: '#FAF7F2', border: '1px solid #EDE5D8', borderRadius: 10, overflow: 'hidden', transition: 'box-shadow 0.2s' }}>
+                      <div style={{ height: 160, background: '#F0E8DB', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {imgs.length > 0 ? (
+                          <img src={imgs[0]} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ fontSize: 36, opacity: 0.3 }}>🏄</span>
+                        )}
+                      </div>
+                      <div style={{ padding: '12px 14px' }}>
+                        {item.brand_name && <div style={{ fontSize: 11, color: '#A08060', marginBottom: 2 }}>{item.brand_name}</div>}
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#2E2118', lineHeight: 1.4, marginBottom: 6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>
+                          {item.name}
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: item.discount_price ? '#C0392B' : '#655D56' }}>
+                          {item.discount_price ? `¥${item.discount_price.toLocaleString()}` : item.market_price ? `¥${item.market_price.toLocaleString()}` : '面议'}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── Stats ── */}
       <section style={{ padding: '64px 0' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0 1px', background: '#EDE5D8', border: '1px solid #EDE5D8' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '0 1px', background: '#EDE5D8', border: '1px solid #EDE5D8' }}>
             {[
               { num: '15+', label: '品牌', en: 'Brands' },
               { num: '50+', label: '产品', en: 'Products' },
               { num: '20+', label: '运动员', en: 'Athletes' },
               { num: '20+', label: '博主', en: 'Creators' },
               { num: '10+', label: '赛事', en: 'Events' },
+              { num: shopItems.length > 0 ? `${shopItems.length}+` : '∞', label: '在售', en: 'Shop' },
             ].map(s => (
               <div key={s.label} style={{ background: '#FAF7F2', padding: '32px 20px', textAlign: 'center' }}>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 48, fontWeight: 300, color: '#2E2118', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: 8 }}>

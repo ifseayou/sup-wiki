@@ -24,6 +24,16 @@ interface ProductRow extends RowDataPacket {
   images: string | null;
 }
 
+interface ShopItemRow extends RowDataPacket {
+  shop_item_id: number;
+  name: string;
+  discount_price: number | null;
+  market_price: number | null;
+  images: unknown;
+  category: string;
+  board_type: string | null;
+}
+
 const tierLabels: Record<string, string> = {
   entry: '入门级',
   intermediate: '进阶级',
@@ -66,6 +76,19 @@ async function getProducts(brandId: number) {
   }
 }
 
+async function getShopItems(brandId: number) {
+  try {
+    const [rows] = await pool.execute<ShopItemRow[]>(
+      `SELECT shop_item_id, name, discount_price, market_price, images, category, board_type
+       FROM sup_shop_items WHERE brand_id = ? AND status = 'published' ORDER BY sort_order DESC, created_at DESC`,
+      [brandId]
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
 export default async function BrandDetailPage({
   params,
 }: {
@@ -78,7 +101,7 @@ export default async function BrandDetailPage({
     notFound();
   }
 
-  const products = await getProducts(brand.brand_id);
+  const [products, shopItems] = await Promise.all([getProducts(brand.brand_id), getShopItems(brand.brand_id)]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -232,6 +255,44 @@ export default async function BrandDetailPage({
           </div>
         )}
       </div>
+
+      {/* Shop Items Section */}
+      {shopItems.length > 0 && (
+        <div style={{ marginTop: 48 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <h2 className="text-2xl font-bold text-brown-800">
+              在售商品 ({shopItems.length})
+            </h2>
+            <Link href="/shop" style={{ fontSize: 13, color: '#7A6145', textDecoration: 'none' }}>
+              进入商城 →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {shopItems.map(item => {
+              const imgs = Array.isArray(item.images) ? item.images : (item.images ? JSON.parse(String(item.images)) : []);
+              return (
+                <Link key={item.shop_item_id} href={`/shop/${item.shop_item_id}`} style={{ textDecoration: 'none' }}>
+                  <div className="bg-cream-50 rounded-xl overflow-hidden border border-cream-200 hover:shadow-md transition-all duration-200 group">
+                    <div className="h-36 bg-cream-100 flex items-center justify-center overflow-hidden">
+                      {imgs.length > 0 ? (
+                        <img src={imgs[0]} alt={item.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <span className="text-3xl text-cream-300">🛒</span>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <div className="text-sm font-medium text-brown-800 line-clamp-2 mb-1">{item.name}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: item.discount_price ? '#C0392B' : '#655D56' }}>
+                        {item.discount_price ? `¥${item.discount_price.toLocaleString()}` : item.market_price ? `¥${item.market_price.toLocaleString()}` : '价格面议'}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
     </div>
   );
