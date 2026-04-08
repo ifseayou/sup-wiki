@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     const item = {
       ...r,
       images: parseJson(r.images),
+      variants: parseJson(r.variants),
       videos: parseJson(r.videos),
       highlights: parseJson(r.highlights),
       spec: parseJsonObj(r.spec),

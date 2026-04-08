@@ -14,7 +14,8 @@ interface ShopRow extends RowDataPacket {
   market_price: number | null;
   discount_price: number | null;
   stock_status: string;
-  images: string | null;
+  images: unknown;
+  variants: unknown;
   brand_name: string | null;
 }
 
@@ -60,7 +61,8 @@ async function getShopItems(category?: string, board_type?: string, sort?: strin
        FROM sup_shop_items s
        LEFT JOIN sup_brands b ON s.brand_id = b.brand_id
        ${where}
-       ORDER BY ${orderBy}`,
+       ORDER BY ${orderBy}
+       LIMIT 100`,
       params
     );
     return rows;
@@ -127,7 +129,11 @@ export default async function ShopPage({
       {items.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {items.map((item) => {
-            const images = Array.isArray(item.images) ? item.images : (item.images ? JSON.parse(item.images) : []);
+            const rawImages = Array.isArray(item.images) ? item.images : (item.images ? JSON.parse(String(item.images)) : []);
+            const rawVariants = Array.isArray(item.variants) ? item.variants : (item.variants ? JSON.parse(String(item.variants)) : []);
+            // 优先展示第一个颜色变体的首图，其次商品公共图
+            const firstVariantImg = rawVariants[0]?.images?.[0];
+            const images = firstVariantImg ? [firstVariantImg, ...rawImages] : rawImages;
             const stock = stockLabels[item.stock_status] || { label: item.stock_status, color: '#888' };
             return (
               <Link

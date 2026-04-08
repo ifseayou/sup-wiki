@@ -42,6 +42,13 @@ export type BoardType = 'race' | 'allround' | 'touring' | 'yoga' | 'inflatable';
 // 库存状态
 export type StockStatus = 'in_stock' | 'low_stock' | 'pre_order' | 'sold_out';
 
+// 商城颜色变体（SKU）
+export interface ShopVariant {
+  color: string;       // SKU 标识，如 "绿色"、"紫色"
+  images: string[];    // 该颜色的图片数组
+  extra_note?: string; // 备注，如 "限量"、"预定"
+}
+
 // 商城视频
 export interface ShopVideo {
   title: string;
@@ -67,6 +74,7 @@ export interface ShopItem {
   discount_price?: number;
   stock_status: StockStatus;
   images?: string[];
+  variants?: ShopVariant[];
   videos?: ShopVideo[];
   spec?: Record<string, string | number>;
   status: ContentStatus;

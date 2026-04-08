@@ -3,7 +3,7 @@ import Link from 'next/link';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import WechatContactCard from '@/components/shop/WechatContactCard';
-import ShopImageGallery from '@/components/shop/ShopImageGallery';
+import ShopDetailImages from '@/components/shop/ShopDetailImages';
 
 interface ShopItemRow extends RowDataPacket {
   shop_item_id: number;
@@ -19,6 +19,7 @@ interface ShopItemRow extends RowDataPacket {
   discount_price: number | null;
   stock_status: string;
   images: unknown;
+  variants: unknown;
   videos: unknown;
   spec: unknown;
   brand_name: string | null;
@@ -97,6 +98,7 @@ export default async function ShopItemPage({ params }: { params: Promise<{ id: s
   ]);
 
   const images = parseJson(item.images) as string[];
+  const variants = parseJson(item.variants) as Array<{ color: string; images: string[]; extra_note?: string }>;
   const videos = parseJson(item.videos) as Array<{ title: string; url: string; cover?: string }>;
   const highlights = parseJson(item.highlights) as string[];
   const spec = parseJsonObj(item.spec);
@@ -116,7 +118,7 @@ export default async function ShopItemPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* 左列：图片 + 视频 */}
         <div>
-          <ShopImageGallery images={images} name={item.name} />
+          <ShopDetailImages variants={variants} images={images} name={item.name} />
 
           {/* 视频区 */}
           {videos.length > 0 && (

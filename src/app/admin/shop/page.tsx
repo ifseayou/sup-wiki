@@ -12,6 +12,7 @@ function ShopItemForm({ data, onChange, token }: { data: Record<string, unknown>
   const inp = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
 
   const images = Array.isArray(data.images) ? (data.images as string[]) : [];
+  const variants = Array.isArray(data.variants) ? (data.variants as Array<{ color: string; images: string[]; extra_note?: string }>) : [];
   const videos = Array.isArray(data.videos) ? (data.videos as Array<{ title: string; url: string }>) : [];
   const highlights = Array.isArray(data.highlights) ? (data.highlights as string[]) : [];
 
@@ -162,13 +163,74 @@ function ShopItemForm({ data, onChange, token }: { data: Record<string, unknown>
         <textarea className={inp} rows={4} value={String(data.description || '')} onChange={e => set('description', e.target.value)} placeholder="详细产品说明，支持换行" />
       </div>
 
-      {/* 图片 */}
+      {/* 颜色变体（SKU） */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-xs text-warm-gray-400 font-semibold">颜色变体（SKU）</label>
+          <button
+            type="button"
+            onClick={() => set('variants', [...variants, { color: '', images: [], extra_note: '' }])}
+            className="text-xs text-brown-500 hover:text-brown-700"
+          >
+            + 添加颜色
+          </button>
+        </div>
+        {variants.length === 0 && (
+          <p className="text-xs text-warm-gray-400 mb-2">暂无颜色变体，此商品仅展示下方「商品图片」</p>
+        )}
+        {variants.map((v, i) => (
+          <div key={i} className="border border-cream-200 rounded-lg p-3 mb-3 bg-cream-50">
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                className={`${inp} flex-1`}
+                value={v.color}
+                onChange={e => {
+                  const next = [...variants];
+                  next[i] = { ...next[i], color: e.target.value };
+                  set('variants', next);
+                }}
+                placeholder="颜色名称，如：绿色、紫色、白蓝"
+              />
+              <input
+                className={`${inp} w-36`}
+                value={v.extra_note || ''}
+                onChange={e => {
+                  const next = [...variants];
+                  next[i] = { ...next[i], extra_note: e.target.value };
+                  set('variants', next);
+                }}
+                placeholder="备注（选填）"
+              />
+              <button
+                type="button"
+                onClick={() => set('variants', variants.filter((_, idx) => idx !== i))}
+                className="text-red-400 hover:text-red-600 text-sm flex-shrink-0"
+              >
+                删除
+              </button>
+            </div>
+            <MultiImageUpload
+              values={Array.isArray(v.images) ? v.images : []}
+              onChange={urls => {
+                const next = [...variants];
+                next[i] = { ...next[i], images: urls };
+                set('variants', next);
+              }}
+              folder="shop"
+              token={token}
+              label={`${v.color || `变体${i + 1}`} 图片`}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* 商品公共图片（详情介绍图，所有颜色共用） */}
       <MultiImageUpload
         values={images}
         onChange={urls => set('images', urls)}
         folder="shop"
         token={token}
-        label="商品图片"
+        label="商品详情图（所有颜色共用）"
       />
 
       {/* 视频 */}
@@ -222,6 +284,7 @@ const defaultFormData = {
   discount_price: '',
   stock_status: 'in_stock',
   images: [],
+  variants: [],
   videos: [],
   sort_order: 0,
 };

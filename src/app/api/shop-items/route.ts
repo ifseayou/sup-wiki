@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
     const items = (rows as RowDataPacket[]).map(r => ({
       ...r,
       images: parseJson(r.images),
+      variants: parseJson(r.variants),
       videos: parseJson(r.videos),
       highlights: parseJson(r.highlights),
       spec: parseJsonObj(r.spec),

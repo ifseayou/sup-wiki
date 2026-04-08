@@ -1,5 +1,5 @@
 {
-  "server": "zjk_aliyun_ecs",
+  "server": "root@120.55.113.181",
   "deployPath": "/www/wwwroot/sup-wiki",
   "branch": "main",
   "packageManager": "npm",

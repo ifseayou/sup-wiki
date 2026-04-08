@@ -10,7 +10,7 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
     const body = await request.json();
 
     const allowed = ['category', 'board_type', 'brand_id', 'product_id', 'name', 'slug', 'subtitle', 'description', 'cost_price', 'market_price', 'discount_price', 'stock_status', 'status', 'sort_order'];
-    const jsonFields = ['highlights', 'images', 'videos', 'spec'];
+    const jsonFields = ['highlights', 'images', 'variants', 'videos', 'spec'];
 
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
