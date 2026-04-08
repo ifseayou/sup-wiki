@@ -141,9 +141,9 @@ export default async function ShopPage({
                 href={`/shop/${item.shop_item_id}`}
                 className="bg-cream-50 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-cream-200 group"
               >
-                <div className="h-52 bg-cream-100 flex items-center justify-center relative overflow-hidden">
+                <div className="h-52 bg-cream-100 flex items-center justify-center relative overflow-hidden p-3">
                   {images.length > 0 ? (
-                    <img src={images[0]} alt={item.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <img src={images[0]} alt={item.name} className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300" />
                   ) : (
                     <span style={{ fontSize: 48, opacity: 0.3 }}>🏄</span>
                   )}

@@ -29,16 +29,20 @@ export default function ShopImageGallery({ images, name }: Props) {
     <div>
       {/* 主图 */}
       <div style={{
-        height: 420,
+        height: 480,
         background: '#F5F1EB',
         borderRadius: 12,
         overflow: 'hidden',
         marginBottom: 12,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
       }}>
         <img
           src={images[current]}
           alt={`${name} 图片 ${current + 1}`}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
         />
       </div>
 
@@ -62,7 +66,7 @@ export default function ShopImageGallery({ images, name }: Props) {
                 transition: 'border-color 0.15s',
               }}
             >
-              <img src={img} alt={`缩略图 ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={img} alt={`缩略图 ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 4 }} />
             </button>
           ))}
         </div>
