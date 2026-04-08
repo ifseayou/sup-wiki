@@ -29,7 +29,7 @@ export default function ShopImageGallery({ images, name }: Props) {
     <div>
       {/* 主图 */}
       <div style={{
-        height: 480,
+        height: 620,
         background: '#F5F1EB',
         borderRadius: 12,
         overflow: 'hidden',
