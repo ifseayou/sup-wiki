@@ -171,6 +171,7 @@ interface MultiImageUploadProps {
   token: string;
   label?: string;
   max?: number;
+  sortable?: boolean;
 }
 
 export function MultiImageUpload({
@@ -180,6 +181,7 @@ export function MultiImageUpload({
   token,
   label = '图片',
   max = 10,
+  sortable = false,
 }: MultiImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -220,6 +222,20 @@ export function MultiImageUpload({
     onChange(values.filter((_, i) => i !== index));
   }
 
+  function moveLeft(index: number) {
+    if (index === 0) return;
+    const next = [...values];
+    [next[index - 1], next[index]] = [next[index], next[index - 1]];
+    onChange(next);
+  }
+
+  function moveRight(index: number) {
+    if (index === values.length - 1) return;
+    const next = [...values];
+    [next[index], next[index + 1]] = [next[index + 1], next[index]];
+    onChange(next);
+  }
+
   return (
     <div>
       <label style={{ display: 'block', fontSize: 12, color: '#8A8078', marginBottom: 6 }}>{label}</label>
@@ -231,20 +247,23 @@ export function MultiImageUpload({
             style={{
               position: 'relative',
               width: 80,
-              height: 80,
+              height: sortable ? 100 : 80,
               borderRadius: 8,
               overflow: 'hidden',
               border: '1px solid #EDE5D8',
               background: '#FAF7F2',
               flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
             <img
               src={url}
               alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              style={{ width: '100%', height: 80, objectFit: 'contain', flexShrink: 0 }}
               onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
+            {/* 删除按钮 */}
             <button
               type="button"
               onClick={() => remove(i)}
@@ -252,14 +271,14 @@ export function MultiImageUpload({
                 position: 'absolute',
                 top: 3,
                 right: 3,
-                width: 20,
-                height: 20,
+                width: 18,
+                height: 18,
                 borderRadius: '50%',
                 background: 'rgba(0,0,0,0.55)',
                 color: '#fff',
                 border: 'none',
-                fontSize: 13,
-                lineHeight: '20px',
+                fontSize: 12,
+                lineHeight: '18px',
                 textAlign: 'center',
                 cursor: 'pointer',
                 padding: 0,
@@ -267,6 +286,36 @@ export function MultiImageUpload({
             >
               ×
             </button>
+            {/* 排序按钮（仅 sortable 时显示） */}
+            {sortable && (
+              <div style={{ display: 'flex', height: 20, background: 'rgba(0,0,0,0.06)', flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => moveLeft(i)}
+                  disabled={i === 0}
+                  style={{
+                    flex: 1, border: 'none', background: 'none',
+                    fontSize: 12, cursor: i === 0 ? 'default' : 'pointer',
+                    color: i === 0 ? '#CCC' : '#655D56',
+                    padding: 0,
+                  }}
+                  title="向左移"
+                >←</button>
+                <div style={{ width: 1, background: '#EDE5D8' }} />
+                <button
+                  type="button"
+                  onClick={() => moveRight(i)}
+                  disabled={i === values.length - 1}
+                  style={{
+                    flex: 1, border: 'none', background: 'none',
+                    fontSize: 12, cursor: i === values.length - 1 ? 'default' : 'pointer',
+                    color: i === values.length - 1 ? '#CCC' : '#655D56',
+                    padding: 0,
+                  }}
+                  title="向右移"
+                >→</button>
+              </div>
+            )}
           </div>
         ))}
 

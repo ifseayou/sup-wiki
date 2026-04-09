@@ -163,51 +163,59 @@ function ShopItemForm({ data, onChange, token }: { data: Record<string, unknown>
         <textarea className={inp} rows={4} value={String(data.description || '')} onChange={e => set('description', e.target.value)} placeholder="详细产品说明，支持换行" />
       </div>
 
-      {/* 颜色变体（SKU） */}
+      {/* 规格变体（SKU） */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-xs text-warm-gray-400 font-semibold">颜色变体（SKU）</label>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <label style={{ fontSize: 12, color: '#8A8078', fontWeight: 600 }}>规格变体（SKU）</label>
           <button
             type="button"
             onClick={() => set('variants', [...variants, { color: '', images: [], extra_note: '' }])}
             className="text-xs text-brown-500 hover:text-brown-700"
           >
-            + 添加颜色
+            + 添加规格
           </button>
         </div>
         {variants.length === 0 && (
-          <p className="text-xs text-warm-gray-400 mb-2">暂无颜色变体，此商品仅展示下方「商品图片」</p>
+          <p className="text-xs text-warm-gray-400 mb-2">暂无规格变体，此商品仅展示下方「商品详情图」</p>
         )}
         {variants.map((v, i) => (
-          <div key={i} className="border border-cream-200 rounded-lg p-3 mb-3 bg-cream-50">
-            <div className="flex items-center gap-2 mb-2">
+          <div key={i} style={{ border: '1px solid #EDE5D8', borderRadius: 10, padding: '12px 14px', marginBottom: 12, background: '#FEFCF9' }}>
+            {/* 规格名称行 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: '#A08060', marginBottom: 4 }}>规格名称（如：绿色、14×22×4.5、标准版）</div>
+                <input
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 13, color: '#2E2118', background: '#FAF7F2', boxSizing: 'border-box' }}
+                  value={v.color}
+                  onChange={e => {
+                    const next = [...variants];
+                    next[i] = { ...next[i], color: e.target.value };
+                    set('variants', next);
+                  }}
+                  placeholder="输入规格名称"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => set('variants', variants.filter((_, idx) => idx !== i))}
+                style={{ color: '#E74C3C', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, flexShrink: 0, padding: '0 4px' }}
+              >
+                删除
+              </button>
+            </div>
+            {/* 备注行（折叠可选） */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: '#A08060', marginBottom: 4 }}>备注（选填，如：限量、预定）</div>
               <input
-                className={`${inp} flex-1`}
-                value={v.color}
-                onChange={e => {
-                  const next = [...variants];
-                  next[i] = { ...next[i], color: e.target.value };
-                  set('variants', next);
-                }}
-                placeholder="颜色名称，如：绿色、紫色、白蓝"
-              />
-              <input
-                className={`${inp} w-36`}
+                style={{ width: '100%', padding: '6px 10px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 12, color: '#655D56', background: '#FAF7F2', boxSizing: 'border-box' }}
                 value={v.extra_note || ''}
                 onChange={e => {
                   const next = [...variants];
                   next[i] = { ...next[i], extra_note: e.target.value };
                   set('variants', next);
                 }}
-                placeholder="备注（选填）"
+                placeholder="备注信息（选填）"
               />
-              <button
-                type="button"
-                onClick={() => set('variants', variants.filter((_, idx) => idx !== i))}
-                className="text-red-400 hover:text-red-600 text-sm flex-shrink-0"
-              >
-                删除
-              </button>
             </div>
             <MultiImageUpload
               values={Array.isArray(v.images) ? v.images : []}
@@ -218,7 +226,8 @@ function ShopItemForm({ data, onChange, token }: { data: Record<string, unknown>
               }}
               folder="shop"
               token={token}
-              label={`${v.color || `变体${i + 1}`} 图片`}
+              label="规格图片"
+              sortable
             />
           </div>
         ))}
@@ -230,7 +239,8 @@ function ShopItemForm({ data, onChange, token }: { data: Record<string, unknown>
         onChange={urls => set('images', urls)}
         folder="shop"
         token={token}
-        label="商品详情图（所有颜色共用）"
+        label="商品详情图（所有颜色共用，可拖拽排序）"
+        sortable
       />
 
       {/* 视频 */}
