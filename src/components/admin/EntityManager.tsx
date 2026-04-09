@@ -220,6 +220,21 @@ export default function EntityManager({
     setIsNew(false);
   }
 
+  function openDuplicate(item: Record<string, unknown>) {
+    const copy = { ...item };
+    // 清掉主键，作为新记录插入
+    delete copy[idKey];
+    // slug 加 -copy 后缀避免唯一约束冲突（如果有 slug 字段）
+    if (typeof copy.slug === 'string' && copy.slug) {
+      copy.slug = `${copy.slug}-copy`;
+    }
+    // 复制品默认为草稿
+    copy.status = 'draft';
+    setFormData(copy);
+    setEditItem(null);
+    setIsNew(true);
+  }
+
   function closeModal() {
     setEditItem(null);
     setIsNew(false);
@@ -377,6 +392,13 @@ export default function EntityManager({
                           className="text-xs text-brown-500 hover:text-brown-700 transition-colors"
                         >
                           编辑
+                        </button>
+                        <button
+                          onClick={() => openDuplicate(item)}
+                          className="text-xs text-warm-gray-400 hover:text-brown-600 transition-colors"
+                          title="复制为新草稿"
+                        >
+                          复制
                         </button>
                         <button
                           onClick={() => setDeleteId(item[idKey] as string | number)}
