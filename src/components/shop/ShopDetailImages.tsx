@@ -16,9 +16,10 @@ export default function ShopDetailImages({ variants, images, name }: Props) {
     variants.length > 0 ? variants[0] : null
   );
 
-  // 有变体时展示选中变体的图片，否则用公共 images
-  const galleryImages = selectedVariant?.images?.length
-    ? selectedVariant.images
+  // 变体图（规格专属）在前，详情图（公共介绍）在后，合并展示
+  const variantImages = selectedVariant?.images?.length ? selectedVariant.images : [];
+  const galleryImages = variantImages.length > 0
+    ? [...variantImages, ...images]
     : images;
 
   return (
