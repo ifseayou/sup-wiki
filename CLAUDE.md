@@ -187,3 +187,18 @@ ssh hz_aliyun_ecs "cd /www/wwwroot/sup-wiki && rm -rf .next && npm run build && 
 - **What went wrong:** 在 Server Component 中使用 `onMouseEnter`/`onMouseLeave` 导致构建失败。
 - **Root cause:** React Server Components 不支持任何事件处理器 prop。
 - **Correct approach:** 所有 hover 效果改用 CSS（globals.css 中定义 `.class:hover` 规则），不使用 JS 事件。
+
+### 直接执行 MySQL 命令前必须确认客户端可用性和连接路径
+- **What went wrong:** 直接在本地运行 `mysql -h 8.217.233.65 ...`，命令报 exit 127（命令不存在）；随后改为 `ssh hz_aliyun_ecs "mysql ..."` 仍然失败，因为 hz_aliyun_ecs（部署服务器）上没有安装 mysql 客户端。
+- **Root cause:** 本地 Mac 没有 mysql 客户端；部署服务器 hz_aliyun_ecs 只跑 Node/PM2，不装 mysql；数据库在 hk_aliyun_ecs（8.217.233.65），该机器上才有 mysql 客户端。两台服务器职责不同，混淆了。
+- **Correct approach:** 需要直接操作 MySQL 时，应通过 `ssh hk_aliyun_ecs "mysql -u root -p'xxx' sport_hacker ..."` 在数据库所在机器上执行，而非 hz_aliyun_ecs。
+
+### git archive 部署不包含未提交的本地修改
+- **What went wrong:** 修改了 `constants.ts` 和 `WechatContactCard.tsx` 后直接运行 `git archive HEAD | ssh ...` 部署，服务器仍是旧版本代码，改动完全没生效。
+- **Root cause:** `git archive HEAD` 只打包 git 已追踪且已提交的文件，未提交的本地修改不会被包含。新增未追踪的静态资源（如图片）同样不会被包含，需单独 `scp`。
+- **Correct approach:** 有未提交改动时，用 `scp` 直接传输改动的文件到服务器对应路径，再重新 build；或先 commit 再 git archive。新增的 `public/` 静态资源文件必须单独 `scp` 传输（不在 git archive 中）。
+
+### .env.local 不存在时不要盲目读取，应先确认文件位置
+- **What went wrong:** 被授权读取 .env.local 后直接 Read，结果文件不存在（本地没有），浪费了一次工具调用。
+- **Root cause:** .env.local 是本地敏感配置，通常不提交 git 也不同步到本地开发机；真正的生产配置在服务器 `/www/wwwroot/sup-wiki/.env.local`。
+- **Correct approach:** 若本地 .env.local 不存在，应立即通过 `ssh hz_aliyun_ecs "cat /www/wwwroot/sup-wiki/.env.local"` 从生产服务器读取配置，而不是继续在本地查找。

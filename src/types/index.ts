@@ -24,6 +24,9 @@ export type FollowerTier = '1k-10k' | '10k-100k' | '100k-1m' | '1m+';
 // 内容风格
 export type ContentStyle = 'tutorial' | 'review' | 'vlog' | 'adventure';
 
+// 博主地区
+export type CreatorRegion = 'domestic' | 'international';
+
 // 赛事类型
 export type EventType = 'race' | 'festival' | 'training' | 'exhibition';
 
@@ -182,6 +185,7 @@ export interface Creator {
   platform: Platform;
   follower_tier: FollowerTier;
   content_style: ContentStyle;
+  region: CreatorRegion;
   profile_url?: string;
   status: ContentStatus;
   created_at: Date;
@@ -269,6 +273,7 @@ export interface CreatorFilter {
   platform?: Platform;
   follower_tier?: FollowerTier;
   content_style?: ContentStyle;
+  region?: CreatorRegion;
   search?: string;
 }
 

@@ -35,12 +35,12 @@ export const GET = withAdmin(async (request: NextRequest) => {
 export const POST = withAdmin(async (request: NextRequest) => {
   try {
     const body = await request.json();
-    const { nickname, avatar, bio, platform, follower_tier, content_style, profile_url, status = 'draft' } = body;
+    const { nickname, avatar, bio, platform, follower_tier, content_style, region, profile_url, status = 'draft' } = body;
     if (!nickname || !platform) return NextResponse.json({ error: '缺少必填字段: nickname, platform' }, { status: 400 });
 
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO sup_creators (nickname, avatar, bio, platform, follower_tier, content_style, profile_url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [nickname, avatar || null, bio || null, platform, follower_tier || '1k-10k', content_style || 'vlog', profile_url || null, status]
+      `INSERT INTO sup_creators (nickname, avatar, bio, platform, follower_tier, content_style, region, profile_url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [nickname, avatar || null, bio || null, platform, follower_tier || '1k-10k', content_style || 'vlog', region || 'domestic', profile_url || null, status]
     );
     return NextResponse.json({ success: true, creator_id: result.insertId }, { status: 201 });
   } catch (error) {

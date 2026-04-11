@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Tooltip from '@/components/Tooltip';
 import LearnStats from '@/components/LearnStats';
+import WrongAnswerEntry from '@/components/WrongAnswerEntry';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 
@@ -138,6 +139,9 @@ export default async function LearnPage() {
           开始测验 →
         </Link>
       </div>
+
+      {/* 错题练习入口（登录后有错题才显示） */}
+      <WrongAnswerEntry />
 
       {/* 分类题库 */}
       <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', marginBottom: 24 }}>

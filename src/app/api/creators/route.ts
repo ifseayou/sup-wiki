@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
-import type { Creator, Platform, FollowerTier, ContentStyle, PaginatedResponse } from '@/types';
+import type { Creator, Platform, FollowerTier, ContentStyle, CreatorRegion, PaginatedResponse } from '@/types';
 
 interface CreatorRow extends RowDataPacket {
   creator_id: number;
@@ -15,6 +15,7 @@ interface CreatorRow extends RowDataPacket {
   platform: string;
   follower_tier: string;
   content_style: string;
+  region: string;
   profile_url: string | null;
   created_at: string;
   updated_at: string;
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
     const platform = searchParams.get('platform') as Platform | null;
     const follower_tier = searchParams.get('follower_tier') as FollowerTier | null;
     const content_style = searchParams.get('content_style') as ContentStyle | null;
+    const region = searchParams.get('region') as CreatorRegion | null;
     const search = searchParams.get('search');
 
     const offset = (page - 1) * pageSize;
@@ -47,6 +49,11 @@ export async function GET(request: NextRequest) {
     if (content_style) {
       conditions.push('content_style = ?');
       params.push(content_style);
+    }
+
+    if (region) {
+      conditions.push('region = ?');
+      params.push(region);
     }
 
     if (search) {

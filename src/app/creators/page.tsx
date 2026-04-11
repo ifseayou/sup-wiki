@@ -4,6 +4,7 @@ import Tooltip from '@/components/Tooltip';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import FilterBar from '@/components/FilterBar';
+import RegionTabs from '@/components/RegionTabs';
 
 interface CreatorRow extends RowDataPacket {
   creator_id: number;
@@ -13,6 +14,7 @@ interface CreatorRow extends RowDataPacket {
   platform: string;
   follower_tier: string;
   content_style: string;
+  region: string;
   profile_url: string | null;
 }
 
@@ -43,10 +45,22 @@ const tierOrder = `CASE follower_tier
   WHEN '1m+' THEN 1 WHEN '100k-1m' THEN 2
   WHEN '10k-100k' THEN 3 WHEN '1k-10k' THEN 4 ELSE 5 END`;
 
-async function getCreators(platform?: string, content_style?: string) {
+const domesticPlatformFilters = [
+  { label: '抖音', value: 'douyin' },
+  { label: '小红书', value: 'xiaohongshu' },
+  { label: 'B站', value: 'bilibili' },
+  { label: '微博', value: 'weibo' },
+];
+
+const internationalPlatformFilters = [
+  { label: 'YouTube', value: 'youtube' },
+  { label: 'Instagram', value: 'instagram' },
+];
+
+async function getCreators(region: string, platform?: string, content_style?: string) {
   try {
-    const conditions: string[] = ["status = 'published'"];
-    const params: string[] = [];
+    const conditions: string[] = ["status = 'published'", 'region = ?'];
+    const params: string[] = [region];
 
     if (platform) { conditions.push('platform = ?'); params.push(platform); }
     if (content_style) { conditions.push('content_style = ?'); params.push(content_style); }
@@ -64,38 +78,34 @@ async function getCreators(platform?: string, content_style?: string) {
   }
 }
 
-const filters = [
-  {
-    key: 'platform',
-    placeholder: '全部平台',
-    options: [
-      { label: '抖音', value: 'douyin' },
-      { label: '小红书', value: 'xiaohongshu' },
-      { label: 'B站', value: 'bilibili' },
-      { label: 'YouTube', value: 'youtube' },
-      { label: 'Instagram', value: 'instagram' },
-      { label: '微博', value: 'weibo' },
-    ],
-  },
-  {
-    key: 'content_style',
-    placeholder: '内容风格',
-    options: [
-      { label: '教学', value: 'tutorial' },
-      { label: '测评', value: 'review' },
-      { label: 'Vlog', value: 'vlog' },
-      { label: '探险', value: 'adventure' },
-    ],
-  },
-];
-
 export default async function CreatorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ platform?: string; content_style?: string }>;
+  searchParams: Promise<{ region?: string; platform?: string; content_style?: string }>;
 }) {
-  const { platform, content_style } = await searchParams;
-  const creators = await getCreators(platform, content_style);
+  const { region: rawRegion, platform, content_style } = await searchParams;
+  const region = rawRegion === 'international' ? 'international' : 'domestic';
+  const creators = await getCreators(region, platform, content_style);
+
+  const platformOptions = region === 'domestic' ? domesticPlatformFilters : internationalPlatformFilters;
+
+  const filters = [
+    {
+      key: 'platform',
+      placeholder: '全部平台',
+      options: platformOptions,
+    },
+    {
+      key: 'content_style',
+      placeholder: '内容风格',
+      options: [
+        { label: '教学', value: 'tutorial' },
+        { label: '测评', value: 'review' },
+        { label: 'Vlog', value: 'vlog' },
+        { label: '探险', value: 'adventure' },
+      ],
+    },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -105,6 +115,7 @@ export default async function CreatorsPage({
       </div>
 
       <Suspense>
+        <RegionTabs region={region} />
         <FilterBar filters={filters} />
       </Suspense>
 

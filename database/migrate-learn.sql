@@ -44,7 +44,7 @@ INSERT INTO sup_quiz_questions (question, type, options, correct, explanation, c
  'single',
  '["5-8 PSI","12-15 PSI","20-25 PSI","30 PSI 以上"]',
  '1',
- '大多数充气桨板推荐充气压力为 12-15 PSI，部分竞速充气板可达 18 PSI。气压过低板面会弯曲下沉，影响滑行效率。',
+ '大多数充气桨板推荐充气压力为 12-15 PSI（Pounds per Square Inch，磅/平方英寸，1 PSI ≈ 0.069 bar），部分竞速充气板可达 18 PSI。气压过低板面会弯曲下沉，影响滑行效率。',
  'equipment', 'beginner'),
 
 ('Drop-Stitch（拉丝布）技术的作用是什么？',
@@ -77,9 +77,9 @@ INSERT INTO sup_quiz_questions (question, type, options, correct, explanation, c
 
 ('碳纤维（Carbon Fiber）桨板的主要特点是什么？',
  'multiple',
- '["重量轻","强度高","价格低廉","抗UV能力极强"]',
+ '["重量轻","强度高","价格低廉","抗UV（紫外线）能力极强"]',
  '[0, 1]',
- '碳纤维具有密度低（轻量）和拉伸强度极高的特点，是顶级赛板的首选材料。价格通常较贵，且需要避免碰撞以防分层。',
+ '碳纤维具有密度低（轻量）和拉伸强度极高的特点，是顶级赛板的首选材料。价格通常较贵，且需要避免碰撞以防分层。UV（Ultraviolet，紫外线）长期照射会加速树脂老化，但碳纤维板的抗 UV 能力并不比玻纤板强，两者都建议使用板袋存放。',
  'equipment', 'advanced'),
 
 ('判断：鳍（Fin）越大，板的直线追踪性越好。',
@@ -93,7 +93,14 @@ INSERT INTO sup_quiz_questions (question, type, options, correct, explanation, c
  'multiple',
  '["EPS泡芯+玻璃纤维","碳纤维+真空层压","充气PVC Drop-Stitch","木质单板"]',
  '[0, 1, 2]',
- '主流材质：EPS泡芯+玻纤（入门/中端硬板）、碳纤维（竞速高端硬板）、充气PVC（全能/入门充气板）。木质桨板较为罕见，主要是工艺板或特定品牌产品。',
+ '主流材质：EPS（Expanded Polystyrene，发泡聚苯乙烯）泡芯+玻纤（入门/中端硬板）、碳纤维（竞速高端硬板）、充气 PVC（Polyvinyl Chloride，聚氯乙烯，全能/入门充气板）。木质桨板较为罕见，主要是工艺板或特定品牌产品。',
+ 'equipment', 'intermediate'),
+
+('桨板甲板垫（Deck Pad）常用材料 EVA 的全称是什么？',
+ 'single',
+ '["Ethylene Vinyl Acetate（乙烯-醋酸乙烯酯共聚物）","Ethyl Vinyl Aluminum（乙基乙烯铝）","Extended Volume Accessory（延伸容积配件）","Enhanced Vinyl Armor（增强乙烯护甲）"]',
+ '0',
+ 'EVA（Ethylene Vinyl Acetate，乙烯-醋酸乙烯酯共聚物）是桨板甲板垫（Deck Pad）的主流材料，质地柔软、防滑耐磨、抗海水腐蚀、减震性好。甲板垫通常压有菱形纹、鳄鱼纹等防滑纹路，既保护板面免受划痕，又提升运动员站立的舒适度和稳定性。',
  'equipment', 'intermediate'),
 
 ('一块标准全能充气桨板的典型尺寸是多少？',
@@ -193,7 +200,7 @@ INSERT INTO sup_quiz_questions (question, type, options, correct, explanation, c
  'single',
  '["APP 只限美国选手","APP 是职业商业巡回赛，奖金丰厚；ICF 是官方锦标赛，代表国家荣誉","APP 只有充气板组别","两者完全相同"]',
  '1',
- 'APP World Tour 是商业化职业巡回赛，有丰厚奖金，代表个人实力；ICF 世锦赛代表国家出赛，是最权威的官方荣誉。两者共同构成国际顶级 SUP 舞台。',
+ 'APP（Association of Paddlesurf Professionals，职业桨板运动员协会）World Tour 是商业化职业巡回赛，有丰厚奖金，代表个人实力；ICF 世锦赛代表国家出赛，是最权威的官方荣誉。两者共同构成国际顶级 SUP 舞台。',
  'race', 'intermediate'),
 
 -- ── 安全知识（safety） ──────────────────────────────────────────
@@ -244,7 +251,7 @@ INSERT INTO sup_quiz_questions (question, type, options, correct, explanation, c
  'single',
  '["充满气存放，避免变形","完全放气后折叠存放于阴凉处","半充气状态直立存放","必须泡在水里保持湿润"]',
  '1',
- '使用后应放气折叠，存于凉爽干燥处，避免长期暴晒（UV 会加速 PVC 老化）。长时间充气存放会使接缝处持续受压，加速老化。',
+ '使用后应放气折叠，存于凉爽干燥处，避免长期暴晒（UV 即紫外线，会加速 PVC 聚氯乙烯材料老化）。长时间充气存放会使接缝处持续受压，加速老化。',
  'maintenance', 'beginner'),
 
 ('碳纤维硬板日常维护最需要注意的是？',
@@ -265,7 +272,7 @@ INSERT INTO sup_quiz_questions (question, type, options, correct, explanation, c
  'truefalse',
  '["正确","错误"]',
  '1',
- '错误！高温会使气体膨胀，如果没有安全泄压阀，气压过高会损坏接缝甚至爆裂。即使有泄压阀，高温暴晒也会加速 PVC 老化变脆。切勿将充气板存放在高温密封车内。',
+ '错误！高温会使气体膨胀，如果没有安全泄压阀，气压过高会损坏接缝甚至爆裂。即使有泄压阀，UV（紫外线）高温暴晒也会加速 PVC（聚氯乙烯）老化变脆。切勿将充气板存放在高温密封车内。',
  'maintenance', 'beginner'),
 
 -- ── 运动历史（history） ──────────────────────────────────────────

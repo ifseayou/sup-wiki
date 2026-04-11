@@ -21,6 +21,23 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ wrong_answers: rows });
 }
 
+// 答对后从错题库移除
+export async function DELETE(request: NextRequest) {
+  const user = auth(request);
+  if (!user) return NextResponse.json({ error: '请先登录' }, { status: 401 });
+
+  const { question_ids } = await request.json();
+  if (!Array.isArray(question_ids) || question_ids.length === 0) {
+    return NextResponse.json({ error: '缺少 question_ids' }, { status: 400 });
+  }
+
+  await pool.query(
+    `DELETE FROM sup_quiz_wrong_history WHERE user_id = ? AND question_id IN (${question_ids.map(() => '?').join(',')})`,
+    [user.user_id, ...question_ids]
+  );
+  return NextResponse.json({ success: true, removed: question_ids.length });
+}
+
 // 批量上报错题（答完一轮后调用）
 export async function POST(request: NextRequest) {
   const user = auth(request);

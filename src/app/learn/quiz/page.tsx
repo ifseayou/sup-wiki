@@ -112,6 +112,8 @@ function QuizContent() {
   const pathname = usePathname();
   const category = searchParams.get('category') || '';
   const difficulty = searchParams.get('difficulty') || '';
+  const mode = searchParams.get('mode') || '';
+  const isWrongMode = mode === 'wrong';
   const { user, token } = useUser();
 
   const [questions, setQuestions] = useState<Question[]>([]);
