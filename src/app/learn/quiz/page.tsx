@@ -202,6 +202,38 @@ function QuizContent() {
     else setCurrent(current + 1);
   }
 
+  function prevQuestion() {
+    if (current === 0) return;
+    const prev = current - 1;
+    const prevAns = answers[prev];
+    // 恢复上一题的选择状态
+    if (prevAns !== null) {
+      setSelected(Array.isArray(prevAns) ? prevAns : [prevAns as number]);
+      setShowExplanation(true);
+    } else {
+      setSelected([]);
+      setShowExplanation(false);
+    }
+    setCurrent(prev);
+  }
+
+  function goNext() {
+    if (current + 1 >= questions.length) {
+      setFinished(true);
+    } else {
+      const next = current + 1;
+      const nextAns = answers[next];
+      if (nextAns !== null) {
+        setSelected(Array.isArray(nextAns) ? nextAns : [nextAns as number]);
+        setShowExplanation(true);
+      } else {
+        setSelected([]);
+        setShowExplanation(false);
+      }
+      setCurrent(next);
+    }
+  }
+
   function isCorrect(qIdx: number): boolean {
     const q = questions[qIdx];
     const ans = answers[qIdx];
@@ -436,27 +468,47 @@ function QuizContent() {
         )}
 
         {/* 操作按钮 */}
-        <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          {!showExplanation ? (
-            <button
-              onClick={confirmAnswer}
-              disabled={selected.length === 0}
-              style={{
-                padding: '11px 28px', background: selected.length > 0 ? '#7A6145' : '#C0B4A4',
-                color: '#fff', border: 'none', borderRadius: 8, fontSize: 14,
-                fontWeight: 500, cursor: selected.length > 0 ? 'pointer' : 'default',
-              }}
-            >
-              确认答案
-            </button>
-          ) : (
-            <button
-              onClick={nextQuestion}
-              style={{ padding: '11px 28px', background: '#2E2118', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
-            >
-              {current + 1 >= questions.length ? '查看结果 →' : '下一题 →'}
-            </button>
-          )}
+        <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          {/* 前一题 */}
+          <button
+            onClick={prevQuestion}
+            disabled={current === 0}
+            style={{
+              padding: '11px 18px', background: 'none',
+              border: '1.5px solid #EDE5D8', borderRadius: 8,
+              fontSize: 14, color: current === 0 ? '#C0B4A4' : '#655D56',
+              cursor: current === 0 ? 'default' : 'pointer',
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ← 前一题
+          </button>
+
+          {/* 确认 / 后一题 */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            {!showExplanation ? (
+              <button
+                onClick={confirmAnswer}
+                disabled={selected.length === 0}
+                style={{
+                  padding: '11px 28px',
+                  background: selected.length > 0 ? '#7A6145' : '#C0B4A4',
+                  color: '#fff', border: 'none', borderRadius: 8, fontSize: 14,
+                  fontWeight: 500, cursor: selected.length > 0 ? 'pointer' : 'default',
+                }}
+              >
+                确认答案
+              </button>
+            ) : (
+              <button
+                onClick={goNext}
+                style={{ padding: '11px 28px', background: '#2E2118', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+              >
+                {current + 1 >= questions.length ? '查看结果 →' : '后一题 →'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
