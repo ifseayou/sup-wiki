@@ -21,6 +21,7 @@ interface Question {
 const CAT_LABELS: Record<string, string> = {
   equipment: '装备知识', technique: '技术动作', race: '竞赛规则',
   safety: '安全知识', maintenance: '保养维护', history: '运动历史',
+  board_id: '看图识板', athlete_id: '认识运动员',
 };
 const DIFF_LABELS: Record<string, string> = {
   beginner: '入门', intermediate: '进阶', advanced: '高级',
@@ -66,7 +67,6 @@ function BookmarkBtn({ questionId, token, onNeedLogin }: {
   const [bookmarked, setBookmarked] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // 加载初始收藏状态
   useEffect(() => {
     if (!token) return;
     fetch('/api/user/bookmarks', { headers: { Authorization: `Bearer ${token}` } })
@@ -96,11 +96,7 @@ function BookmarkBtn({ questionId, token, onNeedLogin }: {
       onClick={toggle}
       disabled={loading}
       title={bookmarked ? '取消收藏' : '收藏此题'}
-      style={{
-        background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px',
-        fontSize: 18, lineHeight: 1, opacity: loading ? 0.5 : 1,
-        transition: 'transform 0.15s',
-      }}
+      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', fontSize: 18, lineHeight: 1, opacity: loading ? 0.5 : 1, transition: 'transform 0.15s' }}
     >
       {bookmarked ? '⭐' : '☆'}
     </button>
@@ -114,6 +110,7 @@ function QuizContent() {
   const difficulty = searchParams.get('difficulty') || '';
   const mode = searchParams.get('mode') || '';
   const isWrongMode = mode === 'wrong';
+  const isBookmarkMode = mode === 'bookmark';
   const { user, token } = useUser();
 
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -128,39 +125,103 @@ function QuizContent() {
 
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
-      const params = new URLSearchParams({ limit: '20' });
-      if (category) params.set('category', category);
-      if (difficulty) params.set('difficulty', difficulty);
-      const headers: Record<string, string> = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(`/api/learn/questions?${params}`, { headers });
-      const data = await res.json();
-      if (data.items?.length) {
-        setQuestions(data.items);
-        setAnswers(new Array(data.items.length).fill(null));
+      if (isWrongMode) {
+        // 错题模式：需要登录
+        if (!token) {
+          setError('LOGIN_REQUIRED');
+          setLoading(false);
+          return;
+        }
+        // 获取错题 ID 列表
+        const wrongRes = await fetch('/api/user/wrong-answers', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const wrongData = await wrongRes.json();
+        const allWrongIds: number[] = (wrongData.wrong_answers || []).map(
+          (w: { question_id: number }) => w.question_id
+        );
+        if (allWrongIds.length === 0) {
+          setError('NO_WRONG');
+          setLoading(false);
+          return;
+        }
+        // 随机取最多 20 题
+        const shuffled = [...allWrongIds].sort(() => Math.random() - 0.5).slice(0, 20);
+        const res = await fetch(`/api/learn/questions?ids=${shuffled.join(',')}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.items?.length) {
+          setQuestions(data.items);
+          setAnswers(new Array(data.items.length).fill(null));
+        } else {
+          setError('暂无题目，请稍后再试');
+        }
+      } else if (isBookmarkMode) {
+        // 收藏模式
+        if (!token) {
+          setError('LOGIN_REQUIRED_BOOKMARK');
+          setLoading(false);
+          return;
+        }
+        const bmRes = await fetch('/api/user/bookmarks', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const bmData = await bmRes.json();
+        const allIds: number[] = bmData.bookmarks || [];
+        if (allIds.length === 0) {
+          setError('NO_BOOKMARK');
+          setLoading(false);
+          return;
+        }
+        const shuffled = [...allIds].sort(() => Math.random() - 0.5).slice(0, 20);
+        const res = await fetch(`/api/learn/questions?ids=${shuffled.join(',')}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.items?.length) {
+          setQuestions(data.items);
+          setAnswers(new Array(data.items.length).fill(null));
+        } else {
+          setError('暂无题目，请稍后再试');
+        }
       } else {
-        setError('暂无题目，请稍后再试');
+        // 普通模式
+        const params = new URLSearchParams({ limit: '20' });
+        if (category) params.set('category', category);
+        if (difficulty) params.set('difficulty', difficulty);
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`/api/learn/questions?${params}`, { headers });
+        const data = await res.json();
+        if (data.items?.length) {
+          setQuestions(data.items);
+          setAnswers(new Array(data.items.length).fill(null));
+        } else {
+          setError('暂无题目，请稍后再试');
+        }
       }
     } catch {
       setError('加载失败，请刷新重试');
     } finally {
       setLoading(false);
     }
-  }, [category, difficulty, token]);
+  }, [category, difficulty, token, isWrongMode, isBookmarkMode]);
 
   useEffect(() => { fetchQuestions(); }, [fetchQuestions]);
 
-  // 答题结束后上报错题 + 统计
+  // 答题结束后上报错题（普通模式）/ 移除答对题（错题模式）
   useEffect(() => {
     if (!finished || !token) return;
+
     const wrongIds = questions
       .map((q, i) => ({ q, i }))
       .filter(({ i }) => !isCorrect(i))
       .map(({ q }) => q.question_id);
-    const correctCount = questions.length - wrongIds.length;
 
-    // 上报错题记录
+    // 上报错题（两种模式都需要）
     if (wrongIds.length > 0) {
       fetch('/api/user/wrong-answers', {
         method: 'POST',
@@ -168,20 +229,37 @@ function QuizContent() {
         body: JSON.stringify({ question_ids: wrongIds }),
       }).catch(() => {});
     }
-    // 上报答题统计（总数 + 正确数 + 所有题目 ID，用于智能派题）
-    fetch('/api/user/stats', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        attempted: questions.length,
-        correct: correctCount,
-        question_ids: questions.map(q => q.question_id),
-      }),
-    }).catch(() => {});
+
+    // 错题模式：将本轮答对的题从错题库移除
+    if (isWrongMode) {
+      const correctIds = questions
+        .map((q, i) => ({ q, i }))
+        .filter(({ i }) => isCorrect(i))
+        .map(({ q }) => q.question_id);
+      if (correctIds.length > 0) {
+        fetch('/api/user/wrong-answers', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ question_ids: correctIds }),
+        }).catch(() => {});
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
 
   const q = questions[current];
+
+  function isCorrect(qIdx: number): boolean {
+    const q = questions[qIdx];
+    const ans = answers[qIdx];
+    if (ans === null) return false;
+    const correct = q.correct;
+    if (Array.isArray(correct)) {
+      if (!Array.isArray(ans)) return false;
+      return JSON.stringify([...ans].sort()) === JSON.stringify([...correct].sort());
+    }
+    return ans === correct;
+  }
 
   function toggleOption(idx: number) {
     if (showExplanation) return;
@@ -191,10 +269,31 @@ function QuizContent() {
 
   function confirmAnswer() {
     if (selected.length === 0) return;
+    const answer = q.type === 'multiple' ? [...selected].sort() : selected[0];
+
+    // 计算本题正误（在状态更新前内联计算）
+    const correct = q.correct;
+    const isThisCorrect = Array.isArray(correct)
+      ? JSON.stringify([...(answer as number[])].sort()) === JSON.stringify([...correct].sort())
+      : answer === correct;
+
     const newAnswers = [...answers];
-    newAnswers[current] = q.type === 'multiple' ? [...selected].sort() : selected[0];
+    newAnswers[current] = answer;
     setAnswers(newAnswers);
     setShowExplanation(true);
+
+    // 实时上报：每答一题立即更新统计
+    if (token) {
+      fetch('/api/user/stats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          attempted: 1,
+          correct: isThisCorrect ? 1 : 0,
+          question_ids: [q.question_id],
+        }),
+      }).catch(() => {});
+    }
   }
 
   function nextQuestion() {
@@ -208,7 +307,6 @@ function QuizContent() {
     if (current === 0) return;
     const prev = current - 1;
     const prevAns = answers[prev];
-    // 恢复上一题的选择状态
     if (prevAns !== null) {
       setSelected(Array.isArray(prevAns) ? prevAns : [prevAns as number]);
       setShowExplanation(true);
@@ -236,18 +334,6 @@ function QuizContent() {
     }
   }
 
-  function isCorrect(qIdx: number): boolean {
-    const q = questions[qIdx];
-    const ans = answers[qIdx];
-    if (ans === null) return false;
-    const correct = q.correct;
-    if (Array.isArray(correct)) {
-      if (!Array.isArray(ans)) return false;
-      return JSON.stringify([...ans].sort()) === JSON.stringify([...correct].sort());
-    }
-    return ans === correct;
-  }
-
   function calcScore() { return answers.filter((_, i) => isCorrect(i)).length; }
 
   // ── 加载中 ──
@@ -255,6 +341,73 @@ function QuizContent() {
     <div style={{ maxWidth: 720, margin: '100px auto', textAlign: 'center', color: '#8A8078' }}>
       <div style={{ fontSize: 32, marginBottom: 16 }}>⏳</div>
       <div>正在加载题目...</div>
+    </div>
+  );
+
+  // ── 特殊错误状态 ──
+  if (error === 'LOGIN_REQUIRED') return (
+    <div style={{ maxWidth: 720, margin: '100px auto', textAlign: 'center', padding: '0 24px' }}>
+      <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: '#2E2118', marginBottom: 8 }}>请登录后查看错题</div>
+      <p style={{ fontSize: 14, color: '#8A8078', marginBottom: 24 }}>登录后系统会自动记录你的答题错误，支持专项复习。</p>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+        <Link href={`/login?redirect=${encodeURIComponent('/learn/quiz?mode=wrong')}`}
+          style={{ padding: '12px 28px', background: '#7A6145', color: '#fff', borderRadius: 8, fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
+          去登录
+        </Link>
+        <Link href="/learn" style={{ padding: '12px 24px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 14, color: '#655D56', textDecoration: 'none' }}>
+          返回学习中心
+        </Link>
+      </div>
+    </div>
+  );
+
+  if (error === 'LOGIN_REQUIRED_BOOKMARK') return (
+    <div style={{ maxWidth: 720, margin: '100px auto', textAlign: 'center', padding: '0 24px' }}>
+      <div style={{ fontSize: 40, marginBottom: 16 }}>🔒</div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: '#2E2118', marginBottom: 8 }}>请登录后查看收藏题目</div>
+      <p style={{ fontSize: 14, color: '#8A8078', marginBottom: 24 }}>登录后可以收藏题目，随时专项练习。</p>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+        <Link href={`/login?redirect=${encodeURIComponent('/learn/quiz?mode=bookmark')}`}
+          style={{ padding: '12px 28px', background: '#2B6CB0', color: '#fff', borderRadius: 8, fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
+          去登录
+        </Link>
+        <Link href="/learn" style={{ padding: '12px 24px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 14, color: '#655D56', textDecoration: 'none' }}>
+          返回学习中心
+        </Link>
+      </div>
+    </div>
+  );
+
+  if (error === 'NO_BOOKMARK') return (
+    <div style={{ maxWidth: 720, margin: '100px auto', textAlign: 'center', padding: '0 24px' }}>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>☆</div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: '#2E2118', marginBottom: 8 }}>暂无收藏题目</div>
+      <p style={{ fontSize: 14, color: '#8A8078', marginBottom: 24 }}>在答题时点击右上角的 ☆ 收藏感兴趣的题目，随时回来专项练习。</p>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+        <Link href="/learn/quiz" style={{ padding: '12px 28px', background: '#7A6145', color: '#fff', borderRadius: 8, fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
+          开始综合测验
+        </Link>
+        <Link href="/learn" style={{ padding: '12px 24px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 14, color: '#655D56', textDecoration: 'none' }}>
+          返回学习中心
+        </Link>
+      </div>
+    </div>
+  );
+
+  if (error === 'NO_WRONG') return (
+    <div style={{ maxWidth: 720, margin: '100px auto', textAlign: 'center', padding: '0 24px' }}>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: '#2E2118', marginBottom: 8 }}>暂无错题，保持下去！</div>
+      <p style={{ fontSize: 14, color: '#8A8078', marginBottom: 24 }}>你的错题库目前是空的。继续做题，系统会自动记录答错的题目。</p>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+        <Link href="/learn/quiz" style={{ padding: '12px 28px', background: '#7A6145', color: '#fff', borderRadius: 8, fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
+          开始综合测验
+        </Link>
+        <Link href="/learn" style={{ padding: '12px 24px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 14, color: '#655D56', textDecoration: 'none' }}>
+          返回学习中心
+        </Link>
+      </div>
     </div>
   );
 
@@ -280,14 +433,32 @@ function QuizContent() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px' }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontSize: 56, marginBottom: 16 }}>{grade.icon}</div>
+          {isWrongMode && (
+            <div style={{ fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#c0392b', marginBottom: 8 }}>错题练习结果</div>
+          )}
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 300, color: '#2E2118', marginBottom: 8 }}>{grade.label}</div>
           <div style={{ fontSize: 64, fontWeight: 700, color: grade.color, lineHeight: 1 }}>{pct}%</div>
           <div style={{ fontSize: 16, color: '#8A8078', marginTop: 8 }}>共 {questions.length} 题，答对 {score} 题</div>
-          {wrongQuestions.length > 0 && (
-            <div style={{ marginTop: 12, fontSize: 13, color: '#c0392b', background: '#FDEDEC', padding: '8px 16px', borderRadius: 20, display: 'inline-block' }}>
-              ❌ {wrongQuestions.length} 道错题
-              {!user && <span style={{ color: '#8A8078' }}>（<Link href={`/login?redirect=${encodeURIComponent(pathname + '?' + searchParams.toString())}`} style={{ color: '#7A6145' }}>登录</Link>后自动保存错题）</span>}
+
+          {isWrongMode ? (
+            <div style={{ marginTop: 12 }}>
+              {wrongQuestions.length === 0 ? (
+                <div style={{ fontSize: 14, color: '#0E6655', background: '#E9F7EF', padding: '8px 20px', borderRadius: 20, display: 'inline-block' }}>
+                  🎉 全部答对！已从错题库清除
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: '#c0392b', background: '#FDEDEC', padding: '8px 16px', borderRadius: 20, display: 'inline-block' }}>
+                  ❌ 仍有 {wrongQuestions.length} 道错题待复习
+                </div>
+              )}
             </div>
+          ) : (
+            wrongQuestions.length > 0 && (
+              <div style={{ marginTop: 12, fontSize: 13, color: '#c0392b', background: '#FDEDEC', padding: '8px 16px', borderRadius: 20, display: 'inline-block' }}>
+                ❌ {wrongQuestions.length} 道错题
+                {!user && <span style={{ color: '#8A8078' }}>（<Link href={`/login?redirect=${encodeURIComponent(pathname + '?' + searchParams.toString())}`} style={{ color: '#7A6145' }}>登录</Link>后自动保存错题）</span>}
+              </div>
+            )
           )}
         </div>
 
@@ -339,15 +510,45 @@ function QuizContent() {
         </div>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <button
-            onClick={() => { fetchQuestions(); setCurrent(0); setAnswers([]); setSelected([]); setShowExplanation(false); setFinished(false); }}
-            style={{ padding: '12px 24px', background: '#7A6145', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
-          >
-            再来一轮
-          </button>
-          <Link href="/learn" style={{ padding: '12px 24px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 14, color: '#655D56', textDecoration: 'none' }}>
-            返回学习中心
-          </Link>
+          {isWrongMode ? (
+            <>
+              {wrongQuestions.length > 0 && (
+                <button
+                  onClick={() => { fetchQuestions(); setCurrent(0); setAnswers([]); setSelected([]); setShowExplanation(false); setFinished(false); }}
+                  style={{ padding: '12px 24px', background: '#c0392b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+                >
+                  再练错题 →
+                </button>
+              )}
+              <Link href="/learn" style={{ padding: '12px 24px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 14, color: '#655D56', textDecoration: 'none' }}>
+                返回学习中心
+              </Link>
+            </>
+          ) : isBookmarkMode ? (
+            <>
+              <button
+                onClick={() => { fetchQuestions(); setCurrent(0); setAnswers([]); setSelected([]); setShowExplanation(false); setFinished(false); }}
+                style={{ padding: '12px 24px', background: '#2B6CB0', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+              >
+                再练收藏 →
+              </button>
+              <Link href="/learn" style={{ padding: '12px 24px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 14, color: '#655D56', textDecoration: 'none' }}>
+                返回学习中心
+              </Link>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => { fetchQuestions(); setCurrent(0); setAnswers([]); setSelected([]); setShowExplanation(false); setFinished(false); }}
+                style={{ padding: '12px 24px', background: '#7A6145', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}
+              >
+                再来一轮
+              </button>
+              <Link href="/learn" style={{ padding: '12px 24px', border: '1px solid #EDE5D8', borderRadius: 8, fontSize: 14, color: '#655D56', textDecoration: 'none' }}>
+                返回学习中心
+              </Link>
+            </>
+          )}
         </div>
 
         {showLoginPrompt && (
@@ -364,6 +565,17 @@ function QuizContent() {
   const progress = ((current + (showExplanation ? 1 : 0)) / questions.length) * 100;
   const correctArr = Array.isArray(q.correct) ? q.correct as number[] : [q.correct as number];
 
+  // 进度栏左侧标签
+  const modeLabel = isWrongMode
+    ? '❌ 错题练习'
+    : isBookmarkMode
+      ? '⭐ 收藏练习'
+      : category
+        ? CAT_LABELS[category] || category
+        : difficulty
+          ? `${DIFF_LABELS[difficulty] || difficulty}难度`
+          : '综合测验';
+
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px' }}>
       {showLoginPrompt && (
@@ -376,22 +588,21 @@ function QuizContent() {
       {/* 进度 */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ fontSize: 13, color: '#8A8078' }}>
-            {category ? CAT_LABELS[category] : '综合测验'}
-            {difficulty ? ` · ${DIFF_LABELS[difficulty]}` : ''}
+          <span style={{ fontSize: 13, color: isWrongMode ? '#c0392b' : isBookmarkMode ? '#2B6CB0' : '#8A8078', fontWeight: (isWrongMode || isBookmarkMode) ? 600 : 400 }}>
+            {modeLabel}
           </span>
           <span style={{ fontSize: 13, color: '#8A8078' }}>{current + 1} / {questions.length}</span>
         </div>
         <div style={{ height: 4, background: '#EDE5D8', borderRadius: 2 }}>
-          <div style={{ height: '100%', background: '#7A6145', borderRadius: 2, width: `${progress}%`, transition: 'width 0.3s' }} />
+          <div style={{ height: '100%', background: isWrongMode ? '#c0392b' : isBookmarkMode ? '#2B6CB0' : '#7A6145', borderRadius: 2, width: `${progress}%`, transition: 'width 0.3s' }} />
         </div>
       </div>
 
       {/* 题目卡片 */}
-      <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '28px 28px 24px' }}>
+      <div style={{ background: '#FEFCF9', border: `1px solid ${isWrongMode ? '#F5CBA7' : '#EDE5D8'}`, borderRadius: 14, padding: '28px 28px 24px' }}>
         {/* 标签 + 收藏 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11, background: '#F0EAE0', color: '#7A6145', padding: '2px 8px', borderRadius: 10 }}>
               {CAT_LABELS[q.category] || q.category}
             </span>
@@ -405,14 +616,10 @@ function QuizContent() {
           <BookmarkBtn questionId={q.question_id} token={token} onNeedLogin={() => setShowLoginPrompt(true)} />
         </div>
 
-        {/* 题目图（识板/识人类题目） */}
+        {/* 题目图 */}
         {q.question_image && (
           <div style={{ marginBottom: 20, borderRadius: 10, overflow: 'hidden', border: '1px solid #EDE5D8', background: '#F5F0E8' }}>
-            <img
-              src={q.question_image}
-              alt="题目图"
-              style={{ width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block' }}
-            />
+            <img src={q.question_image} alt="题目图" style={{ width: '100%', maxHeight: 320, objectFit: 'contain', display: 'block' }} />
           </div>
         )}
 
@@ -471,7 +678,6 @@ function QuizContent() {
 
         {/* 操作按钮 */}
         <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-          {/* 前一题 */}
           <button
             onClick={prevQuestion}
             disabled={current === 0}
@@ -480,14 +686,12 @@ function QuizContent() {
               border: '1.5px solid #EDE5D8', borderRadius: 8,
               fontSize: 14, color: current === 0 ? '#C0B4A4' : '#655D56',
               cursor: current === 0 ? 'default' : 'pointer',
-              transition: 'all 0.15s',
-              whiteSpace: 'nowrap',
+              transition: 'all 0.15s', whiteSpace: 'nowrap',
             }}
           >
             ← 前一题
           </button>
 
-          {/* 确认 / 后一题 */}
           <div style={{ display: 'flex', gap: 10 }}>
             {!showExplanation ? (
               <button
@@ -495,7 +699,7 @@ function QuizContent() {
                 disabled={selected.length === 0}
                 style={{
                   padding: '11px 28px',
-                  background: selected.length > 0 ? '#7A6145' : '#C0B4A4',
+                  background: selected.length > 0 ? (isWrongMode ? '#c0392b' : isBookmarkMode ? '#2B6CB0' : '#7A6145') : '#C0B4A4',
                   color: '#fff', border: 'none', borderRadius: 8, fontSize: 14,
                   fontWeight: 500, cursor: selected.length > 0 ? 'pointer' : 'default',
                 }}

@@ -4,32 +4,28 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useUser } from '@/components/UserContext';
 
-interface WrongItem { question_id: number; wrong_count: number }
-
-export default function WrongAnswerEntry() {
+export default function BookmarkEntry() {
   const { user, token } = useUser();
-  const [items, setItems] = useState<WrongItem[] | null>(null);
+  const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!token) return;
-    fetch('/api/user/wrong-answers', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('/api/user/bookmarks', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
-      .then(d => { if (Array.isArray(d.wrong_answers)) setItems(d.wrong_answers); })
+      .then(d => { if (Array.isArray(d.bookmarks)) setCount(d.bookmarks.length); })
       .catch(() => {});
   }, [token]);
 
-  if (!user || (items !== null && items.length === 0)) return null;
-
-  const count = items?.length ?? null;
+  if (!user || (count !== null && count === 0)) return null;
 
   return (
     <div style={{
       background: '#FEFCF9',
       border: '1px solid #EDE5D8',
-      borderLeft: '3px solid #B7470A',
+      borderLeft: '3px solid #7A6145',
       borderRadius: 10,
       padding: '18px 22px',
-      marginBottom: 16,
+      marginBottom: 32,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -37,25 +33,25 @@ export default function WrongAnswerEntry() {
     }}>
       <div>
         <div style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#A08060', marginBottom: 6 }}>
-          Wrong Answer Review
+          Bookmarked Questions
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-          <span style={{ fontSize: 15, fontWeight: 600, color: '#2E2118' }}>错题专项练习</span>
+          <span style={{ fontSize: 15, fontWeight: 600, color: '#2E2118' }}>收藏题练习</span>
           {count !== null && (
-            <span style={{ fontSize: 11, background: '#FDF2E9', color: '#B7470A', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
+            <span style={{ fontSize: 11, background: '#F5EFE8', color: '#7A6145', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
               {count} 道
             </span>
           )}
         </div>
         <div style={{ fontSize: 12, color: '#8B7355', lineHeight: 1.5 }}>
-          针对薄弱点专项复习，答对即从错题库移除
+          专门练习你收藏的题目，巩固重点内容
         </div>
       </div>
       <Link
-        href="/learn/quiz?mode=wrong"
+        href="/learn/quiz?mode=bookmark"
         style={{
           padding: '9px 20px',
-          background: '#2E2118',
+          background: '#7A6145',
           color: '#fff',
           borderRadius: 8,
           fontSize: 13,

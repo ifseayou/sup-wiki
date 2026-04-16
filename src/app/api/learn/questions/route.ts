@@ -47,18 +47,40 @@ export async function GET(request: NextRequest) {
     let rows: RowDataPacket[];
 
     if (user) {
-      // 已登录：按做题次数升序（做过越少越优先），同次数随机
-      // JOIN 参数在前，WHERE 过滤参数在后
-      [rows] = await pool.execute<RowDataPacket[]>(
-        `SELECT ${SELECT_FIELDS}, COALESCE(a.attempt_count, 0) AS attempt_count
+      // 已登录：优先派从未做过的题（attempt_count=0 或无记录）
+      // 若未做过的题不足 limit，再补充已做过的（按做题次数升序）
+      const [undonRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT ${SELECT_FIELDS}
          FROM sup_quiz_questions q
          LEFT JOIN sup_quiz_attempts a
            ON q.question_id = a.question_id AND a.user_id = ?
          ${where}
-         ORDER BY COALESCE(a.attempt_count, 0) ASC, RAND()
+           AND (a.attempt_count IS NULL OR a.attempt_count = 0)
+         ORDER BY RAND()
          LIMIT ${limit}`,
         [user.user_id, ...filterParams]
       );
+
+      if (undonRows.length >= limit) {
+        rows = undonRows;
+      } else {
+        // 未做过的题不够，补充已做过的（做得少的优先）
+        const remain = limit - undonRows.length;
+        const [doneRows] = await pool.execute<RowDataPacket[]>(
+          `SELECT ${SELECT_FIELDS}, a.attempt_count
+           FROM sup_quiz_questions q
+           JOIN sup_quiz_attempts a
+             ON q.question_id = a.question_id AND a.user_id = ?
+           ${where}
+             AND a.attempt_count > 0
+           ORDER BY a.attempt_count ASC, RAND()
+           LIMIT ${remain}`,
+          [user.user_id, ...filterParams]
+        );
+        rows = [...undonRows, ...doneRows];
+        // 混合后再随机打散顺序
+        rows = rows.sort(() => Math.random() - 0.5);
+      }
     } else {
       // 未登录：纯随机
       [rows] = await pool.execute<RowDataPacket[]>(

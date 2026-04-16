@@ -16,18 +16,6 @@ interface BrandRow extends RowDataPacket {
   product_count: number;
 }
 
-const tierLabels: Record<string, string> = {
-  entry: '入门级',
-  intermediate: '进阶级',
-  pro: '专业级',
-};
-
-const tierColors: Record<string, string> = {
-  entry: 'bg-sage-100 text-sage-500',
-  intermediate: 'bg-cream-200 text-brown-600',
-  pro: 'bg-[#F0EBF0] text-[#7A6B7A]',
-};
-
 async function getBrands(tier?: string, country?: string) {
   try {
     const conditions: string[] = ["b.status = 'published'"];
@@ -56,18 +44,10 @@ async function getBrands(tier?: string, country?: string) {
 
 const filters = [
   {
-    key: 'tier',
-    placeholder: '全部定位',
-    options: [
-      { label: '入门级', value: 'entry' },
-      { label: '进阶级', value: 'intermediate' },
-      { label: '专业级', value: 'pro' },
-    ],
-  },
-  {
     key: 'country',
     placeholder: '全部国家',
     options: [
+      { label: '全部国家', value: 'all' },
       { label: '中国', value: '中国' },
       { label: '英国', value: '英国' },
       { label: '美国', value: '美国' },
@@ -83,7 +63,9 @@ export default async function BrandsPage({
 }: {
   searchParams: Promise<{ tier?: string; country?: string }>;
 }) {
-  const { tier, country } = await searchParams;
+  const { tier, country: rawCountry } = await searchParams;
+  // 默认展示中国品牌；选 'all' 时展示全部
+  const country = rawCountry === 'all' ? undefined : (rawCountry ?? '中国');
   const brands = await getBrands(tier, country);
 
   return (
@@ -119,10 +101,7 @@ export default async function BrandsPage({
                   {brand.name_en && brand.name_en !== brand.name && (
                     <p className="text-sm text-warm-gray-400">{brand.name_en}</p>
                   )}
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className={`text-xs px-2 py-1 rounded-full ${tierColors[brand.tier]}`}>
-                      {tierLabels[brand.tier]}
-                    </span>
+                  <div className="mt-3 flex items-center justify-end">
                     <span className="text-sm text-warm-gray-400">{brand.product_count} 款产品</span>
                   </div>
                   {brand.country && (

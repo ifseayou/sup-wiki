@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import ProductImageGallery from '@/components/ProductImageGallery';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 
@@ -88,7 +89,11 @@ export default async function ProductDetailPage({
           </li>
           <li className="text-warm-gray-400">/</li>
           <li>
-            <Link href="/products" className="text-warm-gray-400 hover:text-warm-gray-700">产品</Link>
+            <Link href="/brands" className="text-warm-gray-400 hover:text-warm-gray-700">品牌</Link>
+          </li>
+          <li className="text-warm-gray-400">/</li>
+          <li>
+            <Link href={`/brands/${product.brand_slug}`} className="text-warm-gray-400 hover:text-warm-gray-700">{product.brand_name}</Link>
           </li>
           <li className="text-warm-gray-400">/</li>
           <li className="text-brown-800">{product.model}</li>
@@ -98,26 +103,7 @@ export default async function ProductDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Images */}
         <div>
-          <div className="bg-gray-100 rounded-2xl aspect-square flex items-center justify-center overflow-hidden">
-            {images.length > 0 ? (
-              <img
-                src={images[0]}
-                alt={product.model}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-8xl text-cream-300">🏄</span>
-            )}
-          </div>
-          {images.length > 1 && (
-            <div className="mt-4 grid grid-cols-4 gap-2">
-              {images.slice(1, 5).map((img: string, idx: number) => (
-                <div key={idx} className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                  <img src={img} alt="" className="w-full h-full object-cover" />
-                </div>
-              ))}
-            </div>
-          )}
+          <ProductImageGallery images={images} name={product.model} />
         </div>
 
         {/* Info */}

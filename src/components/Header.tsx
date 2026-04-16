@@ -7,7 +7,6 @@ import { useUser } from '@/components/UserContext';
 
 const navLinks = [
   { href: '/brands', label: '品牌' },
-  { href: '/products', label: '产品' },
   { href: '/athletes', label: '运动员' },
   { href: '/creators', label: '博主' },
   { href: '/events', label: '赛事' },

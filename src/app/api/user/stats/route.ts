@@ -14,20 +14,26 @@ export async function GET(request: NextRequest) {
   const user = auth(request);
   if (!user) return NextResponse.json({ error: '请先登录' }, { status: 401 });
 
-  const [rows] = await pool.execute<RowDataPacket[]>(
-    'SELECT total_attempted, total_correct FROM sup_quiz_user_stats WHERE user_id = ?',
-    [user.user_id]
-  );
+  // 已刷题目 = 做过的不重复题目数（来自 sup_quiz_attempts）
+  const [[uniqueRow], [wrongRow]] = await Promise.all([
+    pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as unique_attempted FROM sup_quiz_attempts WHERE user_id = ?',
+      [user.user_id]
+    ),
+    pool.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as wrong_count FROM sup_quiz_wrong_history WHERE user_id = ?',
+      [user.user_id]
+    ),
+  ]);
 
-  if (rows.length === 0) {
-    return NextResponse.json({ total_attempted: 0, total_correct: 0, total_wrong: 0 });
-  }
+  const unique_attempted = (uniqueRow[0] as { unique_attempted: number }).unique_attempted ?? 0;
+  const wrong_count = (wrongRow[0] as { wrong_count: number }).wrong_count ?? 0;
+  const total_correct = Math.max(0, unique_attempted - wrong_count);
 
-  const { total_attempted, total_correct } = rows[0] as { total_attempted: number; total_correct: number };
   return NextResponse.json({
-    total_attempted,
-    total_correct,
-    total_wrong: total_attempted - total_correct,
+    total_attempted: unique_attempted,   // 已刷题目（唯一）
+    total_correct,                        // 当前答对（唯一做过 - 当前错题）
+    total_wrong: wrong_count,             // 当前错题库数量
   });
 }
 
