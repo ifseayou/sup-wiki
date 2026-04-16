@@ -374,16 +374,133 @@ function IntlDiagram() {
   );
 }
 
+// ── Markdown 简易渲染 ──────────────────────────────────────
+
+function SimpleMarkdown({ content }: { content: string }) {
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+  let tableRows: string[][] = [];
+  let tableHeader: string[] = [];
+  let inTable = false;
+
+  function flushTable(key: string) {
+    if (tableHeader.length === 0) return;
+    elements.push(
+      <div key={key} style={{ overflowX: 'auto', margin: '16px 0' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr>
+              {tableHeader.map((h, i) => (
+                <th key={i} style={{ textAlign: 'left', padding: '8px 12px', borderBottom: '2px solid #D5CBBC', color: '#5A4A3A', fontWeight: 600, background: '#F5EFE8' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tableRows.map((row, ri) => (
+              <tr key={ri}>
+                {row.map((cell, ci) => (
+                  <td key={ci} style={{ padding: '7px 12px', borderBottom: '1px solid #EDE5D8', color: '#4A3F35', lineHeight: 1.6 }}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+    tableHeader = [];
+    tableRows = [];
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // 表格行
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      const cells = trimmed.slice(1, -1).split('|').map(c => c.trim());
+      if (!inTable) {
+        tableHeader = cells;
+        inTable = true;
+        continue;
+      }
+      // 分隔行
+      if (cells.every(c => /^[-:]+$/.test(c))) continue;
+      tableRows.push(cells);
+      continue;
+    }
+
+    if (inTable) { flushTable(`table-${i}`); inTable = false; }
+
+    if (!trimmed) { elements.push(<div key={i} style={{ height: 10 }} />); continue; }
+    if (trimmed === '---') { elements.push(<hr key={i} style={{ border: 'none', borderTop: '1px solid #EDE5D8', margin: '20px 0' }} />); continue; }
+    if (trimmed.startsWith('## ')) {
+      elements.push(<h2 key={i} style={{ fontSize: 18, fontWeight: 700, color: '#2E2118', margin: '28px 0 12px', fontFamily: 'var(--font-display)' }}>{trimmed.slice(3)}</h2>);
+      continue;
+    }
+    if (trimmed.startsWith('### ')) {
+      elements.push(<h3 key={i} style={{ fontSize: 15, fontWeight: 600, color: '#4A3F35', margin: '20px 0 8px' }}>{trimmed.slice(4)}</h3>);
+      continue;
+    }
+    if (trimmed.startsWith('> ')) {
+      elements.push(
+        <blockquote key={i} style={{ borderLeft: '3px solid #C4A882', paddingLeft: 14, margin: '12px 0', color: '#6B5D4F', fontSize: 13, lineHeight: 1.7 }}>
+          {renderInline(trimmed.slice(2))}
+        </blockquote>
+      );
+      continue;
+    }
+    if (trimmed.startsWith('- ')) {
+      elements.push(
+        <div key={i} style={{ display: 'flex', gap: 8, paddingLeft: 4, margin: '4px 0', fontSize: 13.5, color: '#3A3028', lineHeight: 1.7 }}>
+          <span style={{ color: '#C4A882', flexShrink: 0 }}>•</span>
+          <span>{renderInline(trimmed.slice(2))}</span>
+        </div>
+      );
+      continue;
+    }
+    elements.push(<p key={i} style={{ fontSize: 13.5, color: '#3A3028', lineHeight: 1.8, margin: '6px 0' }}>{renderInline(trimmed)}</p>);
+  }
+
+  if (inTable) flushTable('table-end');
+
+  return <>{elements}</>;
+}
+
+function renderInline(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+  while (remaining.length > 0) {
+    const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+    if (boldMatch && boldMatch.index !== undefined) {
+      if (boldMatch.index > 0) parts.push(remaining.slice(0, boldMatch.index));
+      parts.push(<strong key={key++} style={{ fontWeight: 600, color: '#2E2118' }}>{boldMatch[1]}</strong>);
+      remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
+    } else {
+      parts.push(remaining);
+      break;
+    }
+  }
+  return parts.length === 1 ? parts[0] : <>{parts}</>;
+}
+
 // ── 主组件 ─────────────────────────────────────────────────
 
-const TABS = [
+const BUILT_IN_TABS = [
   { key: 'china', label: '中国赛事体系' },
   { key: 'intl', label: '国际赛事体系' },
 ];
 
-export default function ArticleGuideTabs({ articles: _ }: Props) {
-  const [activeTab, setActiveTab] = useState<'china' | 'intl'>('china');
+export default function ArticleGuideTabs({ articles }: Props) {
+  const [activeTab, setActiveTab] = useState('china');
   const [expanded, setExpanded] = useState(false);
+
+  // 数据库文章作为额外 tab
+  const articleTabs = articles
+    .filter(a => a.title !== '中国桨板赛事体系' && a.title !== '国际桨板赛事体系')
+    .map(a => ({ key: `article-${a.article_id}`, label: a.title, content: a.content }));
+
+  const allTabs = [...BUILT_IN_TABS, ...articleTabs];
 
   return (
     <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 12, marginBottom: 32 }}>
@@ -392,13 +509,13 @@ export default function ArticleGuideTabs({ articles: _ }: Props) {
         onClick={() => setExpanded(e => !e)}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', cursor: 'pointer', userSelect: 'none' }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#A08060' }}>赛事指南</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {TABS.map(t => (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {allTabs.map(t => (
               <span
                 key={t.key}
-                onClick={e => { e.stopPropagation(); setActiveTab(t.key as 'china' | 'intl'); setExpanded(true); }}
+                onClick={e => { e.stopPropagation(); setActiveTab(t.key); setExpanded(true); }}
                 style={{
                   fontSize: 12,
                   color: activeTab === t.key && expanded ? '#7A6145' : '#8A8078',
@@ -420,11 +537,11 @@ export default function ArticleGuideTabs({ articles: _ }: Props) {
       {/* 展开内容 */}
       {expanded && (
         <div style={{ borderTop: '1px solid #EDE5D8' }}>
-          <div style={{ display: 'flex', padding: '0 20px', borderBottom: '1px solid #EDE5D8' }}>
-            {TABS.map(t => (
+          <div style={{ display: 'flex', padding: '0 20px', borderBottom: '1px solid #EDE5D8', overflowX: 'auto' }}>
+            {allTabs.map(t => (
               <button
                 key={t.key}
-                onClick={() => setActiveTab(t.key as 'china' | 'intl')}
+                onClick={() => setActiveTab(t.key)}
                 style={{
                   background: 'none', border: 'none',
                   borderBottom: activeTab === t.key ? '2px solid #7A6145' : '2px solid transparent',
@@ -432,12 +549,17 @@ export default function ArticleGuideTabs({ articles: _ }: Props) {
                   fontWeight: activeTab === t.key ? 500 : 400,
                   color: activeTab === t.key ? '#2E2118' : '#8A8078',
                   cursor: 'pointer', transition: 'color 0.15s', marginBottom: -1,
+                  whiteSpace: 'nowrap',
                 }}
               >{t.label}</button>
             ))}
           </div>
           <div style={{ padding: '20px', overflowX: 'visible' }}>
-            {activeTab === 'china' ? <ChinaDiagram /> : <IntlDiagram />}
+            {activeTab === 'china' && <ChinaDiagram />}
+            {activeTab === 'intl' && <IntlDiagram />}
+            {articleTabs.map(t => activeTab === t.key && t.content && (
+              <SimpleMarkdown key={t.key} content={t.content} />
+            ))}
           </div>
         </div>
       )}
