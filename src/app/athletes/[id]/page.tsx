@@ -15,6 +15,7 @@ interface AthleteRow extends RowDataPacket {
   bio: string | null;
   discipline: string;
   achievements: string | null;
+  race_times: string | null;
   icf_ranking: number | null;
   social_links: string | null;
 }
@@ -29,6 +30,28 @@ interface Achievement {
   highlight?: boolean;  // 金牌/冠军等重要成就
   story?: string;       // 花边/趣事
 }
+
+interface RaceTime {
+  distance: string;     // '200m' / '6km' / '10km' / '1000m' 等
+  year?: number;
+  event: string;        // 赛事名称
+  round?: string;       // 预赛 / 四分之一决赛 / 半决赛 / 决赛 / Final B 等（可选）
+  result?: string;      // 名次说明（可选）
+  time: string;         // 耗时，格式自由："57.124"（秒）或 "38:23"（分:秒）等
+  note?: string;        // 备注（可选）
+}
+
+const distanceLabels: Record<string, { label: string; icon: string; order: number }> = {
+  '200m':  { label: '200 米竞速',    icon: '⚡', order: 1 },
+  '500m':  { label: '500 米竞速',    icon: '⚡', order: 2 },
+  '1000m': { label: '1000 米竞速',   icon: '⚡', order: 3 },
+  '3km':   { label: '3 公里长距离',  icon: '🏃', order: 4 },
+  '5km':   { label: '5 公里长距离',  icon: '🏃', order: 5 },
+  '6km':   { label: '6 公里长距离',  icon: '🏃', order: 6 },
+  '8km':   { label: '8 公里长距离',  icon: '🏃', order: 7 },
+  '10km':  { label: '10 公里长距离', icon: '🏃', order: 8 },
+  '16km':  { label: '16 公里长距离', icon: '🏃', order: 9 },
+};
 
 const disciplineLabels: Record<string, string> = {
   race: '竞速', surf: '冲浪', distance: '长距离', technical: '技巧',
@@ -88,6 +111,23 @@ export default async function AthleteDetailPage({
   const extraPhotos: string[] = Array.isArray(athlete.photos)
     ? athlete.photos
     : (athlete.photos ? JSON.parse(String(athlete.photos)) : []);
+
+  // 关键项目耗时
+  const rawRaceTimes: RaceTime[] = Array.isArray(athlete.race_times)
+    ? athlete.race_times
+    : (athlete.race_times ? JSON.parse(String(athlete.race_times)) : []);
+
+  // 按距离分组
+  const raceTimesByDistance = rawRaceTimes.reduce<Record<string, RaceTime[]>>((acc, rt) => {
+    (acc[rt.distance] ||= []).push(rt);
+    return acc;
+  }, {});
+
+  const distanceKeys = Object.keys(raceTimesByDistance).sort((a, b) => {
+    const oa = distanceLabels[a]?.order ?? 99;
+    const ob = distanceLabels[b]?.order ?? 99;
+    return oa - ob;
+  });
 
   return (
     <div style={{ maxWidth: 880, margin: '0 auto', padding: '40px 24px' }}>
@@ -185,6 +225,63 @@ export default async function AthleteDetailPage({
                 />
               </a>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 关键项目耗时 ──────────────────────────────────── */}
+      {distanceKeys.length > 0 && (
+        <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '28px 32px', marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <div style={{ width: 3, height: 20, background: '#7A6145', borderRadius: 2 }} />
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', margin: 0 }}>关键项目耗时</h2>
+            <span style={{ fontSize: 12, color: '#A08060', marginLeft: 6 }}>（核心竞速距离的公开可查成绩）</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+            {distanceKeys.map(dk => {
+              const meta = distanceLabels[dk] || { label: dk, icon: '⏱' };
+              const rows = raceTimesByDistance[dk];
+              return (
+                <div key={dk}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                    <h3 style={{ fontSize: 15, fontWeight: 600, color: '#2E2118', margin: 0 }}>{meta.label}</h3>
+                  </div>
+
+                  <div style={{ border: '1px solid #EDE5D8', borderRadius: 10, overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: '#F5EDE4', color: '#655D56' }}>
+                          <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500 }}>赛事</th>
+                          <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500, width: 110 }}>轮次 / 名次</th>
+                          <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 500, width: 90 }}>用时</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((rt, i) => (
+                          <tr key={i} style={{ borderTop: i === 0 ? 'none' : '1px solid #F0EAE0' }}>
+                            <td style={{ padding: '10px 12px', color: '#3D3730', lineHeight: 1.55 }}>
+                              {rt.year && <span style={{ color: '#8A8078', marginRight: 6 }}>{rt.year}</span>}
+                              {rt.event}
+                              {rt.note && (
+                                <div style={{ fontSize: 11, color: '#8A8078', marginTop: 3, fontStyle: 'italic' }}>※ {rt.note}</div>
+                              )}
+                            </td>
+                            <td style={{ padding: '10px 12px', color: '#655D56' }}>
+                              {rt.round || rt.result || '—'}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, color: '#7A6145', fontWeight: 600 }}>
+                              {rt.time}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

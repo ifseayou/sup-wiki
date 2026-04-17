@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS sup_athletes (
     bio TEXT,
     discipline ENUM('race', 'surf', 'distance', 'technical') DEFAULT 'race',
     achievements JSON,
+    race_times JSON,
     icf_ranking INT,
     social_links JSON,
     status ENUM('draft', 'published') DEFAULT 'published',
