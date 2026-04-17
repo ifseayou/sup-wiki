@@ -215,12 +215,12 @@ export default async function BrandDetailPage({
                   href={`/products/${product.product_id}`}
                   className="bg-cream-50 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-cream-200 group"
                 >
-                  <div className="h-48 bg-cream-100 flex items-center justify-center">
+                  <div className="h-48 bg-cream-100 flex items-center justify-center p-3">
                     {images.length > 0 ? (
                       <img
                         src={images[0]}
                         alt={product.model}
-                        className="h-full w-full object-cover"
+                        className="max-h-full max-w-full object-contain"
                       />
                     ) : (
                       <span className="text-4xl text-cream-300">🏄</span>
