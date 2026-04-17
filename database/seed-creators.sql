@@ -19,9 +19,14 @@ INSERT INTO sup_creators (nickname, platform, follower_tier, content_style, bio,
  NULL, 'draft'),
 
 ('大力桨板',
- 'douyin', '10k-100k', 'tutorial',
- '国内桨板推广达人，深耕桨板教学与装备科普，帮助新手零基础入门站立式桨板运动。',
- NULL, 'draft'),
+ 'bilibili', '1k-10k', 'tutorial',
+ '专注站立式桨板入门教学的内容创作者，持续输出桨板结构、基础动作和新手教学内容，适合作为中文 SUP 入门学习账号关注。',
+ 'https://space.bilibili.com/487021384', 'published'),
+
+('划桨板的猛子',
+ 'bilibili', '1k-10k', 'vlog',
+ '以训练记录、城市水域划行和赛事现场为核心内容的桨板创作者，公开资料可见其以“国家桨板运动员”身份持续发布深圳大鹏等水域的桨板内容。',
+ 'https://space.bilibili.com/1650134456', 'published'),
 
 -- 已验证（来源：品玩 PingWest 专题报道 2022）
 ('北新桥卡戴珊',

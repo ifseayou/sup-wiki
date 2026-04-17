@@ -1,0 +1,6 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="18" fill="#1B1713"/>
+  <rect x="10.5" y="10.5" width="43" height="43" rx="12.5" stroke="#8F6A42" stroke-opacity="0.35"/>
+  <path d="M11 43.5H40.5V48.5H11V43.5Z" fill="#2F8C8B"/>
+  <text x="32" y="39" text-anchor="middle" fill="#F3E8D8" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="800" letter-spacing="2.1">SUP</text>
+</svg>

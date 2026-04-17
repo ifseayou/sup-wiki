@@ -45,7 +45,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
     const {
       category, board_type, brand_id, product_id, name, slug,
       subtitle, description, highlights, cost_price, market_price, discount_price,
-      stock_status = 'in_stock', images, videos, spec, status = 'draft', sort_order = 0,
+      stock_status = 'in_stock', images, variants, videos, spec, status = 'draft', sort_order = 0,
     } = body;
 
     if (!category || !name || !slug) {
@@ -55,8 +55,8 @@ export const POST = withAdmin(async (request: NextRequest) => {
     const [result] = await pool.execute<ResultSetHeader>(
       `INSERT INTO sup_shop_items
         (category, board_type, brand_id, product_id, name, slug, subtitle, description,
-         highlights, cost_price, market_price, discount_price, stock_status, images, videos, spec, status, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         highlights, cost_price, market_price, discount_price, stock_status, images, variants, videos, spec, status, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         category,
         board_type || null,
@@ -72,6 +72,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
         discount_price || null,
         stock_status,
         images ? JSON.stringify(images) : null,
+        variants ? JSON.stringify(variants) : null,
         videos ? JSON.stringify(videos) : null,
         spec ? JSON.stringify(spec) : null,
         status,

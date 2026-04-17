@@ -1,3 +1,5 @@
+请先阅读并遵循项目根目录的 `CLAUDE.md`。
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

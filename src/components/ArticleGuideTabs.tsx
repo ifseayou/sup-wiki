@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 
 interface Article { article_id: number; title: string; summary: string | null; content: string | null }
 interface Props { articles: Article[] }
@@ -140,6 +140,144 @@ const INTL_ORGS = [
     ],
   },
 ];
+
+const CHINA_RULE_ROWS = [
+  {
+    host: 'ICF / ISA',
+    hostRowSpan: 1,
+    level: '世界级',
+    levelRowSpan: 1,
+    source: '全球',
+    sourceRowSpan: 1,
+    stars: '五星+',
+    starsRowSpan: 1,
+    score: '5.5',
+    scoreRowSpan: 1,
+    events: '世锦赛、世界杯',
+  },
+  {
+    host: 'ACC / ASF',
+    hostRowSpan: 1,
+    level: '亚洲级',
+    levelRowSpan: 1,
+    source: '亚洲',
+    sourceRowSpan: 1,
+    stars: '五星',
+    starsRowSpan: 2,
+    score: '5',
+    scoreRowSpan: 2,
+    events: '亚锦赛、亚洲杯',
+  },
+  {
+    host: '总局水上中心',
+    hostRowSpan: 3,
+    level: '国际级',
+    levelRowSpan: 1,
+    source: '国内外',
+    sourceRowSpan: 1,
+    stars: '五星',
+    score: '5',
+    events: '国际公开赛',
+  },
+  {
+    host: '总局水上中心',
+    level: '国家级',
+    levelRowSpan: 2,
+    source: '全国',
+    sourceRowSpan: 2,
+    stars: '四星+',
+    starsRowSpan: 1,
+    score: '4.5',
+    scoreRowSpan: 1,
+    events: '全锦赛、联赛总决赛、全国桨板精英联赛、中国绿水青山运动会',
+  },
+  {
+    host: '总局水上中心',
+    level: '国家级',
+    source: '全国',
+    stars: '四星',
+    starsRowSpan: 1,
+    score: '4',
+    scoreRowSpan: 1,
+    events: '其它全国性赛事',
+  },
+  {
+    host: '总局水上中心 / 省市体育部门',
+    hostRowSpan: 1,
+    level: '大区类',
+    levelRowSpan: 1,
+    source: '省市及周边区域',
+    sourceRowSpan: 1,
+    stars: '三星+',
+    starsRowSpan: 1,
+    score: '3.5',
+    scoreRowSpan: 1,
+    events: '华中区赛、长三角闽港澳赛等',
+  },
+  {
+    host: '省级体育部门 / 省级管理单位',
+    hostRowSpan: 1,
+    level: '省级',
+    levelRowSpan: 1,
+    source: '本省市',
+    sourceRowSpan: 1,
+    stars: '三星',
+    starsRowSpan: 1,
+    score: '3',
+    scoreRowSpan: 1,
+    events: '省市锦标赛、冠军赛',
+  },
+  {
+    host: '市级体育部门 / 市级管理单位',
+    hostRowSpan: 1,
+    level: '地市级',
+    levelRowSpan: 1,
+    source: '本地市',
+    sourceRowSpan: 1,
+    stars: '二星',
+    starsRowSpan: 1,
+    score: '2',
+    scoreRowSpan: 1,
+    events: '地市赛、省市赛，以备案公布为准',
+  },
+  {
+    host: '县级体育部门 / 县级管理单位',
+    hostRowSpan: 1,
+    level: '区县级',
+    levelRowSpan: 1,
+    source: '本区县',
+    sourceRowSpan: 1,
+    stars: '一星',
+    starsRowSpan: 1,
+    score: '1',
+    scoreRowSpan: 1,
+    events: '以备案为准',
+  },
+  {
+    host: '乡镇政府部门',
+    hostRowSpan: 1,
+    level: '乡镇级 / 其它',
+    levelRowSpan: 1,
+    source: '本乡镇',
+    sourceRowSpan: 1,
+    stars: '无',
+    starsRowSpan: 1,
+    score: '0.5',
+    scoreRowSpan: 1,
+    events: '以备案为准',
+  },
+];
+
+const RULE_GLOSSARY: Record<string, string> = {
+  'ICF / ISA': 'ICF 为国际皮划艇联合会，ISA 为国际冲浪协会，属于全球范围内最核心的两条国际桨板竞赛体系。',
+  'ACC / ASF': '通常对应亚洲范围的官方竞赛组织体系，用于承接亚洲区域赛事与洲际积分。',
+  '总局水上中心': '指国家体育总局水上运动管理中心，是国内桨板国家级赛事与积分体系的重要主管单位。',
+  '五星+': '国际最高梯队，通常对应世界顶级官方赛事，积分与影响力都处在最上层。',
+  '四星+': '国家级核心赛事梯队，通常决定国内高水平运动员的重要积分排序。',
+  '三星+': '跨省区域赛事等级，高于一般省级比赛，常作为区域对抗或大区选拔平台。',
+  '积分系数': '积分系数越高，同等成绩折算后的积分越高，对年度排名、等级和选拔价值越大。',
+  '备案赛事': '最终有效性以主管部门备案、公示或当年度正式竞赛规程为准。',
+};
 
 // ── 气泡组件 ──────────────────────────────────────────────
 
@@ -288,7 +426,375 @@ function ChinaDiagram() {
       </div>
 
       <p style={{ fontSize: 11, color: '#C0B4A4', marginTop: 8, textAlign: 'right' }}>点击卡片查看详细说明</p>
+
+      <ChinaRuleMatrix />
     </div>
+  );
+}
+
+function ChinaRuleMatrix() {
+  const [hint, setHint] = useState<string | null>(null);
+
+  return (
+    <section
+      style={{
+        marginTop: 28,
+        borderRadius: 18,
+        border: '1px solid #E7DCCB',
+        background: 'linear-gradient(180deg, #FFFDF8 0%, #F8F2E9 100%)',
+        overflow: 'hidden',
+        boxShadow: '0 18px 48px rgba(122, 97, 69, 0.08)',
+      }}
+    >
+      <div
+        style={{
+          padding: '22px 22px 18px',
+          background: 'linear-gradient(135deg, #2E2118 0%, #7A6145 58%, #C4A882 100%)',
+          color: '#FEFCF9',
+          position: 'relative',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'radial-gradient(circle at top right, rgba(255,255,255,0.2), transparent 34%), linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)',
+            pointerEvents: 'none',
+          }}
+        />
+        <div style={{ position: 'relative' }}>
+          <div style={{ fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', opacity: 0.78, marginBottom: 8 }}>
+            China SUP Competition Rules
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 30, lineHeight: 1.05, marginBottom: 8 }}>
+            中国桨板赛事积分等级矩阵
+          </div>
+          <p style={{ maxWidth: 760, fontSize: 13.5, lineHeight: 1.75, color: 'rgba(254,252,249,0.9)', margin: 0 }}>
+            面向中国桨板竞赛规则的核心参考表。按照主办单位、赛事等级、人员来源、赛事星级与积分系数，快速判断一场赛事在国内积分体系中的位置。
+          </p>
+        </div>
+      </div>
+
+      <div style={{ padding: '18px 18px 16px' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 10,
+            marginBottom: 14,
+          }}
+        >
+          {[
+            { label: '世界级 / 亚洲级', value: '国际官方体系' },
+            { label: '国家级到区县级', value: '国内积分主干' },
+            { label: '乡镇级 / 其它', value: '备案赛事参考' },
+          ].map((item) => (
+            <div
+              key={item.label}
+              style={{
+                borderRadius: 999,
+                border: '1px solid #E3D4BE',
+                background: '#FFFCF7',
+                padding: '6px 11px',
+                fontSize: 11.5,
+                color: '#6B5846',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span style={{ color: '#B78952' }}>✦</span>
+              <span style={{ fontWeight: 600 }}>{item.label}</span>
+              <span style={{ color: '#A2876D' }}>{item.value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1.25fr 0.95fr',
+            gap: 12,
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              borderRadius: 14,
+              border: '1px solid #E7DCCB',
+              background: '#FFF9F1',
+              padding: '15px 16px',
+            }}
+          >
+            <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#A08060', marginBottom: 7 }}>
+              积分如何起作用
+            </div>
+            <div style={{ fontSize: 14, color: '#3B2F25', lineHeight: 1.8 }}>
+              在同一赛事中，名次决定基础分，<strong style={{ color: '#2E2118' }}>积分系数</strong> 决定这场比赛的“权重倍数”。
+              系数越高，成绩换算后的积分越高，对年度排名、队伍选拔和运动员等级认定的参考价值也越强。
+            </div>
+          </div>
+
+          <div
+            style={{
+              borderRadius: 14,
+              border: '1px solid #E7DCCB',
+              background: '#FFFCF8',
+              padding: '15px 16px',
+            }}
+          >
+            <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#A08060', marginBottom: 7 }}>
+              阅读方式
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12.5, color: '#5A4A3A', lineHeight: 1.7 }}>
+              <div><strong style={{ color: '#2E2118' }}>先看主办单位</strong>：判断这场比赛属于国际、国家还是地方体系。</div>
+              <div><strong style={{ color: '#2E2118' }}>再看积分系数</strong>：快速估算赛事成绩对排名的影响力度。</div>
+              <div><strong style={{ color: '#2E2118' }}>最后看典型赛事</strong>：把抽象等级映射到你熟悉的实际比赛。</div>
+            </div>
+          </div>
+        </div>
+
+        {hint && (
+          <div
+            style={{
+              marginBottom: 14,
+              borderRadius: 12,
+              border: '1px solid #E6D7C2',
+              background: '#2E2118',
+              color: '#FDF7EE',
+              padding: '12px 14px',
+              fontSize: 12.5,
+              lineHeight: 1.75,
+              boxShadow: '0 10px 24px rgba(46,33,24,0.12)',
+            }}
+          >
+            <span style={{ color: '#E6C48B', fontWeight: 700, marginRight: 8 }}>术语提示</span>
+            {hint}
+          </div>
+        )}
+
+        <div style={{ overflowX: 'auto' }}>
+          <table
+            style={{
+              width: '100%',
+              minWidth: 900,
+              borderCollapse: 'separate',
+              borderSpacing: 0,
+              background: '#FFFCF8',
+              border: '1px solid #E7DCCB',
+              borderRadius: 14,
+              overflow: 'hidden',
+            }}
+          >
+            <thead>
+              <tr>
+                {['主办单位', '等级赛事', '赛事人员来源', '赛事星级', '积分系数', '典型赛事'].map((head, i) => (
+                  <th
+                    key={head}
+                    style={{
+                      padding: '14px 14px',
+                      textAlign: i === 5 ? 'left' : 'center',
+                      fontSize: 12,
+                      letterSpacing: '0.08em',
+                      color: '#5A4534',
+                      fontWeight: 700,
+                      background: i === 4 ? '#F3DFC0' : '#F8EBCF',
+                      borderBottom: '1px solid #DFCDB4',
+                      borderRight: i < 5 ? '1px solid #E7DCCB' : 'none',
+                    }}
+                  >
+                    {head}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {CHINA_RULE_ROWS.map((row, idx) => {
+                const highTier = Number(row.score) >= 5;
+                const nationalTier = Number(row.score) >= 4 && Number(row.score) < 5;
+                const scoreBg = highTier ? '#2E2118' : nationalTier ? '#7A6145' : '#EFE3D2';
+                const scoreColor = highTier || nationalTier ? '#FEFCF9' : '#6B5846';
+
+                return (
+                  <tr key={`${row.host}-${row.level}-${idx}`}>
+                    {row.hostRowSpan ? (
+                      <td rowSpan={row.hostRowSpan} style={cellStyle(idx, 'center', 160)}>
+                        <TermButton label={row.host} hint={RULE_GLOSSARY[row.host]} onShow={setHint} />
+                      </td>
+                    ) : null}
+                    {row.levelRowSpan ? (
+                      <td rowSpan={row.levelRowSpan} style={cellStyle(idx, 'center', 110)}>{row.level}</td>
+                    ) : null}
+                    {row.sourceRowSpan ? (
+                      <td rowSpan={row.sourceRowSpan} style={cellStyle(idx, 'center', 120)}>{row.source}</td>
+                    ) : null}
+                    {row.starsRowSpan ? (
+                      <td rowSpan={row.starsRowSpan} style={cellStyle(idx, 'center', 100)}>
+                        <TermButton
+                          label={row.stars}
+                          hint={RULE_GLOSSARY[row.stars]}
+                          onShow={setHint}
+                          pill
+                        />
+                      </td>
+                    ) : null}
+                    {row.scoreRowSpan ? (
+                      <td rowSpan={row.scoreRowSpan} style={cellStyle(idx, 'center', 86)}>
+                        <button
+                          type="button"
+                          onMouseEnter={() => setHint(RULE_GLOSSARY['积分系数'])}
+                          onFocus={() => setHint(RULE_GLOSSARY['积分系数'])}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 48,
+                            height: 48,
+                            borderRadius: 14,
+                            background: scoreBg,
+                            color: scoreColor,
+                            fontSize: 18,
+                            fontWeight: 800,
+                            boxShadow: highTier ? '0 8px 18px rgba(46,33,24,0.18)' : 'none',
+                            border: 'none',
+                            cursor: 'help',
+                          }}
+                          title={RULE_GLOSSARY['积分系数']}
+                        >
+                          {row.score}
+                        </button>
+                      </td>
+                    ) : null}
+                    <td style={cellStyle(idx, 'left', 260)}>
+                      {row.events.includes('备案') ? (
+                        <TermButton label={row.events} hint={RULE_GLOSSARY['备案赛事']} onShow={setHint} align="left" />
+                      ) : (
+                        row.events
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div
+          style={{
+            marginTop: 16,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: 12,
+          }}
+        >
+          {[
+            {
+              title: '对运动员等级的影响',
+              text: '高等级赛事更容易成为技术等级认定、后续选拔和履历积累的重要依据，尤其国家级以上赛事更关键。',
+            },
+            {
+              title: '对年度排名的影响',
+              text: '同样进入领奖台，高系数赛事带来的年度积分提升更快，因此运动员会优先布局高权重站点。',
+            },
+            {
+              title: '对参赛策略的影响',
+              text: '省级与区域赛事更适合稳步积累，国家级与国际级赛事则更偏向冲击高分与证明硬实力。',
+            },
+          ].map((card) => (
+            <div
+              key={card.title}
+              style={{
+                borderRadius: 14,
+                border: '1px solid #E7DCCB',
+                background: '#FFFCF8',
+                padding: '15px 15px 14px',
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#2E2118', marginBottom: 7 }}>{card.title}</div>
+              <div style={{ fontSize: 12.5, lineHeight: 1.75, color: '#655446' }}>{card.text}</div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 11.5, color: '#8E755C', lineHeight: 1.7 }}>
+            注：该表用于赛事等级与积分判断的快速对照，实际认定仍以当年度官方竞赛规程、备案文件与主管单位公告为准。
+          </p>
+          <div style={{ fontSize: 11, color: '#B29B82', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            Rules Reference Matrix
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function cellStyle(index: number, align: 'left' | 'center', minWidth: number): CSSProperties {
+  return {
+    padding: '12px 14px',
+    textAlign: align,
+    verticalAlign: 'middle',
+    fontSize: 13,
+    color: '#3F3227',
+    lineHeight: 1.65,
+    background: index % 2 === 0 ? '#FFFCF8' : '#FCF7F0',
+    borderBottom: '1px solid #EEE2D4',
+    borderRight: '1px solid #EEE2D4',
+    minWidth,
+  };
+}
+
+function TermButton({
+  label,
+  hint,
+  onShow,
+  pill = false,
+  align = 'center',
+}: {
+  label: string;
+  hint?: string;
+  onShow: (hint: string | null) => void;
+  pill?: boolean;
+  align?: 'left' | 'center';
+}) {
+  if (!hint) return <span>{label}</span>;
+
+  return (
+    <button
+      type="button"
+      onMouseEnter={() => onShow(hint)}
+      onFocus={() => onShow(hint)}
+      style={{
+        display: pill ? 'inline-flex' : 'inline',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: pill ? 62 : undefined,
+        borderRadius: pill ? 999 : 0,
+        background: pill ? '#FFF4DE' : 'transparent',
+        color: pill ? '#9C6B2F' : '#3F3227',
+        fontSize: pill ? 12 : 13,
+        fontWeight: pill ? 700 : 600,
+        padding: pill ? '4px 10px' : 0,
+        border: pill ? '1px solid #E8C893' : 'none',
+        cursor: 'help',
+        textAlign: align,
+        textDecoration: pill ? 'none' : 'underline dotted #C4A882 1.5px',
+        textUnderlineOffset: pill ? undefined : '3px',
+      }}
+      title={hint}
+    >
+      {label}
+    </button>
   );
 }
 

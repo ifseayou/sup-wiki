@@ -4,6 +4,8 @@ import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import FilterBar from '@/components/FilterBar';
 import ArticleGuideTabs from '@/components/ArticleGuideTabs';
+import AnnualGuideTimeline from '@/components/events/AnnualGuideTimeline';
+import { GUIDE_EVENT_ORDER, type GuideTimelineEvent } from '@/lib/event-guide';
 
 interface EventRow extends RowDataPacket {
   event_id: number;
@@ -13,6 +15,7 @@ interface EventRow extends RowDataPacket {
   location: string | null;
   province: string | null;
   city: string | null;
+  venue: string | null;
   start_date: string | null;
   end_date: string | null;
   registration_deadline: string | null;
@@ -22,6 +25,8 @@ interface EventRow extends RowDataPacket {
   price_range: string | null;
   event_status: string;
 }
+
+type EventWithDisciplines = Omit<EventRow, 'disciplines'> & { disciplines: string[] };
 
 const eventTypeLabels: Record<string, string> = {
   race: '竞速赛',
@@ -61,14 +66,23 @@ async function getEvents(event_type?: string, event_status?: string, province?: 
     const conditions: string[] = ["status = 'published'"];
     const params: string[] = [];
 
-    if (event_type) { conditions.push('event_type = ?'); params.push(event_type); }
-    if (event_status) { conditions.push('event_status = ?'); params.push(event_status); }
-    if (province) { conditions.push('province = ?'); params.push(province); }
+    if (event_type) {
+      conditions.push('event_type = ?');
+      params.push(event_type);
+    }
+    if (event_status) {
+      conditions.push('event_status = ?');
+      params.push(event_status);
+    }
+    if (province) {
+      conditions.push('province = ?');
+      params.push(province);
+    }
 
     const where = `WHERE ${conditions.join(' AND ')}`;
 
     const [events] = await pool.execute<EventRow[]>(
-      `SELECT event_id, name, slug, event_type, location, province, city,
+      `SELECT event_id, name, slug, event_type, location, province, city, venue,
               start_date, end_date, registration_deadline, organizer,
               description, disciplines, price_range, event_status
        FROM sup_events ${where}
@@ -77,12 +91,50 @@ async function getEvents(event_type?: string, event_status?: string, province?: 
          start_date ASC`,
       params
     );
-    return events.map(e => ({
+
+    return events.map((e) => ({
       ...e,
       disciplines: Array.isArray(e.disciplines) ? e.disciplines : (e.disciplines ? JSON.parse(e.disciplines) : []),
     }));
   } catch (error) {
     console.error('获取赛事列表失败:', error);
+    return [];
+  }
+}
+
+async function getGuideTimelineEvents() {
+  try {
+    const [events] = await pool.execute<EventRow[]>(
+      `SELECT event_id, name, slug, event_type, province, city,
+              start_date, end_date, organizer, description, disciplines
+       FROM sup_events
+       WHERE status = 'published'
+         AND start_date >= '2025-01-01'
+         AND start_date < '2026-01-01'
+         AND slug IN (${GUIDE_EVENT_ORDER.map(() => '?').join(', ')})
+       ORDER BY start_date ASC`,
+      GUIDE_EVENT_ORDER
+    );
+
+    const parsed: GuideTimelineEvent[] = events.map((e) => ({
+      event_id: e.event_id,
+      name: e.name,
+      slug: e.slug,
+      province: e.province,
+      city: e.city,
+      start_date: e.start_date,
+      end_date: e.end_date,
+      organizer: e.organizer,
+      description: e.description,
+      disciplines: Array.isArray(e.disciplines) ? e.disciplines : (e.disciplines ? JSON.parse(e.disciplines) : []),
+    }));
+
+    return GUIDE_EVENT_ORDER.flatMap((slug) => {
+      const match = parsed.find((event) => event.slug === slug);
+      return match ? [match] : [];
+    });
+  } catch (error) {
+    console.error('获取赛事导览图数据失败:', error);
     return [];
   }
 }
@@ -116,6 +168,10 @@ const filters = [
       { label: '海南', value: '海南' },
       { label: '云南', value: '云南' },
       { label: '山东', value: '山东' },
+      { label: '江苏', value: '江苏' },
+      { label: '河南', value: '河南' },
+      { label: '宁夏', value: '宁夏' },
+      { label: '湖南', value: '湖南' },
     ],
   },
 ];
@@ -126,18 +182,18 @@ export default async function EventsPage({
   searchParams: Promise<{ event_type?: string; event_status?: string; province?: string }>;
 }) {
   const { event_type, event_status, province } = await searchParams;
-  const [events, guideArticles] = await Promise.all([
+  const [events, guideArticles, timelineEvents] = await Promise.all([
     getEvents(event_type, event_status, province),
     getGuideArticles(),
+    getGuideTimelineEvents(),
   ]);
 
-  const upcomingOrOngoing = events.filter(e => e.event_status === 'upcoming' || e.event_status === 'ongoing');
-  const completed = events.filter(e => e.event_status === 'completed' || e.event_status === 'cancelled');
+  const upcomingOrOngoing = events.filter((e) => e.event_status === 'upcoming' || e.event_status === 'ongoing');
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="mb-10">
-        <h1 className="text-3xl font-bold text-stone-800 mb-2">国内赛事</h1>
+        <h1 className="mb-2 text-3xl font-bold text-stone-800">国内赛事</h1>
         <p className="text-stone-500">掌握国内 SUP 桨板赛事动态，报名参与或关注精彩比赛</p>
       </div>
 
@@ -149,34 +205,22 @@ export default async function EventsPage({
 
       {upcomingOrOngoing.length > 0 && (
         <section className="mb-12">
-          <h2 className="text-lg font-semibold text-stone-700 mb-5 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+          <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold text-stone-700">
+            <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
             即将举办 / 进行中
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {upcomingOrOngoing.map(event => (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {upcomingOrOngoing.map((event) => (
               <EventCard key={event.event_id} event={event} highlighted />
             ))}
           </div>
         </section>
       )}
 
-      {completed.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-stone-500 mb-5 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-stone-400 inline-block" />
-            往届赛事
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {completed.map(event => (
-              <EventCard key={event.event_id} event={event} />
-            ))}
-          </div>
-        </section>
-      )}
+      {timelineEvents.length > 0 && <AnnualGuideTimeline events={timelineEvents} />}
 
       {events.length === 0 && (
-        <div className="text-center py-20">
+        <div className="py-20 text-center">
           <p className="text-stone-500">暂无符合条件的赛事</p>
         </div>
       )}
@@ -185,7 +229,7 @@ export default async function EventsPage({
 }
 
 function EventCard({ event, highlighted = false }: {
-  event: EventRow & { disciplines: string[] };
+  event: EventWithDisciplines;
   highlighted?: boolean;
 }) {
   const statusInfo = eventStatusLabels[event.event_status] || { label: event.event_status, style: 'bg-stone-100 text-stone-600' };
@@ -194,41 +238,41 @@ function EventCard({ event, highlighted = false }: {
   return (
     <Link
       href={`/events/${event.event_id}`}
-      className={`block rounded-xl border transition-all duration-200 hover:shadow-md group ${
+      className={`group block rounded-xl border transition-all duration-200 hover:shadow-md ${
         highlighted
-          ? 'bg-[#FEFCF9] border-[#E0D8CC] hover:border-[#8B7355]'
-          : 'bg-[#FEFCF9] border-[#E0D8CC] opacity-80 hover:opacity-100'
+          ? 'border-[#E0D8CC] bg-[#FEFCF9] hover:border-[#8B7355]'
+          : 'border-[#E0D8CC] bg-[#FEFCF9] opacity-80 hover:opacity-100'
       }`}
     >
       <div className={`h-1.5 rounded-t-xl ${highlighted ? 'bg-amber-400' : 'bg-stone-300'}`} />
       <div className="p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusInfo.style}`}>
+        <div className="mb-3 flex items-center gap-2">
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusInfo.style}`}>
             {statusInfo.label}
           </span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-[#F0EBE1] text-[#8B7355]">
+          <span className="rounded-full bg-[#F0EBE1] px-2 py-0.5 text-xs text-[#8B7355]">
             {typeLabel}
           </span>
         </div>
-        <h3 className="font-semibold text-stone-800 group-hover:text-[#8B7355] transition-colors leading-snug mb-2">
+        <h3 className="mb-2 font-semibold leading-snug text-stone-800 transition-colors group-hover:text-[#8B7355]">
           {event.name}
         </h3>
         {event.start_date && (
-          <div className="text-sm text-stone-500 mb-1">
+          <div className="mb-1 text-sm text-stone-500">
             {formatDate(event.start_date)}
             {event.end_date && event.end_date !== event.start_date && ` — ${formatDate(event.end_date)}`}
           </div>
         )}
         {(event.city || event.province) && (
-          <div className="text-sm text-stone-500 mb-1">
+          <div className="mb-1 text-sm text-stone-500">
             {[event.city, event.province].filter(Boolean).join('，')}
           </div>
         )}
         {event.organizer && (
-          <div className="text-xs text-stone-400 mt-3 truncate">主办：{event.organizer}</div>
+          <div className="mt-3 truncate text-xs text-stone-400">主办：{event.organizer}</div>
         )}
         {event.price_range && (
-          <div className="text-sm font-medium text-[#8B7355] mt-2">{event.price_range}</div>
+          <div className="mt-2 text-sm font-medium text-[#8B7355]">{event.price_range}</div>
         )}
       </div>
     </Link>

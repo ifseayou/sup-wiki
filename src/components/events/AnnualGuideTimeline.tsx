@@ -158,7 +158,7 @@ function DesktopNode({ event, rowTop }: { event: GuideTimelineEvent; rowTop: num
   return (
     <Link
       href={`/events/${event.event_id}`}
-      className="group absolute block -translate-x-1/2"
+      className="group absolute block -translate-x-1/2 z-10 hover:z-[110]"
       style={{ left: meta.desktopLeft, top: rowTop }}
     >
       {/* 默认态：日期 + 圆点 + 城市 + 星级 */}
@@ -188,7 +188,7 @@ function DesktopNode({ event, rowTop }: { event: GuideTimelineEvent; rowTop: num
 
       {/* Hover 浮层：玻璃雨滴卡片 */}
       <div
-        className={`pointer-events-none absolute left-1/2 z-30 w-[260px] -translate-x-1/2 rounded-[20px] p-[1px] opacity-0 transition-all duration-250 group-hover:pointer-events-auto group-hover:opacity-100 ${
+        className={`pointer-events-none absolute left-1/2 z-[100] w-[260px] -translate-x-1/2 rounded-[20px] p-[1px] opacity-0 transition-all duration-250 group-hover:pointer-events-auto group-hover:opacity-100 ${
           popUp ? 'bottom-[72px]' : 'top-[72px]'
         }`}
         style={{

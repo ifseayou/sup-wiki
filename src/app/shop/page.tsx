@@ -56,7 +56,7 @@ async function getShopItems(category?: string, board_type?: string, sort?: strin
 
     const [rows] = await pool.execute<ShopRow[]>(
       `SELECT s.shop_item_id, s.category, s.board_type, s.name, s.slug, s.subtitle,
-              s.market_price, s.discount_price, s.stock_status, s.images,
+              s.market_price, s.discount_price, s.stock_status, s.images, s.variants,
               b.name as brand_name
        FROM sup_shop_items s
        LEFT JOIN sup_brands b ON s.brand_id = b.brand_id
