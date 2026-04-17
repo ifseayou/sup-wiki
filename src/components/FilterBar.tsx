@@ -13,7 +13,7 @@ export interface FilterConfig {
   options: FilterOption[];
 }
 
-export default function FilterBar({ filters }: { filters: FilterConfig[] }) {
+export default function FilterBar({ filters, defaultValues }: { filters: FilterConfig[]; defaultValues?: Record<string, string> }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -61,7 +61,7 @@ export default function FilterBar({ filters }: { filters: FilterConfig[] }) {
         {filters.map(f => (
           <select
             key={f.key}
-            value={searchParams.get(f.key) || ''}
+            value={searchParams.get(f.key) || defaultValues?.[f.key] || ''}
             onChange={e => handleChange(f.key, e.target.value)}
             className={`filter-select${searchParams.get(f.key) ? ' active' : ''}`}
           >

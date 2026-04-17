@@ -146,13 +146,6 @@ export default async function CreatorsPage({
                   {creator.nickname}
                 </h3>
                 <div className="mt-3 flex items-center justify-center gap-2">
-                  <span className={`text-xs px-2 py-1 rounded ${platformLabels[creator.platform]?.color || 'bg-cream-200 text-warm-gray-500'}`}>
-                    {(() => {
-                      const p = platformLabels[creator.platform];
-                      if (!p) return creator.platform;
-                      return p.tip ? <Tooltip tip={p.tip} dotted={false}>{p.name}</Tooltip> : p.name;
-                    })()}
-                  </span>
                   <span className="text-xs px-2 py-1 bg-cream-200 text-warm-gray-500 rounded">
                     {creator.content_style === 'vlog'
                       ? <Tooltip tip="视频博客 / 视频日志" dotted={false}>Vlog</Tooltip>

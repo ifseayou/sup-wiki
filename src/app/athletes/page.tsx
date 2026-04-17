@@ -59,7 +59,8 @@ export default async function AthletesPage({
 }: {
   searchParams: Promise<{ discipline?: string; nationality?: string }>;
 }) {
-  const { discipline, nationality } = await searchParams;
+  const { discipline, nationality: rawNationality } = await searchParams;
+  const nationality = rawNationality ?? '中国';
   const [athletes, nationalities] = await Promise.all([
     getAthletes(discipline, nationality),
     getNationalities(),
@@ -91,7 +92,7 @@ export default async function AthletesPage({
       </div>
 
       <Suspense>
-        <FilterBar filters={filters} />
+        <FilterBar filters={filters} defaultValues={{ nationality: '中国' }} />
       </Suspense>
 
       {athletes.length > 0 ? (
