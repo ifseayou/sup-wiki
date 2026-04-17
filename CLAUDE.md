@@ -110,6 +110,57 @@ sup-wiki/
 
 所有实体表均有 `status ENUM('draft','published')` 字段，公开 API 只返回 `published` 数据。
 
+## 图片资源规范（强制）
+
+**所有图片必须走 OSS，禁止使用 `public/*-import/` 等本地静态目录。** 这是硬性规定，无论新增运动员、博主、品牌、产品还是赛事，一律按以下流程处理：
+
+### OSS 配置（阿里云）
+
+| 项 | 值 |
+|----|----|
+| Bucket | `sport-hacker-assets` |
+| Endpoint | `sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com` |
+| 路径约定 | `sup-wiki/<folder>/<timestamp>-<rand>.<ext>` |
+| 凭据位置 | 生产 `.env.local`：`OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` |
+
+### 目录约定
+
+| 实体 | OSS folder |
+|------|-----------|
+| 运动员 | `sup-wiki/athletes/` |
+| 博主 | `sup-wiki/creators/` |
+| 品牌 | `sup-wiki/brands/` |
+| 产品 | `sup-wiki/products/` |
+| 赛事 | `sup-wiki/events/` |
+
+### 上传方式
+
+**方式 1（推荐，日常管理员录入）**：管理后台 `/admin` 的图片上传组件 → 走 `/api/admin/upload`（JWT 鉴权 + OSS 签名）。
+
+**方式 2（Claude Code 批量脚本上传）**：直接写一次性 Node 脚本调用 OSS HTTP API，使用手写 HMAC-SHA1 签名。签名模板：
+
+```js
+import crypto from 'crypto';
+const stringToSign = `PUT\n\n${contentType}\n${date}\n/${OSS_BUCKET}/${ossKey}`;
+const signature = crypto.createHmac('sha1', OSS_SK).update(stringToSign).digest('base64');
+// Header: Authorization: OSS <AK>:<signature>
+```
+
+完整参考：`src/app/api/admin/upload/route.ts`。脚本放 `/tmp/`，执行完立即删除，不污染项目目录。
+
+### 禁止事项
+
+- ❌ 不要把图片放 `public/` 下任何 `*-import/` 目录后当静态资源用
+- ❌ 不要用 `scp` 把图片传到服务器 `public/` 再用本地路径引用
+- ❌ 数据库 `photo` / `avatar` / `cover_image` 等字段禁止写入 `/xxx-import/*.png` 这类相对路径，必须写完整 OSS URL
+
+### 新增实体带图片的标准流程
+
+1. Claude Code 收到用户发来的图片
+2. 直接通过 OSS 签名上传到对应 folder，获得 URL
+3. 数据库 INSERT 时 `photo` / `avatar` 字段写 OSS URL
+4. 本地不留图片副本，脚本执行后清理
+
 ## 内容管理工作流（AI 辅助）
 
 管理员工作流（无 UGC）：
