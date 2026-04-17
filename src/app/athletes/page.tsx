@@ -60,7 +60,10 @@ export default async function AthletesPage({
   searchParams: Promise<{ discipline?: string; nationality?: string }>;
 }) {
   const { discipline, nationality: rawNationality } = await searchParams;
-  const nationality = rawNationality ?? '中国';
+  // 'all' 表示用户显式选择全部国籍；undefined 且无其他筛选时默认中国
+  const nationality = rawNationality === 'all'
+    ? undefined
+    : (rawNationality ?? (discipline ? undefined : '中国'));
   const [athletes, nationalities] = await Promise.all([
     getAthletes(discipline, nationality),
     getNationalities(),
@@ -79,8 +82,11 @@ export default async function AthletesPage({
     },
     {
       key: 'nationality',
-      placeholder: '全部国籍',
-      options: nationalities.map(n => ({ label: n, value: n })),
+      placeholder: '按国籍筛选',
+      options: [
+        { label: '🌏 全部国籍', value: 'all' },
+        ...nationalities.map(n => ({ label: n, value: n })),
+      ],
     },
   ];
 
