@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation';
 import Tooltip from '@/components/Tooltip';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
+import { marked } from 'marked';
+
+marked.setOptions({ breaks: true });
 
 interface CreatorRow extends RowDataPacket {
   creator_id: number;
@@ -135,7 +138,10 @@ export default async function CreatorDetailPage({
           {creator.bio && (
             <div className="mt-8">
               <h2 className="text-lg font-semibold text-brown-800 mb-3">简介</h2>
-              <p className="text-warm-gray-700 leading-relaxed">{creator.bio}</p>
+              <div
+                className="article-guide-body text-warm-gray-700 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: marked.parse(creator.bio) as string }}
+              />
             </div>
           )}
         </div>
