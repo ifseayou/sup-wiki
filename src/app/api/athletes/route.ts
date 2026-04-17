@@ -74,11 +74,12 @@ export async function GET(request: NextRequest) {
       params
     );
 
-    // 解析 JSON 字段
+    const parseArr = (v: unknown) => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
+    const parseObj = (v: unknown) => (v && typeof v === 'object') ? v : (v ? JSON.parse(String(v)) : {});
     const parsedAthletes = athletes.map((a) => ({
       ...a,
-      achievements: a.achievements ? JSON.parse(a.achievements) : [],
-      social_links: a.social_links ? JSON.parse(a.social_links) : {},
+      achievements: parseArr(a.achievements),
+      social_links: parseObj(a.social_links),
     }));
 
     const response: PaginatedResponse<Athlete> = {

@@ -50,11 +50,12 @@ export async function GET(
 
     const athlete = athletes[0];
 
-    // 解析 JSON 字段
+    const parseArr = (v: unknown) => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
+    const parseObj = (v: unknown) => (v && typeof v === 'object') ? v : (v ? JSON.parse(String(v)) : {});
     const result = {
       ...athlete,
-      achievements: athlete.achievements ? JSON.parse(athlete.achievements) : [],
-      social_links: athlete.social_links ? JSON.parse(athlete.social_links) : {},
+      achievements: parseArr(athlete.achievements),
+      social_links: parseObj(athlete.social_links),
     };
 
     return NextResponse.json(result);
