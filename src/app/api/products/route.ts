@@ -109,11 +109,11 @@ export async function GET(request: NextRequest) {
       params
     );
 
-    // 解析 JSON 字段
+    const parseArr = (v: unknown) => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
     const parsedProducts = products.map((p) => ({
       ...p,
-      buy_links: p.buy_links ? JSON.parse(p.buy_links) : [],
-      images: p.images ? JSON.parse(p.images) : [],
+      buy_links: parseArr(p.buy_links),
+      images: parseArr(p.images),
       brand: {
         brand_id: p.brand_id,
         name: p.brand_name,

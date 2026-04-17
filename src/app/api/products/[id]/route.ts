@@ -70,11 +70,11 @@ export async function GET(
 
     const product = products[0];
 
-    // 解析 JSON 字段
+    const parseArr = (v: unknown) => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
     const result = {
       ...product,
-      buy_links: product.buy_links ? JSON.parse(product.buy_links) : [],
-      images: product.images ? JSON.parse(product.images) : [],
+      buy_links: parseArr(product.buy_links),
+      images: parseArr(product.images),
       brand: {
         brand_id: product.brand_id,
         name: product.brand_name,
