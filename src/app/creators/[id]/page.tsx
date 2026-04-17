@@ -15,15 +15,6 @@ interface CreatorRow extends RowDataPacket {
   profile_url: string | null;
 }
 
-const platformLabels: Record<string, { name: string; color: string; icon: string; tip?: string }> = {
-  douyin: { name: '抖音', color: 'bg-black text-white', icon: '🎵' },
-  xiaohongshu: { name: '小红书', color: 'bg-red-500 text-white', icon: '📕' },
-  bilibili: { name: 'B站', color: 'bg-pink-400 text-white', icon: '📺' },
-  youtube: { name: 'YouTube', color: 'bg-red-600 text-white', icon: '▶️', tip: '谷歌旗下视频分享平台' },
-  instagram: { name: 'Instagram', color: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white', icon: '📸', tip: 'Meta 旗下图文社交平台' },
-  weibo: { name: '微博', color: 'bg-orange-500 text-white', icon: '📝' },
-};
-
 const styleLabels: Record<string, string> = {
   tutorial: '教学',
   review: '测评',
@@ -69,8 +60,6 @@ export default async function CreatorDetailPage({
   if (!creator) {
     notFound();
   }
-
-  const platform = platformLabels[creator.platform] || { name: creator.platform, color: 'bg-cream-1000 text-white', icon: '📱' };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -118,12 +107,6 @@ export default async function CreatorDetailPage({
                 {creator.nickname}
               </h1>
               <div className="flex flex-wrap gap-3">
-                <span className={`px-4 py-1.5 rounded-full text-sm font-medium ${platform.color}`}>
-                  {platform.icon}{' '}
-                  {platform.tip
-                    ? <Tooltip tip={platform.tip} dotted={false}>{platform.name}</Tooltip>
-                    : platform.name}
-                </span>
                 <span className="px-4 py-1.5 bg-cream-200 text-warm-gray-700 rounded-full text-sm">
                   {creator.content_style === 'vlog'
                     ? <Tooltip tip="视频博客 / 视频日志" dotted={false}>Vlog</Tooltip>
@@ -141,7 +124,7 @@ export default async function CreatorDetailPage({
                 href={creator.profile_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`px-6 py-3 rounded-full text-sm font-medium ${platform.color} hover:opacity-90 transition-opacity shrink-0`}
+                className="px-6 py-3 rounded-full text-sm font-medium bg-brown-500 text-white hover:bg-brown-600 transition-colors shrink-0"
               >
                 访问主页 →
               </a>
