@@ -448,9 +448,10 @@ export default function MuscleDiagram() {
   const [debug, setDebug] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.search.includes('debug=hotspots')) {
-      setDebug(true);
-    }
+    if (typeof window === 'undefined') return;
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.get('debug') === 'hotspots') setDebug(true);
+    if (qs.get('view') === 'back') setView('posterior');
   }, []);
 
   const muscles = view === 'anterior' ? ANTERIOR : POSTERIOR;
