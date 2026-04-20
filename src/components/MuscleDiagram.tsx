@@ -1,22 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
- * 交互式桨板肌群发力图 v3。
- * 底图：写实解剖图，左右切开分别作为背面 / 正面，已上传 OSS。
- * 每视图 9+ 块精细肌肉 polygon hotspot，默认完全透明，hover 时显示彩色高亮 + 描边，
- * 让用户清楚看到"这里是哪块肌肉"以及它在桨板中的发力角色。
+ * 交互式桨板肌群发力图 v4。
+ * - 正面 / 背面底图各自独立尺寸（viewBox 各自对齐）
+ * - 每视图 9 块精细 polygon hotspot，8-14 个顶点贴合肌肉轮廓
+ * - ?debug=hotspots URL 参数开启调试模式，显示所有 hotspot 位置用于坐标校准
  */
 
-const FRONT_IMG_URL =
-  'https://sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com/sup-wiki/learn-docs/1776673897837-anatomy-front.png';
-const BACK_IMG_URL =
-  'https://sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com/sup-wiki/learn-docs/1776673896503-anatomy-back.png';
+// 正面：从双人图切出的右半
+const FRONT_IMG = {
+  url: 'https://sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com/sup-wiki/learn-docs/1776673897837-anatomy-front.png',
+  w: 905,
+  h: 1784,
+};
 
-// 底图原始像素尺寸（SVG viewBox 与之对齐）
-const IMG_W = 905;
-const IMG_H = 1784;
+// 背面：用户新提供的单独背面解剖图
+const BACK_IMG = {
+  url: 'https://sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com/sup-wiki/learn-docs/1776675267992-anatomy-back-v2.png',
+  w: 778,
+  h: 1746,
+};
 
 interface MuscleHotspot {
   id: string;
@@ -168,6 +173,9 @@ const ANTERIOR: MuscleHotspot[] = [
 
 /* =========================================================================
    背面肌群（9 块）
+   viewBox 0 0 778 1746（新背面图尺寸）
+   人像参考：头顶 y≈40，脚底 y≈1700；人像中轴 x≈395；肩宽 x=140-650
+   每块 polygon 8-14 个点沿肌肉轮廓，拐角弧线近似
    ========================================================================= */
 const POSTERIOR: MuscleHotspot[] = [
   {
@@ -175,7 +183,10 @@ const POSTERIOR: MuscleHotspot[] = [
     name: '斜方肌',
     alias: 'Trapezius',
     color: '#B8823F',
-    points: '330,275 435,265 580,275 600,470 440,490 310,470',
+    // 钻石形，从颈根下扩到两肩，再向脊柱中段收窄
+    points:
+      '395,250 335,265 265,295 200,320 185,360 215,410 265,455 325,495 ' +
+      '395,555 465,495 525,455 575,410 605,360 590,320 525,295 455,265',
     action: '**颈 + 肩胛骨稳定**，保持桨时不耸肩。',
     timing: '整个划水周期，尤其是拔桨瞬间。',
     tip: '耸肩代偿 = 斜方上束过劳，几桨后脖子就紧。',
@@ -187,10 +198,10 @@ const POSTERIOR: MuscleHotspot[] = [
     alias: 'Posterior deltoid',
     color: '#E07A3D',
     points:
-      // 左
-      '250,300 335,290 330,405 250,415 ;' +
-      // 右
-      '575,290 660,300 665,415 585,405',
+      // 左 — 肩膀后侧圆弧
+      '135,340 180,315 235,320 260,375 265,430 240,470 190,475 145,455 120,410 120,370 ;' +
+      // 右 — 对称
+      '530,320 595,315 640,340 660,370 660,410 640,455 595,475 550,470 520,430 525,375',
     action: '**拔桨出水**——把桨叶迅速抽离水面不拖水。',
     timing: '划水周期的收尾阶段。',
     tip: '拔桨拖水 = 三角肌后束 + 肩胛没协同，节奏被拖慢。',
@@ -201,9 +212,10 @@ const POSTERIOR: MuscleHotspot[] = [
     name: '背阔肌（桨板主发力肌）',
     alias: 'Latissimus dorsi',
     color: '#5A4530',
+    // 大 V 形，从腋下展开到腰两侧收窄
     points:
-      // 整片 V 形
-      '335,470 445,480 580,470 570,700 490,810 405,810 320,700',
+      '255,490 330,475 395,485 460,475 535,490 555,555 560,620 540,680 ' +
+      '505,720 460,735 395,740 330,735 285,720 250,680 230,620 235,555',
     action: '**拉桨发力主力** —— 像做引体向上。',
     timing: '入水后到拉到脚边的主拉距阶段。',
     tip: '新手用二头肌拉桨 = 半小时手臂废。**正确是背阔 + 躯干旋转**。',
@@ -215,10 +227,10 @@ const POSTERIOR: MuscleHotspot[] = [
     alias: 'Triceps brachii',
     color: '#A88660',
     points:
-      // 左
-      '240,420 320,425 315,620 230,610 ;' +
-      // 右
-      '585,425 665,420 670,610 590,620',
+      // 左 — 上臂后侧纺锤形
+      '125,475 175,460 210,485 220,545 215,610 185,640 140,645 115,610 105,555 108,510 ;' +
+      // 右 — 对称
+      '570,485 605,460 655,475 670,510 673,555 665,610 640,645 595,640 565,610 560,545',
     action: '**推桨下压 + 肘关节伸展**，配合胸肌完成压水动作。',
     timing: '拉桨到发力末端。',
     tip: '肘部全程屈曲 = 三头没参与，桨力只能靠手臂拉。',
@@ -230,10 +242,10 @@ const POSTERIOR: MuscleHotspot[] = [
     alias: 'Extensor digitorum',
     color: '#B5A3C7',
     points:
-      // 左
-      '195,625 275,620 285,815 205,815 ;' +
-      // 右
-      '625,620 710,625 700,815 620,815',
+      // 左 — 前臂（伸肘后的下半段）
+      '90,665 140,650 175,655 185,720 180,790 150,820 110,825 85,790 75,730 ;' +
+      // 右 — 对称
+      '603,655 638,650 688,665 693,730 683,790 668,820 628,825 598,790 593,720',
     action: '**腕背伸 + 握桨稳定**，与屈肌对抗平衡。',
     timing: '全程——控制桨柄角度。',
     tip: '长划手腕酸 = 屈伸肌失衡，腕关节过度代偿。',
@@ -244,9 +256,8 @@ const POSTERIOR: MuscleHotspot[] = [
     name: '竖脊肌 / 下背',
     alias: 'Erector spinae',
     color: '#7C5E3D',
-    points:
-      // 沿脊柱两侧
-      '420,300 490,300 500,820 410,820',
+    // 脊柱两侧长条，从肩胛内侧沿到骶骨
+    points: '370,320 395,315 420,320 425,440 425,570 425,680 420,770 395,775 370,770 365,680 365,570 365,440',
     action: '**保持脊柱中立**，对抗前倾力矩，防止拱腰。',
     timing: '前倾姿态和涌浪冲击的瞬时反应。',
     tip: '腰酸 ≠ 腰不行，通常是竖脊肌耐力不够。',
@@ -257,11 +268,14 @@ const POSTERIOR: MuscleHotspot[] = [
     name: '臀大肌',
     alias: 'Gluteus maximus',
     color: '#6F8563',
+    // 两瓣半球，用 10 点弧形描绘
     points:
-      // 左半臀
-      '335,790 450,770 460,985 350,990 ;' +
-      // 右半臀
-      '460,770 570,790 555,990 460,985',
+      // 左臀
+      '265,800 320,785 370,788 395,810 398,870 395,925 380,970 340,985 ' +
+      '295,980 260,950 248,905 250,855 ;' +
+      // 右臀
+      '395,810 420,788 470,785 525,800 540,855 542,905 530,950 495,980 ' +
+      '450,985 410,970 395,925 392,870',
     action: '**前倾推桨反作用力支点**——把力从板面反推回躯干。',
     timing: '每一桨发力链末端；Pivot Turn 重心后压时。',
     tip: '不会用臀 = 膝盖代偿过度，长划膝盖疼。',
@@ -273,10 +287,10 @@ const POSTERIOR: MuscleHotspot[] = [
     alias: 'Hamstrings',
     color: '#96A886',
     points:
-      // 左
-      '340,995 450,990 450,1290 345,1285 ;' +
-      // 右
-      '455,990 565,995 560,1285 455,1290',
+      // 左 — 大腿后，上窄下稍宽，到膝窝微收
+      '295,1000 355,990 390,995 388,1100 385,1200 378,1280 355,1305 318,1305 295,1280 285,1200 283,1100 ;' +
+      // 右 — 对称
+      '400,995 435,990 495,1000 505,1100 503,1200 493,1280 470,1305 433,1305 410,1280 403,1200 400,1100',
     action: '**跪姿→站姿起身** + 减速吸震 + 髋伸展发力。',
     timing: '起立动作、紧急减速、过涌浪时。',
     tip: '跪站切换腿抖 = 腘绳肌发力与核心不同步。',
@@ -288,10 +302,10 @@ const POSTERIOR: MuscleHotspot[] = [
     alias: 'Gastrocnemius / Soleus',
     color: '#A8BF9A',
     points:
-      // 左
-      '345,1360 435,1355 435,1680 355,1670 ;' +
-      // 右
-      '470,1355 555,1360 550,1670 475,1680',
+      // 左 — 小腿后腓肠肌纺锤形，中段最粗
+      '300,1370 355,1360 385,1370 395,1440 395,1520 385,1590 365,1625 330,1628 305,1605 290,1540 285,1460 ;' +
+      // 右 — 对称
+      '395,1370 425,1360 480,1370 495,1460 490,1540 475,1605 450,1628 415,1625 395,1590 385,1520 385,1440',
     action: '**站姿吸震 + 脚踝跖屈发力**，应对板子晃动。',
     timing: '涌浪 / 风浪 / 硬板站姿保持。',
     tip: '长划小腿抽筋 = 腓肠肌耐力不足 + 脱水。',
@@ -317,23 +331,24 @@ function RichText({ text }: { text: string }) {
 }
 
 function BodyCanvas({
-  view, muscles, activeId, setActiveId,
+  view, muscles, activeId, setActiveId, debug,
 }: {
   view: 'anterior' | 'posterior';
   muscles: MuscleHotspot[];
   activeId: string | null;
   setActiveId: (id: string | null) => void;
+  debug: boolean;
 }) {
-  const imgUrl = view === 'anterior' ? FRONT_IMG_URL : BACK_IMG_URL;
+  const img = view === 'anterior' ? FRONT_IMG : BACK_IMG;
 
   return (
     <div
-      style={{ position: 'relative', width: '100%', aspectRatio: `${IMG_W} / ${IMG_H}` }}
+      style={{ position: 'relative', width: '100%', aspectRatio: `${img.w} / ${img.h}` }}
       onMouseLeave={() => setActiveId(null)}
     >
       {/* 底图 */}
       <img
-        src={imgUrl}
+        src={img.url}
         alt={view === 'anterior' ? '人体肌肉正面解剖图' : '人体肌肉背面解剖图'}
         style={{
           position: 'absolute', inset: 0,
@@ -345,7 +360,7 @@ function BodyCanvas({
 
       {/* hotspot 叠加层 */}
       <svg
-        viewBox={`0 0 ${IMG_W} ${IMG_H}`}
+        viewBox={`0 0 ${img.w} ${img.h}`}
         preserveAspectRatio="xMidYMid meet"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
       >
@@ -353,26 +368,61 @@ function BodyCanvas({
           const isActive = activeId === m.id;
           // points 可能包含 ';' 分隔的多个多边形（用于对称左右肌肉）
           const polys = m.points.split(';').map(s => s.trim()).filter(Boolean);
+
+          // debug 模式下所有 hotspot 始终可见（半透明），便于坐标校准
+          const showFill = isActive || debug;
+          const fillOpacity = isActive ? 0.45 : debug ? 0.25 : 0;
+          const strokeOpacity = isActive ? 1 : debug ? 0.6 : 0;
+          const strokeWidth = isActive ? 4 : debug ? 2 : 0;
+
           return (
             <g key={m.id}>
               {polys.map((pts, i) => (
                 <polygon
                   key={i}
                   points={pts}
-                  fill={isActive ? m.color : 'transparent'}
-                  fillOpacity={isActive ? 0.38 : 0}
-                  stroke={isActive ? m.color : 'transparent'}
-                  strokeWidth={isActive ? 4 : 0}
+                  fill={showFill ? m.color : 'transparent'}
+                  fillOpacity={fillOpacity}
+                  stroke={showFill ? m.color : 'transparent'}
+                  strokeOpacity={strokeOpacity}
+                  strokeWidth={strokeWidth}
                   strokeLinejoin="round"
                   style={{
                     cursor: 'pointer',
-                    transition: 'fill 0.18s, fill-opacity 0.18s, stroke 0.18s, stroke-width 0.18s',
+                    transition: 'fill-opacity 0.18s, stroke-opacity 0.18s, stroke-width 0.18s',
                     filter: isActive ? `drop-shadow(0 0 8px ${m.color}60)` : 'none',
                   }}
                   onMouseEnter={() => setActiveId(m.id)}
                   onClick={() => setActiveId(m.id)}
                 />
               ))}
+              {/* debug 模式下在 polygon 中心标注肌肉名称 */}
+              {debug && (() => {
+                const first = polys[0];
+                if (!first) return null;
+                const nums = first.split(/[ ,]+/).map(Number);
+                const xs: number[] = [];
+                const ys: number[] = [];
+                for (let k = 0; k < nums.length; k += 2) {
+                  if (!isNaN(nums[k])) xs.push(nums[k]);
+                  if (!isNaN(nums[k + 1])) ys.push(nums[k + 1]);
+                }
+                const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
+                const cy = ys.reduce((a, b) => a + b, 0) / ys.length;
+                return (
+                  <text
+                    x={cx} y={cy}
+                    fill="#2E2118"
+                    fontSize="18"
+                    textAnchor="middle"
+                    fontWeight="600"
+                    pointerEvents="none"
+                    style={{ textShadow: '0 0 4px #fff' }}
+                  >
+                    {m.name.split('（')[0]}
+                  </text>
+                );
+              })()}
             </g>
           );
         })}
@@ -386,6 +436,7 @@ function BodyCanvas({
         border: '1px solid #EDE5D8', fontWeight: 600,
       }}>
         {view === 'anterior' ? '正面' : '背面'}
+        {debug && <span style={{ marginLeft: 6, color: '#B7470A' }}>· DEBUG</span>}
       </div>
     </div>
   );
@@ -394,6 +445,13 @@ function BodyCanvas({
 export default function MuscleDiagram() {
   const [view, setView] = useState<'anterior' | 'posterior'>('anterior');
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [debug, setDebug] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('debug=hotspots')) {
+      setDebug(true);
+    }
+  }, []);
 
   const muscles = view === 'anterior' ? ANTERIOR : POSTERIOR;
   const active = muscles.find(m => m.id === activeId) || null;
@@ -472,6 +530,7 @@ export default function MuscleDiagram() {
             muscles={muscles}
             activeId={activeId}
             setActiveId={setActiveId}
+            debug={debug}
           />
         </div>
 
