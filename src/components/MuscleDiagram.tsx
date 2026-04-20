@@ -4,23 +4,24 @@ import { useState } from 'react';
 
 /**
  * 交互式桨板肌群发力图。前视 / 后视两个视图，每个视图 5 个可交互肌群区域。
- * 鼠标悬停 / 移动端点击 → 右侧（或下方）信息面板显示该肌群在桨板运动中的角色、发力时机、新手提示、练习建议。
- * 非解剖图——以信息图风格呈现，与站内整体米色 / 棕褐色调统一。
+ * 人体轮廓使用弧线 / 椭圆拼接，强调：
+ *   - 肩膀三角肌弧度  - 腰部明显收窄
+ *   - 臀部凸起（后视图重点）- 大腿 / 小腿上粗下细
+ *   - 膝 / 肘关节圆，避免"积木感"
  */
 
 interface MuscleHotspot {
   id: string;
-  name: string;          // 中文肌群名
-  alias: string;         // 解剖学细项
-  color: string;         // 区域填充
-  hoverColor: string;    // hover 填充
-  action: string;        // 桨板动作中的角色
-  timing: string;        // 发力时机
-  tip: string;           // 新手提示 / 误区
-  training: string;      // 陆上辅助训练
+  name: string;
+  alias: string;
+  color: string;
+  hoverColor: string;
+  action: string;
+  timing: string;
+  tip: string;
+  training: string;
 }
 
-// 前视肌群数据
 const ANTERIOR: MuscleHotspot[] = [
   {
     id: 'chest_front_delt',
@@ -79,7 +80,6 @@ const ANTERIOR: MuscleHotspot[] = [
   },
 ];
 
-// 后视肌群数据
 const POSTERIOR: MuscleHotspot[] = [
   {
     id: 'traps_rear_delt',
@@ -138,7 +138,6 @@ const POSTERIOR: MuscleHotspot[] = [
   },
 ];
 
-// 把 Markdown 风格的 ** 加粗渲染成 React 节点（tooltip 内文用）
 function RichText({ text }: { text: string }) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return (
@@ -152,218 +151,358 @@ function RichText({ text }: { text: string }) {
   );
 }
 
-// 前视图 SVG — 纯色块组合人形，每个肌群是一个独立可交互区域
+/* ---------- 共用的中性骨架（头 / 脖 / 手 / 脚 / 上臂 / 膝肘关节） ---------- */
+function NeutralSkeleton({ isAnterior = true }: { isAnterior?: boolean }) {
+  return (
+    <g>
+      {/* 头 — 带下颌收缩 */}
+      <path
+        d="M 130 14
+           C 151 14 164 30 164 50
+           C 164 68 156 80 144 84
+           L 147 96
+           L 113 96
+           L 116 84
+           C 104 80 96 68 96 50
+           C 96 30 109 14 130 14 Z"
+        fill="#EDE0CE"
+      />
+      {/* 后视图在头中间加一点深色提示是"后脑勺" */}
+      {!isAnterior && (
+        <ellipse cx="130" cy="48" rx="18" ry="22" fill="#E1D1B7" opacity="0.4" />
+      )}
+
+      {/* 脖 */}
+      <rect x="116" y="92" width="28" height="10" fill="#EDE0CE" />
+
+      {/* 上臂 — 有三角肌弧形外凸 */}
+      <path
+        d="M 78 102
+           Q 60 106 52 120
+           Q 40 138 40 158
+           L 38 196
+           Q 42 210 54 210
+           L 68 210
+           Q 76 196 76 174
+           L 80 140
+           Q 82 118 78 102 Z"
+        fill="#EDE0CE"
+      />
+      <path
+        d="M 182 102
+           Q 200 106 208 120
+           Q 220 138 220 158
+           L 222 196
+           Q 218 210 206 210
+           L 192 210
+           Q 184 196 184 174
+           L 180 140
+           Q 178 118 182 102 Z"
+        fill="#EDE0CE"
+      />
+
+      {/* 肘关节 */}
+      <circle cx="53" cy="210" r="13" fill="#EDE0CE" />
+      <circle cx="207" cy="210" r="13" fill="#EDE0CE" />
+
+      {/* 手 — 带弧度的握姿暗示 */}
+      <path
+        d="M 42 300
+           Q 42 314 54 316
+           Q 68 316 68 302
+           Q 68 290 60 285
+           Q 48 283 44 290 Z"
+        fill="#EDE0CE"
+      />
+      <path
+        d="M 218 300
+           Q 218 314 206 316
+           Q 192 316 192 302
+           Q 192 290 200 285
+           Q 212 283 216 290 Z"
+        fill="#EDE0CE"
+      />
+
+      {/* 膝关节 */}
+      <circle cx="108" cy="395" r="14" fill="#EDE0CE" />
+      <circle cx="152" cy="395" r="14" fill="#EDE0CE" />
+
+      {/* 脚 — 椭圆带细节 */}
+      <ellipse cx="105" cy="508" rx="19" ry="9" fill="#EDE0CE" />
+      <ellipse cx="155" cy="508" rx="19" ry="9" fill="#EDE0CE" />
+    </g>
+  );
+}
+
+/* ---------- 前视图 ---------- */
 function AnteriorBody({
   activeId, setActiveId,
 }: { activeId: string | null; setActiveId: (id: string | null) => void; }) {
-  const fill = (id: string, base: string, hover: string) =>
-    activeId === id ? hover : base;
-  const stroke = (id: string) =>
-    activeId === id ? '#2E2118' : 'transparent';
+  const isActive = (id: string) => activeId === id;
+  const region = (id: string, d: string, base: string, hover: string) => (
+    <path
+      d={d}
+      fill={isActive(id) ? hover : base}
+      stroke={isActive(id) ? '#2E2118' : 'transparent'}
+      strokeWidth="2"
+      style={{ cursor: 'pointer', transition: 'fill 0.18s, stroke 0.18s' }}
+      onMouseEnter={() => setActiveId(id)}
+      onClick={() => setActiveId(id)}
+    />
+  );
 
   return (
-    <svg viewBox="0 0 260 500" style={{ width: '100%', height: '100%', maxHeight: 500 }}>
-      {/* 中性部位（不可交互）：头、脖、手掌、脚、手臂骨架 */}
-      <g fill="#EDE0CE">
-        {/* 头 */}
-        <ellipse cx="130" cy="45" rx="28" ry="32" />
-        {/* 脖 */}
-        <rect x="118" y="72" width="24" height="18" rx="4" />
-        {/* 手掌 */}
-        <circle cx="48" cy="295" r="13" />
-        <circle cx="212" cy="295" r="13" />
-        {/* 脚 */}
-        <ellipse cx="100" cy="480" rx="18" ry="10" />
-        <ellipse cx="160" cy="480" rx="18" ry="10" />
-        {/* 大臂连接部分（中性填充） */}
-        <rect x="40" y="95" width="26" height="105" rx="10" />
-        <rect x="194" y="95" width="26" height="105" rx="10" />
-      </g>
+    <svg viewBox="0 0 260 540" style={{ width: '100%', height: '100%', maxHeight: 540 }}>
+      <NeutralSkeleton isAnterior={true} />
 
-      {/* 胸肌 + 三角肌前束（肩 + 胸上部，一个 polygon） */}
+      {/* 胸 + 三角肌前束 — 肩宽到胸下，有三角肌外凸弧度 */}
+      {region(
+        'chest_front_delt',
+        `M 113 96
+         C 92 100, 74 110, 66 130
+         C 60 148, 64 166, 72 178
+         L 86 180
+         Q 130 184 174 180
+         L 188 178
+         C 196 166, 200 148, 194 130
+         C 186 110, 168 100, 147 96
+         Z`,
+        '#D4A574', '#B8823F'
+      )}
+
+      {/* 核心 — 腹肌，梯形收腰 */}
+      {region(
+        'core_anterior',
+        `M 72 178
+         Q 70 210, 78 245
+         L 98 252
+         Q 130 256 162 252
+         L 182 245
+         Q 190 210, 188 178
+         Q 130 186 72 178 Z`,
+        '#C49A6C', '#9A7042'
+      )}
+
+      {/* 前视图的骨盆/髋 — 中性色（臀部在后视图突出） */}
       <path
-        d="M 70 92 L 190 92 L 182 155 L 140 165 L 120 165 L 78 155 Z"
-        fill={fill('chest_front_delt', '#D4A574', '#B8823F')}
-        stroke={stroke('chest_front_delt')}
-        strokeWidth="2"
-        style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-        onMouseEnter={() => setActiveId('chest_front_delt')}
-        onClick={() => setActiveId('chest_front_delt')}
+        d="M 78 245
+           Q 70 270 80 295
+           C 105 310, 155 310, 180 295
+           Q 190 270 182 245
+           L 178 300
+           Q 130 312 82 300 Z"
+        fill="#E8DCC4"
       />
 
-      {/* 核心 — 腹肌 */}
-      <path
-        d="M 95 165 L 165 165 L 170 250 L 90 250 Z"
-        fill={fill('core_anterior', '#C49A6C', '#9A7042')}
-        stroke={stroke('core_anterior')}
-        strokeWidth="2"
-        style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-        onMouseEnter={() => setActiveId('core_anterior')}
-        onClick={() => setActiveId('core_anterior')}
-      />
+      {/* 股四头肌 — 大腿前，上粗下细 + 曲线 */}
+      {region(
+        'quadriceps',
+        `M 82 300
+         Q 80 340 92 380
+         L 110 395
+         Q 122 390 128 376
+         L 130 305
+         Q 105 310 82 300 Z
 
-      {/* 骨盆过渡 */}
-      <path d="M 90 250 L 170 250 L 168 280 L 92 280 Z" fill="#EDE0CE" />
+         M 130 305
+         L 132 376
+         Q 138 390 150 395
+         L 168 380
+         Q 180 340 178 300
+         Q 155 310 130 305 Z`,
+        '#96A886', '#6F8563'
+      )}
 
-      {/* 股四头 — 左右两条 */}
-      <path
-        d="M 92 280 L 128 280 L 124 390 L 96 390 Z
-           M 132 280 L 168 280 L 164 390 L 136 390 Z"
-        fill={fill('quadriceps', '#96A886', '#6F8563')}
-        stroke={stroke('quadriceps')}
-        strokeWidth="2"
-        style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-        onMouseEnter={() => setActiveId('quadriceps')}
-        onClick={() => setActiveId('quadriceps')}
-      />
+      {/* 前臂屈肌 — 上臂下到腕，带曲线 */}
+      {region(
+        'forearm_front',
+        `M 40 222
+         Q 36 250 40 282
+         Q 44 298 58 298
+         L 70 295
+         Q 76 270 76 240
+         Q 72 220 66 220
+         Z
 
-      {/* 前臂屈肌 — 左右两条 */}
-      <path
-        d="M 36 200 L 62 200 L 60 288 L 36 288 Z
-           M 198 200 L 224 200 L 224 288 L 200 288 Z"
-        fill={fill('forearm_front', '#B5A3C7', '#8D76A5')}
-        stroke={stroke('forearm_front')}
-        strokeWidth="2"
-        style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-        onMouseEnter={() => setActiveId('forearm_front')}
-        onClick={() => setActiveId('forearm_front')}
-      />
+         M 220 222
+         Q 224 250 220 282
+         Q 216 298 202 298
+         L 190 295
+         Q 184 270 184 240
+         Q 188 220 194 220
+         Z`,
+        '#B5A3C7', '#8D76A5'
+      )}
 
-      {/* 小腿 — 左右两条 */}
-      <path
-        d="M 96 390 L 124 390 L 122 470 L 98 470 Z
-           M 136 390 L 164 390 L 162 470 L 138 470 Z"
-        fill={fill('calf_front', '#A8BF9A', '#7E9770')}
-        stroke={stroke('calf_front')}
-        strokeWidth="2"
-        style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-        onMouseEnter={() => setActiveId('calf_front')}
-        onClick={() => setActiveId('calf_front')}
-      />
+      {/* 小腿 — 带腓肠肌弧形（中段最粗） */}
+      {region(
+        'calf_front',
+        `M 94 405
+         Q 86 425 88 450
+         Q 90 478 98 495
+         L 116 497
+         Q 124 478 124 450
+         Q 122 420 118 405
+         Q 108 402 94 405 Z
 
-      {/* 可交互区域中心的小标签（hover 时显示） */}
+         M 142 405
+         Q 138 420 136 450
+         Q 136 478 144 497
+         L 162 495
+         Q 170 478 172 450
+         Q 174 425 166 405
+         Q 152 402 142 405 Z`,
+        '#A8BF9A', '#7E9770'
+      )}
+
+      {/* 脉冲指示点 */}
       {activeId && (() => {
         const positions: Record<string, { x: number; y: number }> = {
-          chest_front_delt: { x: 130, y: 128 },
-          core_anterior: { x: 130, y: 210 },
-          quadriceps: { x: 130, y: 335 },
-          forearm_front: { x: 130, y: 244 },
-          calf_front: { x: 130, y: 430 },
+          chest_front_delt: { x: 130, y: 138 },
+          core_anterior:    { x: 130, y: 215 },
+          quadriceps:       { x: 130, y: 345 },
+          forearm_front:    { x: 130, y: 258 },
+          calf_front:       { x: 130, y: 455 },
         };
         const p = positions[activeId];
         if (!p) return null;
         return (
-          <circle cx={p.x} cy={p.y} r="4" fill="#2E2118" opacity="0.6">
-            <animate attributeName="r" values="4;7;4" dur="1.5s" repeatCount="indefinite" />
-          </circle>
+          <g pointerEvents="none">
+            <circle cx={p.x} cy={p.y} r="5" fill="#2E2118" opacity="0.7">
+              <animate attributeName="r" values="5;9;5" dur="1.6s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.7;0.3;0.7" dur="1.6s" repeatCount="indefinite" />
+            </circle>
+          </g>
         );
       })()}
     </svg>
   );
 }
 
-// 后视图 SVG
+/* ---------- 后视图 —— 臀部是视觉重点 ---------- */
 function PosteriorBody({
   activeId, setActiveId,
 }: { activeId: string | null; setActiveId: (id: string | null) => void; }) {
-  const fill = (id: string, base: string, hover: string) =>
-    activeId === id ? hover : base;
-  const stroke = (id: string) =>
-    activeId === id ? '#2E2118' : 'transparent';
+  const isActive = (id: string) => activeId === id;
+  const region = (id: string, d: string, base: string, hover: string) => (
+    <path
+      d={d}
+      fill={isActive(id) ? hover : base}
+      stroke={isActive(id) ? '#2E2118' : 'transparent'}
+      strokeWidth="2"
+      style={{ cursor: 'pointer', transition: 'fill 0.18s, stroke 0.18s' }}
+      onMouseEnter={() => setActiveId(id)}
+      onClick={() => setActiveId(id)}
+    />
+  );
 
   return (
-    <svg viewBox="0 0 260 500" style={{ width: '100%', height: '100%', maxHeight: 500 }}>
-      {/* 中性部位 */}
-      <g fill="#EDE0CE">
-        <ellipse cx="130" cy="45" rx="28" ry="32" />
-        <rect x="118" y="72" width="24" height="18" rx="4" />
-        <circle cx="48" cy="295" r="13" />
-        <circle cx="212" cy="295" r="13" />
-        <ellipse cx="100" cy="480" rx="18" ry="10" />
-        <ellipse cx="160" cy="480" rx="18" ry="10" />
-        {/* 大臂中性 */}
-        <rect x="40" y="95" width="26" height="105" rx="10" />
-        <rect x="194" y="95" width="26" height="105" rx="10" />
-        {/* 后视前臂中性（后视图前臂不做主要讲解，保持中性） */}
-        <rect x="36" y="200" width="26" height="88" rx="8" />
-        <rect x="198" y="200" width="26" height="88" rx="8" />
-      </g>
+    <svg viewBox="0 0 260 540" style={{ width: '100%', height: '100%', maxHeight: 540 }}>
+      <NeutralSkeleton isAnterior={false} />
 
-      {/* 斜方 + 三角肌后束 — 上背 */}
-      <path
-        d="M 70 92 L 190 92 L 182 142 L 78 142 Z"
-        fill={fill('traps_rear_delt', '#D4A574', '#B8823F')}
-        stroke={stroke('traps_rear_delt')}
-        strokeWidth="2"
-        style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-        onMouseEnter={() => setActiveId('traps_rear_delt')}
-        onClick={() => setActiveId('traps_rear_delt')}
-      />
+      {/* 斜方 + 三角肌后束 — 上背（带肩膀弧度） */}
+      {region(
+        'traps_rear_delt',
+        `M 113 96
+         C 92 100, 74 110, 66 130
+         C 60 148, 64 160, 72 165
+         Q 130 170 188 165
+         C 196 160, 200 148, 194 130
+         C 186 110, 168 100, 147 96
+         Z`,
+        '#D4A574', '#B8823F'
+      )}
 
-      {/* 背阔肌 — 中背（重点突出） */}
-      <path
-        d="M 78 142 L 182 142 L 175 215 L 85 215 Z"
-        fill={fill('lats', '#8B6F4E', '#5A4530')}
-        stroke={stroke('lats')}
-        strokeWidth="2"
-        style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-        onMouseEnter={() => setActiveId('lats')}
-        onClick={() => setActiveId('lats')}
-      />
+      {/* 背阔肌 — V 形收窄，主发力肌最深色 */}
+      {region(
+        'lats',
+        `M 72 165
+         Q 70 190 76 215
+         L 100 225
+         Q 130 228 160 225
+         L 184 215
+         Q 190 190 188 165
+         Q 130 172 72 165 Z`,
+        '#8B6F4E', '#5A4530'
+      )}
 
       {/* 竖脊肌 — 下背 */}
-      <path
-        d="M 85 215 L 175 215 L 170 250 L 90 250 Z"
-        fill={fill('erector_spinae', '#A88660', '#7C5E3D')}
-        stroke={stroke('erector_spinae')}
-        strokeWidth="2"
-        style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-        onMouseEnter={() => setActiveId('erector_spinae')}
-        onClick={() => setActiveId('erector_spinae')}
-      />
+      {region(
+        'erector_spinae',
+        `M 76 215
+         Q 76 235 80 255
+         L 102 262
+         Q 130 266 158 262
+         L 180 255
+         Q 184 235 184 215
+         Q 130 220 76 215 Z`,
+        '#A88660', '#7C5E3D'
+      )}
 
-      {/* 臀大肌 */}
-      <path
-        d="M 90 250 L 170 250 L 168 300 L 92 300 Z"
-        fill={fill('glutes', '#96A886', '#6F8563')}
-        stroke={stroke('glutes')}
-        strokeWidth="2"
-        style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-        onMouseEnter={() => setActiveId('glutes')}
-        onClick={() => setActiveId('glutes')}
-      />
+      {/* 臀大肌 — 两瓣突出椭圆！这是后视图的视觉重点 */}
+      {region(
+        'glutes',
+        // 两个独立的椭圆瓣，中间有缝隙，形成"屁股"感
+        `M 82 262
+         C 72 268, 68 285, 76 305
+         C 88 320, 110 325, 120 315
+         C 126 308, 128 292, 124 275
+         C 120 265, 108 260, 98 260
+         Q 88 260 82 262 Z
 
-      {/* 腘绳肌 — 大腿后 */}
-      <path
-        d="M 92 300 L 128 300 L 124 390 L 96 390 Z
-           M 132 300 L 168 300 L 164 390 L 136 390 Z"
-        fill={fill('hamstrings', '#A8BF9A', '#7E9770')}
-        stroke={stroke('hamstrings')}
-        strokeWidth="2"
-        style={{ cursor: 'pointer', transition: 'fill 0.15s' }}
-        onMouseEnter={() => setActiveId('hamstrings')}
-        onClick={() => setActiveId('hamstrings')}
-      />
+         M 178 262
+         C 188 268, 192 285, 184 305
+         C 172 320, 150 325, 140 315
+         C 134 308, 132 292, 136 275
+         C 140 265, 152 260, 162 260
+         Q 172 260 178 262 Z`,
+        '#96A886', '#6F8563'
+      )}
+
+      {/* 腘绳肌 — 大腿后，上接臀、下到膝 */}
+      {region(
+        'hamstrings',
+        `M 82 315
+         Q 82 350 90 380
+         L 108 395
+         Q 122 390 128 378
+         L 130 322
+         Q 106 320 82 315 Z
+
+         M 130 322
+         L 132 378
+         Q 138 390 152 395
+         L 170 380
+         Q 178 350 178 315
+         Q 154 320 130 322 Z`,
+        '#A8BF9A', '#7E9770'
+      )}
 
       {/* 小腿（后视图为保持完整性，以中性色填充但不交互） */}
-      <path d="M 96 390 L 124 390 L 122 470 L 98 470 Z" fill="#E1D5C2" />
-      <path d="M 136 390 L 164 390 L 162 470 L 138 470 Z" fill="#E1D5C2" />
+      <path
+        d="M 94 405 Q 86 425 88 450 Q 90 478 98 495 L 116 497 Q 124 478 124 450 Q 122 420 118 405 Q 108 402 94 405 Z
+           M 142 405 Q 138 420 136 450 Q 136 478 144 497 L 162 495 Q 170 478 172 450 Q 174 425 166 405 Q 152 402 142 405 Z"
+        fill="#E1D5C2"
+      />
 
       {/* 脉冲指示点 */}
       {activeId && (() => {
         const positions: Record<string, { x: number; y: number }> = {
-          traps_rear_delt: { x: 130, y: 115 },
-          lats: { x: 130, y: 178 },
-          erector_spinae: { x: 130, y: 232 },
-          glutes: { x: 130, y: 275 },
-          hamstrings: { x: 130, y: 345 },
+          traps_rear_delt: { x: 130, y: 130 },
+          lats:            { x: 130, y: 192 },
+          erector_spinae:  { x: 130, y: 240 },
+          glutes:          { x: 130, y: 290 },
+          hamstrings:      { x: 130, y: 350 },
         };
         const p = positions[activeId];
         if (!p) return null;
         return (
-          <circle cx={p.x} cy={p.y} r="4" fill="#2E2118" opacity="0.6">
-            <animate attributeName="r" values="4;7;4" dur="1.5s" repeatCount="indefinite" />
-          </circle>
+          <g pointerEvents="none">
+            <circle cx={p.x} cy={p.y} r="5" fill="#2E2118" opacity="0.7">
+              <animate attributeName="r" values="5;9;5" dur="1.6s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.7;0.3;0.7" dur="1.6s" repeatCount="indefinite" />
+            </circle>
+          </g>
         );
       })()}
     </svg>
@@ -392,7 +531,7 @@ export default function MuscleDiagram() {
         marginBottom: 32,
       }}
     >
-      {/* 头部：标题 + 视图切换 */}
+      {/* 头部 */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: 12, marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid #F0EAE0',
@@ -439,24 +578,22 @@ export default function MuscleDiagram() {
         </div>
       </div>
 
-      {/* 主体：左图 + 右面板（桌面）/ 上图 + 下面板（移动） */}
+      {/* 主体 */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(220px, 300px) 1fr',
+        gridTemplateColumns: 'minmax(220px, 320px) 1fr',
         gap: 24,
         alignItems: 'flex-start',
       }} className="muscle-diagram-grid">
-        {/* SVG 区域 */}
         <div style={{
           position: 'relative',
-          background: '#F8F1E5',
+          background: 'radial-gradient(circle at 50% 30%, #FDF7EE 0%, #F5EDE4 100%)',
           borderRadius: 12,
-          padding: '18px 24px',
-          aspectRatio: '1/1.9',
-          minHeight: 340,
+          padding: '20px 20px',
+          minHeight: 480,
         }}>
           <div
-            style={{ position: 'absolute', inset: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onMouseLeave={() => setActiveId(null)}
           >
             {view === 'anterior'
@@ -466,8 +603,7 @@ export default function MuscleDiagram() {
           </div>
         </div>
 
-        {/* 信息面板 */}
-        <div style={{ minHeight: 340, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ minHeight: 480, display: 'flex', flexDirection: 'column' }}>
           {active ? (
             <div
               style={{
@@ -539,7 +675,6 @@ export default function MuscleDiagram() {
             </div>
           )}
 
-          {/* 肌群速查列表 */}
           <div style={{ marginTop: 16 }}>
             <div style={{ fontSize: 11, color: '#A08060', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
               本视图所有肌群
