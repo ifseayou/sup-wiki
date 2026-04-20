@@ -30,17 +30,7 @@ INSERT INTO sup_learn_articles (title, slug, category, summary, content, difficu
 
 所以桨板不是"手臂运动"，而是**一个以核心为轴心的闭链全身运动**。了解每组肌肉承担的角色，既能让你下水时更省力，也能指导陆上该练什么。
 
-## 人体肌肉解剖参考
-
-下面是人体肌肉的前后视图，标注了桨板涉及的主要肌群。阅读后文时可以回来对照。
-
-### 前视图（Anterior）
-
-![人体肌肉前视图](https://sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com/sup-wiki/learn-docs/1776654729304-tiqk0l.png)
-
-### 后视图（Posterior）
-
-![人体肌肉后视图](https://sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com/sup-wiki/learn-docs/1776654746770-v3zflz.png)
+> 📍 **本页顶部的交互式肌群发力图** —— 悬停或点击色块，可查看该肌群在桨板运动中的具体发力角色、发力时机、新手易犯的错误以及推荐的陆上练习。先在图上快速浏览 10 块关键肌群（前视 5 + 后视 5），再回到下方阅读详细的动作拆解和训练建议。
 
 ## 四大核心肌群与桨板动作的对应关系
 
@@ -100,12 +90,9 @@ INSERT INTO sup_learn_articles (title, slug, category, summary, content, difficu
 3. **"腿不用练"** — 长距离/逆流/站浪板时，下肢的吸震和重心转移决定了你能不能坚持
 4. **"只练腹肌就是核心"** — 核心 = 腹前 + 腰后 + 骨盆底肌 + 横膈膜，不是六块腹肌
 
-## 图片来源
+## 小结
 
-- **前视图**：[Muscles anterior labeled · Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Muscles_anterior_labeled.png)，公共授权（CC BY-SA 3.0 / GFDL）
-- **后视图**：[Muscle posterior labeled · Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Muscle_posterior_labeled.png)，公共授权（CC BY-SA 3.0 / GFDL）
-
-> 本站已将原图转存至自有 OSS，图内肌肉标注为英文学名，对照本文表格查看中文对应肌群即可。',
+桨板运动没有"只练手臂"这种说法——**核心是轴心、背阔是主发力、腿臀是力量传导的基石、前臂和小腿是精细控制**。带着这个认知回到页首的交互图，逐个悬停过一遍，你会更清楚自己下次上水时该关注哪个发力环节。',
   'beginner',
   1,
   'published'
