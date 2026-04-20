@@ -4,6 +4,8 @@ import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import { marked } from 'marked';
 
+export const dynamic = 'force-dynamic';
+
 interface LearnDocRow extends RowDataPacket {
   article_id: number;
   title: string;
