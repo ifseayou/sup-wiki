@@ -4,6 +4,7 @@ import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import { marked } from 'marked';
 import MuscleDiagram from '@/components/MuscleDiagram';
+import StretchAnimationGallery from '@/components/StretchAnimationGallery';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +105,9 @@ export default async function LearnDocDetailPage({
 
       {/* 肌肉训练类文档在正文前嵌入交互式肌群发力图 */}
       {doc.category === 'muscle' && <MuscleDiagram />}
+
+      {/* 拉伸类文档在正文前嵌入动作示意动画 */}
+      {doc.category === 'stretch' && <StretchAnimationGallery />}
 
       {/* 文章正文（Markdown 渲染） */}
       {contentHtml ? (
