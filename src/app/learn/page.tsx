@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import Tooltip from '@/components/Tooltip';
 import LearnStats from '@/components/LearnStats';
-import WrongAnswerEntry from '@/components/WrongAnswerEntry';
-import BookmarkEntry from '@/components/BookmarkEntry';
 import CategoryGrid from '@/components/CategoryGrid';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
@@ -36,34 +34,6 @@ export default async function LearnPage() {
         <p style={{ fontSize: 15, color: '#655D56', lineHeight: 1.8, maxWidth: 560 }}>
           从装备选购到竞技规则，系统掌握桨板运动知识。通过分类题库检验自己的掌握程度，成为真正的桨板专家。
         </p>
-      </div>
-
-      {/* 全科综合测验入口 */}
-      <div style={{
-        background: 'linear-gradient(135deg, #2E2118 0%, #5E4A33 100%)',
-        borderRadius: 16, padding: '32px 36px', marginBottom: 40,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20,
-      }}>
-        <div>
-          <div style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', marginBottom: 10 }}>
-            <Tooltip tip="综合测验" dotted={false}>Comprehensive Test</Tooltip>
-          </div>
-          <div style={{ fontSize: 24, fontWeight: 600, color: '#fff', marginBottom: 8 }}>全科综合测验</div>
-          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
-            随机抽取 20 道题，覆盖所有知识领域，测试你的综合桨板知识水平
-          </div>
-        </div>
-        <Link
-          href="/learn/quiz"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            background: '#C4A882', color: '#2E2118', fontWeight: 600,
-            padding: '14px 28px', borderRadius: 10, fontSize: 15,
-            textDecoration: 'none', whiteSpace: 'nowrap', transition: 'opacity 0.15s',
-          }}
-        >
-          开始测验 →
-        </Link>
       </div>
 
       {/* 学习文档入口 */}
@@ -105,16 +75,13 @@ export default async function LearnPage() {
         </span>
       </Link>
 
-      {/* 错题练习入口（登录后有错题才显示） */}
-      <WrongAnswerEntry />
-
-      {/* 收藏题目练习入口（登录后有收藏才显示） */}
-      <BookmarkEntry />
-
-      {/* 分类题库（含已刷进度） */}
-      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', marginBottom: 24 }}>
-        按分类学习 &amp; 测验
+      {/* 分类学习 & 测验（含：收藏 / 错题 / 全科综合 + 8 个分类） */}
+      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', marginBottom: 6 }}>
+        分类学习 &amp; 测验
       </h2>
+      <p style={{ fontSize: 13, color: '#8A8078', marginBottom: 24, lineHeight: 1.7 }}>
+        前三张（收藏 / 错题 / 综合测验）用于巩固当前学习进度，后续按分类深入具体知识领域。
+      </p>
       <CategoryGrid />
 
       {/* 难度入口 */}

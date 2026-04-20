@@ -22,8 +22,10 @@ interface Progress {
 }
 
 export default function CategoryGrid() {
-  const { token } = useUser();
+  const { user, token } = useUser();
   const [progress, setProgress] = useState<Progress>({ totals: {}, attempted: {} });
+  const [bookmarkCount, setBookmarkCount] = useState<number | null>(null);
+  const [wrongCount, setWrongCount] = useState<number | null>(null);
 
   useEffect(() => {
     const headers: Record<string, string> = {};
@@ -34,8 +36,140 @@ export default function CategoryGrid() {
       .catch(() => {});
   }, [token]);
 
+  useEffect(() => {
+    if (!token) return;
+    fetch('/api/user/bookmarks', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d.bookmarks)) setBookmarkCount(d.bookmarks.length); })
+      .catch(() => {});
+    fetch('/api/user/wrong-answers', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d.wrong_answers)) setWrongCount(d.wrong_answers.length); })
+      .catch(() => {});
+  }, [token]);
+
+  // 三张特殊入口：收藏 / 错题 / 全科综合
+  const bookmarkHref = user ? '/learn/quiz?mode=bookmark' : '/login?redirect=/learn';
+  const wrongHref    = user ? '/learn/quiz?mode=wrong'    : '/login?redirect=/learn';
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+      {/* ── 1. 收藏题练习 ── */}
+      <div style={{
+        background: '#F5EFE8', border: '1px solid #7A614525', borderRadius: 12,
+        padding: '24px', display: 'flex', flexDirection: 'column', gap: 12,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 28 }}>⭐</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#2E2118' }}>收藏题练习</div>
+              {user && bookmarkCount !== null && (
+                <span style={{ fontSize: 11, color: bookmarkCount > 0 ? '#7A6145' : '#A08060',
+                  background: bookmarkCount > 0 ? '#7A614514' : '#F0EAE0',
+                  padding: '2px 8px', borderRadius: 8, whiteSpace: 'nowrap' }}>
+                  {bookmarkCount} 道
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: '#7A6145', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              My Bookmarks
+            </div>
+          </div>
+        </div>
+        <p style={{ fontSize: 13, color: '#655D56', lineHeight: 1.65, margin: 0 }}>
+          专门练习你收藏的题目，巩固重点内容。答题时点击 ⭐ 图标即可加入收藏。
+        </p>
+        <Link
+          href={bookmarkHref}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 'auto',
+            padding: '9px 18px', background: '#7A6145', color: '#fff',
+            borderRadius: 8, fontSize: 13, fontWeight: 500, textDecoration: 'none',
+            width: 'fit-content', transition: 'opacity 0.15s',
+          }}
+        >
+          {user ? '开始 收藏题 练习 →' : '登录后开始练习 →'}
+        </Link>
+      </div>
+
+      {/* ── 2. 错题专项练习 ── */}
+      <div style={{
+        background: '#FDF2E9', border: '1px solid #B7470A25', borderRadius: 12,
+        padding: '24px', display: 'flex', flexDirection: 'column', gap: 12,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 28 }}>🔁</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#2E2118' }}>错题专项练习</div>
+              {user && wrongCount !== null && (
+                <span style={{ fontSize: 11, color: wrongCount > 0 ? '#B7470A' : '#A08060',
+                  background: wrongCount > 0 ? '#B7470A14' : '#F0EAE0',
+                  padding: '2px 8px', borderRadius: 8, whiteSpace: 'nowrap' }}>
+                  {wrongCount} 道
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: '#B7470A', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Wrong Answer Review
+            </div>
+          </div>
+        </div>
+        <p style={{ fontSize: 13, color: '#655D56', lineHeight: 1.65, margin: 0 }}>
+          针对薄弱点专项复习，答对即从错题库自动移除，真正把薄弱点消灭掉。
+        </p>
+        <Link
+          href={wrongHref}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 'auto',
+            padding: '9px 18px', background: '#B7470A', color: '#fff',
+            borderRadius: 8, fontSize: 13, fontWeight: 500, textDecoration: 'none',
+            width: 'fit-content', transition: 'opacity 0.15s',
+          }}
+        >
+          {user ? '开始 错题 练习 →' : '登录后开始练习 →'}
+        </Link>
+      </div>
+
+      {/* ── 3. 全科综合测验 ── */}
+      <div style={{
+        background: 'linear-gradient(135deg, #2E2118 0%, #5E4A33 100%)',
+        border: '1px solid #2E211825', borderRadius: 12,
+        padding: '24px', display: 'flex', flexDirection: 'column', gap: 12,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 28 }}>🎯</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#FAF7F2' }}>全科综合测验</div>
+              <span style={{ fontSize: 11, color: '#C4A882', background: 'rgba(196,168,130,0.15)',
+                padding: '2px 8px', borderRadius: 8, whiteSpace: 'nowrap' }}>
+                20 道 / 次
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: '#C4A882', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Comprehensive Test
+            </div>
+          </div>
+        </div>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.65, margin: 0 }}>
+          随机抽取 20 道题，覆盖所有知识领域，**测试你的综合桨板知识水平**。
+        </p>
+        <Link
+          href="/learn/quiz"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 'auto',
+            padding: '9px 18px', background: '#C4A882', color: '#2E2118',
+            borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none',
+            width: 'fit-content', transition: 'opacity 0.15s',
+          }}
+        >
+          开始综合测验 →
+        </Link>
+      </div>
+
+      {/* ── 之后：8 个分类学习入口 ── */}
       {CATEGORIES.map(cat => {
         const total = progress.totals[cat.key] ?? null;
         const done = progress.attempted[cat.key] ?? 0;

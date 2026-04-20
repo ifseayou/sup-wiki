@@ -1,16 +1,19 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  SILHOUETTE_PATH_D,
+  SILHOUETTE_TRANSFORM,
+  SILHOUETTE_VIEWBOX,
+} from './muscle-diagram-silhouette';
 
 /**
  * 交互式桨板肌群发力图。
- * 底图：Wikimedia Commons 公共域人体剪影（Human_body_silhouette.svg），已转存 OSS。
- * 叠加层：SVG 色块标记肌群位置，半透明 multiply 混合，让剪影轮廓透过。
- * 前视 / 后视两个视图共用同一张剪影，用不同色块分别讲解正面与背面的 5 个肌群。
+ * - 人体剪影 path 来自 Wikimedia Commons（PD 授权），inline 到 SVG 中
+ * - 色块通过 clipPath 严格裁剪到人体轮廓内，不再溢出
+ * - 正面视图：标准剪影
+ * - 背面视图：剪影 + 额外的臀部两瓣凸起 + 脊柱中线提示，视觉上明确区分前后
  */
-
-const SILHOUETTE_URL =
-  'https://sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com/sup-wiki/learn-docs/1776671104617-silhouette.svg';
 
 interface MuscleHotspot {
   id: string;
@@ -25,7 +28,6 @@ interface MuscleHotspot {
   training: string;
 }
 
-// 剪影 viewBox 0 0 970 2200；通过渲染的 PNG 目测定位肌群坐标
 const ANTERIOR: MuscleHotspot[] = [
   {
     id: 'chest_front_delt',
@@ -129,10 +131,10 @@ const POSTERIOR: MuscleHotspot[] = [
     name: '臀大肌',
     alias: 'Gluteus maximus',
     color: '#96A886', hoverColor: '#6F8563',
-    // 两瓣臀椭圆，模拟"屁股"形状
+    // 两瓣臀椭圆
     path:
-      'M 330 1170 C 300 1180 290 1230 320 1280 C 360 1310 440 1310 470 1280 C 490 1250 480 1200 460 1180 C 430 1165 370 1165 330 1170 Z ' +
-      'M 510 1180 C 490 1200 480 1250 500 1280 C 530 1310 610 1310 650 1280 C 680 1230 670 1180 640 1170 C 600 1165 540 1165 510 1180 Z',
+      'M 405 1160 C 350 1165 320 1210 335 1280 C 355 1340 430 1350 460 1320 C 480 1290 475 1220 460 1180 C 445 1165 425 1158 405 1160 Z ' +
+      'M 565 1160 C 510 1165 495 1220 510 1280 C 540 1350 615 1340 635 1280 C 650 1210 620 1165 565 1160 Z',
     action: '**前倾推桨的反作用力支点**——把力从板面反推回躯干。',
     timing: '每一桨的发力链末端；Pivot Turn 重心后压时。',
     tip: '不会用臀 = 膝盖代偿过度，长划膝盖疼。',
@@ -144,8 +146,8 @@ const POSTERIOR: MuscleHotspot[] = [
     alias: 'Hamstrings (大腿后)',
     color: '#A8BF9A', hoverColor: '#7E9770',
     path:
-      'M 340 1320 C 365 1315 440 1315 470 1325 L 450 1680 C 415 1695 375 1695 355 1680 Z ' +
-      'M 500 1325 C 530 1315 605 1315 630 1320 L 615 1680 C 595 1695 555 1695 520 1680 Z',
+      'M 340 1360 C 365 1355 440 1355 470 1365 L 450 1680 C 415 1695 375 1695 355 1680 Z ' +
+      'M 500 1365 C 530 1355 605 1355 630 1360 L 615 1680 C 595 1695 555 1695 520 1680 Z',
     action: '**跪姿→站姿起身** + 减速吸震 + 髋伸展发力。',
     timing: '起立动作、紧急减速、过涌浪时。',
     tip: '跪站切换腿抖 = 腘绳肌发力与核心不同步。',
@@ -166,37 +168,102 @@ function RichText({ text }: { text: string }) {
   );
 }
 
-// 叠加层：同 viewBox 的 SVG，色块半透明 + multiply 混合
-function HotspotLayer({
-  muscles, activeId, setActiveId,
+function BodyCanvas({
+  view, muscles, activeId, setActiveId,
 }: {
+  view: 'anterior' | 'posterior';
   muscles: MuscleHotspot[];
   activeId: string | null;
   setActiveId: (id: string | null) => void;
 }) {
   return (
     <svg
-      viewBox="0 0 970 2200"
+      viewBox={SILHOUETTE_VIEWBOX}
       preserveAspectRatio="xMidYMid meet"
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+      style={{ width: '100%', height: '100%', display: 'block' }}
+      onMouseLeave={() => setActiveId(null)}
     >
-      {muscles.map(m => (
-        <path
-          key={m.id}
-          d={m.path}
-          fill={activeId === m.id ? m.hoverColor : m.color}
-          fillOpacity={activeId === m.id ? 0.78 : 0.5}
-          stroke={activeId === m.id ? '#2E2118' : 'transparent'}
-          strokeWidth={activeId === m.id ? 4 : 0}
-          style={{
-            mixBlendMode: 'multiply',
-            cursor: 'pointer',
-            transition: 'fill 0.2s, fill-opacity 0.2s, stroke 0.2s, stroke-width 0.2s',
-          }}
-          onMouseEnter={() => setActiveId(m.id)}
-          onClick={() => setActiveId(m.id)}
-        />
-      ))}
+      <defs>
+        {/* clipPath：所有色块都通过这个剪裁到人体内，避免溢出 */}
+        <clipPath id="sup-body-mask">
+          <path d={SILHOUETTE_PATH_D} transform={SILHOUETTE_TRANSFORM} />
+        </clipPath>
+      </defs>
+
+      {/* ── 底层：剪影轮廓 ── */}
+      <path
+        d={SILHOUETTE_PATH_D}
+        transform={SILHOUETTE_TRANSFORM}
+        fill="#F2DCC4"
+        fillOpacity="0.85"
+      />
+
+      {/* ── 背面特征：只在后视图显示 ── */}
+      {view === 'posterior' && (
+        <g clipPath="url(#sup-body-mask)">
+          {/* 脊柱中线 */}
+          <line
+            x1="485" y1="520" x2="485" y2="1140"
+            stroke="#C4A882" strokeWidth="3" strokeOpacity="0.35"
+            strokeDasharray="6 6"
+          />
+          {/* 肩胛骨暗示 */}
+          <ellipse cx="380" cy="720" rx="55" ry="40" fill="#C4A882" fillOpacity="0.18" />
+          <ellipse cx="590" cy="720" rx="55" ry="40" fill="#C4A882" fillOpacity="0.18" />
+        </g>
+      )}
+
+      {/* ── 色块层，通过 clipPath 裁剪到人体轮廓内 ── */}
+      <g clipPath="url(#sup-body-mask)">
+        {muscles.map(m => (
+          <path
+            key={m.id}
+            d={m.path}
+            fill={activeId === m.id ? m.hoverColor : m.color}
+            fillOpacity={activeId === m.id ? 0.72 : 0.48}
+            style={{
+              mixBlendMode: 'multiply',
+              cursor: 'pointer',
+              transition: 'fill 0.2s, fill-opacity 0.2s',
+            }}
+            onMouseEnter={() => setActiveId(m.id)}
+            onClick={() => setActiveId(m.id)}
+          />
+        ))}
+      </g>
+
+      {/* ── 选中描边层（在 clip 外，保证完整描边） ── */}
+      {activeId && (() => {
+        const active = muscles.find(m => m.id === activeId);
+        if (!active) return null;
+        return (
+          <g clipPath="url(#sup-body-mask)" pointerEvents="none">
+            <path
+              d={active.path}
+              fill="none"
+              stroke="#2E2118"
+              strokeWidth="6"
+              opacity="0.5"
+            />
+          </g>
+        );
+      })()}
+
+      {/* ── 后视图：臀部两瓣凸起 —— 放在 clip 外可以溢出轮廓形成"屁股" ── */}
+      {view === 'posterior' && (
+        <g pointerEvents="none">
+          {/* 左臀 */}
+          <ellipse cx="420" cy="1240" rx="78" ry="58"
+            fill="#E8C4A3" fillOpacity="0.7" />
+          <ellipse cx="420" cy="1240" rx="78" ry="58"
+            fill="none" stroke="#D4A582" strokeOpacity="0.35" strokeWidth="2" />
+          {/* 右臀 */}
+          <ellipse cx="550" cy="1240" rx="78" ry="58"
+            fill="#E8C4A3" fillOpacity="0.7" />
+          <ellipse cx="550" cy="1240" rx="78" ry="58"
+            fill="none" stroke="#D4A582" strokeOpacity="0.35" strokeWidth="2" />
+        </g>
+      )}
     </svg>
   );
 }
@@ -242,7 +309,7 @@ export default function MuscleDiagram() {
           border: '1px solid #EDE5D8',
         }}>
           {[
-            { key: 'anterior', label: '正面（身体前侧肌群）' },
+            { key: 'anterior',  label: '正面（身体前侧肌群）' },
             { key: 'posterior', label: '背面（身体后侧肌群）' },
           ].map(t => (
             <button
@@ -273,43 +340,29 @@ export default function MuscleDiagram() {
         alignItems: 'flex-start',
       }} className="muscle-diagram-grid">
         {/* 图层 */}
-        <div
-          style={{
-            position: 'relative',
-            background: 'radial-gradient(circle at 50% 30%, #FDF7EE 0%, #F5EDE4 100%)',
-            borderRadius: 12,
-            padding: 16,
-            aspectRatio: '970/2200',
-            width: '100%',
-          }}
-          onMouseLeave={() => setActiveId(null)}
-        >
-          {/* 人体剪影底图 */}
-          <img
-            src={SILHOUETTE_URL}
-            alt="人体剪影"
-            style={{
-              position: 'absolute', inset: 16,
-              width: 'calc(100% - 32px)', height: 'calc(100% - 32px)',
-              objectFit: 'contain',
-              pointerEvents: 'none',
-              userSelect: 'none',
-            }}
-            draggable={false}
+        <div style={{
+          position: 'relative',
+          background: 'radial-gradient(circle at 50% 30%, #FDF7EE 0%, #F5EDE4 100%)',
+          borderRadius: 12,
+          padding: 16,
+          aspectRatio: '970/2200',
+          width: '100%',
+        }}>
+          <BodyCanvas
+            view={view}
+            muscles={muscles}
+            activeId={activeId}
+            setActiveId={setActiveId}
           />
-
-          {/* 叠加层 — 色块 */}
-          <div style={{ position: 'absolute', inset: 16 }}>
-            <HotspotLayer muscles={muscles} activeId={activeId} setActiveId={setActiveId} />
-          </div>
 
           {/* 左上角视图提示 */}
           <div style={{
             position: 'absolute', top: 12, left: 16, zIndex: 2,
-            fontSize: 10, color: '#A08060', background: 'rgba(254,252,249,0.9)',
-            padding: '2px 8px', borderRadius: 10, letterSpacing: '0.08em', textTransform: 'uppercase',
+            fontSize: 10, color: '#A08060', background: 'rgba(254,252,249,0.92)',
+            padding: '3px 10px', borderRadius: 10, letterSpacing: '0.08em', textTransform: 'uppercase',
+            border: '1px solid #EDE5D8', display: 'inline-flex', alignItems: 'center', gap: 4,
           }}>
-            {view === 'anterior' ? '正面' : '背面'}
+            {view === 'anterior' ? '👁 正面' : '🔄 背面'}
           </div>
         </div>
 
