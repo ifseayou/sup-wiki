@@ -66,6 +66,45 @@ export default async function LearnPage() {
         </Link>
       </div>
 
+      {/* 学习文档入口 */}
+      <Link
+        href="/learn/docs"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap',
+          background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 16,
+          padding: '24px 28px', marginBottom: 28, textDecoration: 'none',
+          transition: 'border-color 0.15s, box-shadow 0.15s',
+        }}
+        className="learn-docs-entry"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 260 }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 14,
+            background: '#F5EDE4', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 28, flexShrink: 0,
+          }}>📖</div>
+          <div>
+            <div style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#A08060', marginBottom: 6 }}>
+              Learning Documents
+            </div>
+            <div style={{ fontSize: 19, fontWeight: 600, color: '#2E2118', marginBottom: 4 }}>
+              学习文档
+            </div>
+            <div style={{ fontSize: 13, color: '#655D56', lineHeight: 1.6 }}>
+              系统阅读肌肉训练、拉伸放松、进阶技术动作等主题文档，配合题库一起学
+            </div>
+          </div>
+        </div>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontSize: 13, color: '#7A6145', fontWeight: 500,
+          padding: '10px 18px', border: '1px solid #D4C4B0', borderRadius: 10,
+          whiteSpace: 'nowrap',
+        }}>
+          浏览全部 →
+        </span>
+      </Link>
+
       {/* 错题练习入口（登录后有错题才显示） */}
       <WrongAnswerEntry />
 

@@ -206,3 +206,6 @@ body {
 .article-guide-body a:hover { color: #2E2118; }
 
 .athlete-photo-thumb:hover img { transform: scale(1.05); }
+
+.learn-doc-card:hover { border-color: #C0B4A4; box-shadow: 0 4px 16px rgba(46,33,24,0.06); transform: translateY(-2px); }
+.learn-docs-entry:hover { border-color: #C0B4A4; box-shadow: 0 2px 12px rgba(46,33,24,0.05); }
