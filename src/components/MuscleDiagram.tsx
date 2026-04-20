@@ -371,9 +371,9 @@ function BodyCanvas({
 
           // debug 模式下所有 hotspot 始终可见（半透明），便于坐标校准
           const showFill = isActive || debug;
-          const fillOpacity = isActive ? 0.45 : debug ? 0.25 : 0;
-          const strokeOpacity = isActive ? 1 : debug ? 0.6 : 0;
-          const strokeWidth = isActive ? 4 : debug ? 2 : 0;
+          const fillOpacity = isActive ? 0.55 : debug ? 0.45 : 0;
+          const strokeOpacity = isActive ? 1 : debug ? 0.9 : 0;
+          const strokeWidth = isActive ? 4 : debug ? 4 : 0;
 
           return (
             <g key={m.id}>
