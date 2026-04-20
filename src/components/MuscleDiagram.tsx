@@ -220,7 +220,7 @@ function BodyCanvas({
             key={m.id}
             d={m.path}
             fill={activeId === m.id ? m.hoverColor : m.color}
-            fillOpacity={activeId === m.id ? 0.72 : 0.48}
+            fillOpacity={activeId === m.id ? 0.85 : 0.65}
             style={{
               mixBlendMode: 'multiply',
               cursor: 'pointer',

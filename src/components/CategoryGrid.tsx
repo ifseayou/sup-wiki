@@ -154,7 +154,7 @@ export default function CategoryGrid() {
           </div>
         </div>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.65, margin: 0 }}>
-          随机抽取 20 道题，覆盖所有知识领域，**测试你的综合桨板知识水平**。
+          随机抽取 20 道题，覆盖所有知识领域，<span style={{ color: '#FAF7F2', fontWeight: 600 }}>测试你的综合桨板知识水平</span>。
         </p>
         <Link
           href="/learn/quiz"
