@@ -73,7 +73,7 @@ const TOP_PARTS: BoardPart[] = [
     material: 'EVA 高弹泡棉 + 钻石纹（10 mm 厚）',
     tip: '8 mm 以上厚度长途不震膝，入门 5 mm 足够。' },
   { id: 'bungee', name: '前部弹力绳货网（含 4 个 D 环）', nameEn: 'Bungee Cargo Net & D-Rings', color: '#3498DB',
-    points: '2320,285 2870,335 2870,680 2320,735',
+    points: '2190,310 2570,340 2570,685 2190,715',
     description: '把干包 / 水壶 / 防晒衣捆在前部的 X 形松紧网绳，四角由 D 环固定。走船巡航必用。',
     material: '高强度尼龙弹力绳 + 4 个注塑 PE D 环',
     tip: '顶牌 D 环可承受 50 kg 拉力不脱；行进中重物应绑在货网中间避免偏重。' },
@@ -122,7 +122,7 @@ const SIDE_PARTS: BoardPart[] = [
 
 const BOTTOM_PARTS: BoardPart[] = [
   { id: 'fin-box', name: '中鳍盒（US-Box）', nameEn: 'US-Box Fin Slot', color: '#3498DB',
-    points: '580,445 1000,445 1000,545 580,545',
+    points: '380,455 590,450 590,535 380,540',
     description: '单鳍插槽，业内通用 US-Box 标准，兼容绝大多数品牌尾鳍。',
     material: '强化塑料螺栓固定槽',
     tip: '买尾鳍先看鳍盒制式：US-Box 通用 / FCS 冲浪 / 日式插销。' },
