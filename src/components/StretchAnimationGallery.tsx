@@ -332,79 +332,56 @@ const STRETCHES: Stretch[] = [
 ];
 
 /* ============================================================
-   Gallery 组件
+   内联小卡 — 放在正文每个 ### 小节下的紧凑样式
    ============================================================ */
 
-function StretchCard({ s }: { s: Stretch }) {
-  const phaseColor = s.phase === 'dynamic' ? { bg: '#FDF2E9', color: '#B7470A', label: '动态' } : { bg: '#EBF5FB', color: '#1A5276', label: '静态' };
+export function StretchInline({ id }: { id: string }) {
+  const s = STRETCHES.find(x => x.id === id);
+  if (!s) return null;
+  const phaseColor = s.phase === 'dynamic'
+    ? { bg: '#FDF2E9', color: '#B7470A', label: '动态' }
+    : { bg: '#EBF5FB', color: '#1A5276', label: '静态' };
   return (
     <div style={{
+      display: 'flex', gap: 14, alignItems: 'stretch',
       background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 12,
-      padding: 14, display: 'flex', flexDirection: 'column', gap: 8,
+      padding: 12, margin: '12px 0 20px',
+      flexWrap: 'wrap',
     }}>
       <div style={{
+        width: 140, aspectRatio: '1 / 1', flexShrink: 0,
         background: 'linear-gradient(180deg, #FDF7EE 0%, #F5EDE4 100%)',
-        borderRadius: 10, aspectRatio: '1 / 1', padding: 8,
+        borderRadius: 10, padding: 6,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <s.Animation />
       </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#2E2118' }}>{s.name}</h4>
-        <span style={{
-          fontSize: 10, background: phaseColor.bg, color: phaseColor.color,
-          padding: '2px 8px', borderRadius: 6, fontWeight: 500, flexShrink: 0,
-        }}>{phaseColor.label}</span>
+      <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: 10, background: phaseColor.bg, color: phaseColor.color,
+            padding: '2px 8px', borderRadius: 6, fontWeight: 500,
+          }}>{phaseColor.label}拉伸</span>
+          <span style={{ fontSize: 11, color: '#A08060', letterSpacing: '0.04em' }}>{s.nameEn}</span>
+        </div>
+        <p style={{ fontSize: 13, color: '#7A6145', margin: 0, fontWeight: 500 }}>
+          ⏱ {s.duration}
+        </p>
+        <p style={{ fontSize: 12, color: '#8A8078', margin: 0, lineHeight: 1.55, background: '#FDF8F0', padding: '6px 8px', borderLeft: '2px solid #C4A882', borderRadius: '0 4px 4px 0' }}>
+          💡 {s.note}
+        </p>
       </div>
-      <p style={{ fontSize: 11, color: '#A08060', margin: 0, letterSpacing: '0.04em' }}>{s.nameEn}</p>
-      <p style={{ fontSize: 12, color: '#655D56', margin: 0, lineHeight: 1.5 }}>
-        <span style={{ color: '#7A6145', fontWeight: 500 }}>⏱ {s.duration}</span>
-      </p>
-      <p style={{ fontSize: 11, color: '#8A8078', margin: 0, lineHeight: 1.55, background: '#FDF8F0', padding: '6px 8px', borderLeft: '2px solid #C4A882', borderRadius: '0 4px 4px 0' }}>
-        💡 {s.note}
-      </p>
     </div>
   );
 }
 
-export default function StretchAnimationGallery() {
-  const dynamicList = STRETCHES.filter(s => s.phase === 'dynamic');
-  const staticList  = STRETCHES.filter(s => s.phase === 'static');
+/* ============================================================
+   动画 keyframes — 单独导出，页面只需渲染一次即可
+   ============================================================ */
 
+export function StretchAnimationsStyle() {
   return (
-    <div style={{
-      background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 16,
-      padding: 24, marginBottom: 32,
-    }}>
-      <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: '1px solid #F0EAE0' }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 500, color: '#2E2118', margin: 0 }}>
-          🧘 拉伸动作示意动画
-        </h3>
-        <p style={{ fontSize: 12, color: '#8A8078', margin: '4px 0 0' }}>
-          每个动作自动循环演示方向与关键姿态，具体做法 / 时长 / 常见错误见下方正文。
-        </p>
-      </div>
-
-      <div style={{ marginBottom: 22 }}>
-        <div style={{ fontSize: 12, color: '#B7470A', fontWeight: 600, marginBottom: 12, letterSpacing: '0.08em' }}>
-          🔥 动态拉伸 · 下水前 5-8 分钟
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-          {dynamicList.map(s => <StretchCard key={s.id} s={s} />)}
-        </div>
-      </div>
-
-      <div>
-        <div style={{ fontSize: 12, color: '#1A5276', fontWeight: 600, marginBottom: 12, letterSpacing: '0.08em' }}>
-          🌿 静态拉伸 · 下水后 8-12 分钟
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-          {staticList.map(s => <StretchCard key={s.id} s={s} />)}
-        </div>
-      </div>
-
-      <style>{`
+    <style>{`
         /* 肩绕环 — 手臂绕圆 */
         .anim-arm-left  { animation: arm-rotate-left  3s linear infinite; }
         .anim-arm-right { animation: arm-rotate-right 3s linear infinite; }
@@ -462,6 +439,7 @@ export default function StretchAnimationGallery() {
           }
         }
       `}</style>
-    </div>
   );
 }
+
+export default StretchAnimationsStyle;

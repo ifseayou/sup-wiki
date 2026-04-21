@@ -4,7 +4,9 @@ import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import { marked } from 'marked';
 import MuscleDiagram from '@/components/MuscleDiagram';
-import StretchAnimationGallery from '@/components/StretchAnimationGallery';
+import { StretchInline, StretchAnimationsStyle } from '@/components/StretchAnimationGallery';
+import { TechniqueInline } from '@/components/TechniqueAssessmentCard';
+import BoardAnatomyGuide from '@/components/BoardAnatomyGuide';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +38,56 @@ const difficultyLabels: Record<string, { label: string; color: string; bg: strin
 };
 
 marked.setOptions({ breaks: true });
+
+// 把 marked 生成的 HTML 按 `<p>{{stretch:ID}}</p>` 标记拆开，
+// 在标记处插入 <StretchInline id=ID />，其余段落原样 HTML 渲染。
+function renderStretchBody(html: string) {
+  const regex = /<p>\{\{stretch:([a-z-]+)\}\}<\/p>/g;
+  const parts: Array<{ type: 'html'; value: string } | { type: 'stretch'; id: string }> = [];
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(html)) !== null) {
+    if (m.index > lastIndex) parts.push({ type: 'html', value: html.slice(lastIndex, m.index) });
+    parts.push({ type: 'stretch', id: m[1] });
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < html.length) parts.push({ type: 'html', value: html.slice(lastIndex) });
+
+  return (
+    <article className="article-guide-body" style={{ fontSize: 15, lineHeight: 1.85, color: '#3D3730' }}>
+      <StretchAnimationsStyle />
+      {parts.map((p, i) =>
+        p.type === 'html'
+          ? <div key={i} dangerouslySetInnerHTML={{ __html: p.value }} />
+          : <StretchInline key={i} id={p.id} />
+      )}
+    </article>
+  );
+}
+
+// 同样模式：拆分 `<p>{{tech:NN}}</p>` → TechniqueInline。
+function renderTechniqueBody(html: string) {
+  const regex = /<p>\{\{tech:(\d{2})\}\}<\/p>/g;
+  const parts: Array<{ type: 'html'; value: string } | { type: 'tech'; id: string }> = [];
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(html)) !== null) {
+    if (m.index > lastIndex) parts.push({ type: 'html', value: html.slice(lastIndex, m.index) });
+    parts.push({ type: 'tech', id: m[1] });
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < html.length) parts.push({ type: 'html', value: html.slice(lastIndex) });
+
+  return (
+    <article className="article-guide-body" style={{ fontSize: 15, lineHeight: 1.85, color: '#3D3730' }}>
+      {parts.map((p, i) =>
+        p.type === 'html'
+          ? <div key={i} dangerouslySetInnerHTML={{ __html: p.value }} />
+          : <TechniqueInline key={i} id={p.id} />
+      )}
+    </article>
+  );
+}
 
 async function getLearnDoc(slug: string) {
   try {
@@ -106,16 +158,21 @@ export default async function LearnDocDetailPage({
       {/* 肌肉训练类文档在正文前嵌入交互式肌群发力图 */}
       {doc.category === 'muscle' && <MuscleDiagram />}
 
-      {/* 拉伸类文档在正文前嵌入动作示意动画 */}
-      {doc.category === 'stretch' && <StretchAnimationGallery />}
-
-      {/* 文章正文（Markdown 渲染） */}
-      {contentHtml ? (
-        <article
-          className="article-guide-body"
-          dangerouslySetInnerHTML={{ __html: contentHtml }}
-          style={{ fontSize: 15, lineHeight: 1.85, color: '#3D3730' }}
-        />
+      {/* 文章正文渲染：按 slug/category 派发到不同组件 */}
+      {doc.slug === 'sup-board-anatomy' ? (
+        <BoardAnatomyGuide />
+      ) : contentHtml ? (
+        doc.category === 'stretch'
+          ? renderStretchBody(contentHtml)
+          : doc.slug === 'sup-skill-assessment-35'
+            ? renderTechniqueBody(contentHtml)
+            : (
+              <article
+                className="article-guide-body"
+                dangerouslySetInnerHTML={{ __html: contentHtml }}
+                style={{ fontSize: 15, lineHeight: 1.85, color: '#3D3730' }}
+              />
+            )
       ) : (
         <p style={{ color: '#8A8078', fontSize: 14 }}>本文档暂无正文内容。</p>
       )}
