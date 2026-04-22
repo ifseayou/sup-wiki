@@ -189,6 +189,7 @@ export default async function EventsPage({
   ]);
 
   const upcomingOrOngoing = events.filter((e) => e.event_status === 'upcoming' || e.event_status === 'ongoing');
+  const completed = events.filter((e) => e.event_status === 'completed');
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -218,6 +219,20 @@ export default async function EventsPage({
       )}
 
       {timelineEvents.length > 0 && <AnnualGuideTimeline events={timelineEvents} />}
+
+      {completed.length > 0 && (
+        <section className="mb-12">
+          <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold text-stone-700">
+            <span className="inline-block h-2 w-2 rounded-full bg-stone-400" />
+            已结束赛事
+          </h2>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {completed.map((event) => (
+              <EventCard key={event.event_id} event={event} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {events.length === 0 && (
         <div className="py-20 text-center">
