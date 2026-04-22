@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 // ---- Types ----
 interface Column {
@@ -177,8 +177,9 @@ export default function EntityManager({
   defaultFormData,
   token,
   searchPlaceholder = '搜索...',
-  additionalFilters = [],
+  additionalFilters,
 }: EntityManagerProps) {
+  const filters = useMemo(() => additionalFilters ?? [], [additionalFilters]);
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -186,7 +187,7 @@ export default function EntityManager({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [extraFilterValues, setExtraFilterValues] = useState<Record<string, string>>(
-    Object.fromEntries(additionalFilters.map((filter) => [filter.key, '']))
+    Object.fromEntries(filters.map((filter) => [filter.key, '']))
   );
   const [loading, setLoading] = useState(true);
   const [editItem, setEditItem] = useState<Record<string, unknown> | null>(null);
@@ -204,7 +205,7 @@ export default function EntityManager({
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
-      for (const filter of additionalFilters) {
+      for (const filter of filters) {
         const value = extraFilterValues[filter.key];
         if (value) params.set(filter.key, value);
       }
@@ -217,7 +218,7 @@ export default function EntityManager({
     } finally {
       setLoading(false);
     }
-  }, [additionalFilters, apiPath, token, page, pageSize, search, statusFilter, extraFilterValues]);
+  }, [filters, apiPath, token, page, pageSize, search, statusFilter, extraFilterValues]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -350,7 +351,7 @@ export default function EntityManager({
           <option value="published">已发布</option>
           <option value="draft">草稿</option>
         </select>
-        {additionalFilters.map((filter) => (
+        {filters.map((filter) => (
           <select
             key={filter.key}
             value={extraFilterValues[filter.key] || ''}
