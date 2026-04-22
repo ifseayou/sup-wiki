@@ -189,7 +189,9 @@ export default async function EventsPage({
   ]);
 
   const upcomingOrOngoing = events.filter((e) => e.event_status === 'upcoming' || e.event_status === 'ongoing');
-  const completed = events.filter((e) => e.event_status === 'completed');
+  const completed = events
+    .filter((e) => e.event_status === 'completed')
+    .sort((a, b) => new Date(b.start_date || 0).getTime() - new Date(a.start_date || 0).getTime());
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
