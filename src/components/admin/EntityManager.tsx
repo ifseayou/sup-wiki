@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 
 // ---- Types ----
 interface Column {
@@ -196,31 +196,66 @@ export default function EntityManager({
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
   const [msg, setMsg] = useState('');
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const idKey = Object.keys(defaultFormData).find(k => k.endsWith('_id')) || 'id';
+  const lastQueryKeyRef = useRef<string>('');
 
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-      if (search) params.set('search', search);
-      if (statusFilter) params.set('status', statusFilter);
-      for (const filter of filters) {
-        const value = extraFilterValues[filter.key];
-        if (value) params.set(filter.key, value);
+  const queryKey = useMemo(
+    () =>
+      JSON.stringify({
+        apiPath,
+        token,
+        page,
+        pageSize,
+        search,
+        statusFilter,
+        extraFilterValues,
+        filters: filters.map((filter) => filter.key),
+        refreshTick,
+      }),
+    [apiPath, token, page, pageSize, search, statusFilter, extraFilterValues, filters, refreshTick]
+  );
+
+  useEffect(() => {
+    if (lastQueryKeyRef.current === queryKey) return;
+    lastQueryKeyRef.current = queryKey;
+
+    let cancelled = false;
+
+    async function run() {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+        if (search) params.set('search', search);
+        if (statusFilter) params.set('status', statusFilter);
+        for (const filter of filters) {
+          const value = extraFilterValues[filter.key];
+          if (value) params.set(filter.key, value);
+        }
+        const res = await fetch(`${apiPath}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        if (cancelled) return;
+        setItems(data.items || []);
+        setTotal(data.total || 0);
+      } catch {
+        if (cancelled) return;
+        setItems([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      const res = await fetch(`${apiPath}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      setItems(data.items || []);
-      setTotal(data.total || 0);
-    } catch {
-      setItems([]);
-    } finally {
-      setLoading(false);
     }
-  }, [filters, apiPath, token, page, pageSize, search, statusFilter, extraFilterValues]);
 
-  useEffect(() => { fetchItems(); }, [fetchItems]);
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [queryKey, apiPath, token, page, pageSize, search, statusFilter, extraFilterValues, filters]);
+
+  function refreshItems() {
+    setRefreshTick((tick) => tick + 1);
+  }
 
   function openNew() {
     setFormData({ ...defaultFormData });
@@ -276,7 +311,7 @@ export default function EntityManager({
       }
       if (res.ok) {
         closeModal();
-        fetchItems();
+        refreshItems();
         setMsg(status === 'published' ? '已发布' : '已保存为草稿');
         setTimeout(() => setMsg(''), 3000);
       } else {
@@ -297,7 +332,7 @@ export default function EntityManager({
         headers: { Authorization: `Bearer ${token}` },
       });
       setDeleteId(null);
-      fetchItems();
+      refreshItems();
     } catch {
       setMsg('删除失败');
     }
@@ -312,7 +347,7 @@ export default function EntityManager({
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: newStatus }),
       });
-      fetchItems();
+      refreshItems();
     } catch {
       setMsg('操作失败');
     }
