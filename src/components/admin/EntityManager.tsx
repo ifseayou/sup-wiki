@@ -17,6 +17,11 @@ interface EntityManagerProps {
   defaultFormData: Record<string, unknown>;
   token: string;
   searchPlaceholder?: string;
+  additionalFilters?: {
+    key: string;
+    placeholder: string;
+    options: { label: string; value: string }[];
+  }[];
 }
 
 // ---- Status Badge ----
@@ -172,6 +177,7 @@ export default function EntityManager({
   defaultFormData,
   token,
   searchPlaceholder = '搜索...',
+  additionalFilters = [],
 }: EntityManagerProps) {
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
@@ -179,6 +185,9 @@ export default function EntityManager({
   const [pageSize] = useState(20);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [extraFilterValues, setExtraFilterValues] = useState<Record<string, string>>(
+    Object.fromEntries(additionalFilters.map((filter) => [filter.key, '']))
+  );
   const [loading, setLoading] = useState(true);
   const [editItem, setEditItem] = useState<Record<string, unknown> | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -195,6 +204,10 @@ export default function EntityManager({
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
+      for (const filter of additionalFilters) {
+        const value = extraFilterValues[filter.key];
+        if (value) params.set(filter.key, value);
+      }
       const res = await fetch(`${apiPath}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       setItems(data.items || []);
@@ -204,7 +217,7 @@ export default function EntityManager({
     } finally {
       setLoading(false);
     }
-  }, [apiPath, token, page, pageSize, search, statusFilter]);
+  }, [additionalFilters, apiPath, token, page, pageSize, search, statusFilter, extraFilterValues]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -337,6 +350,24 @@ export default function EntityManager({
           <option value="published">已发布</option>
           <option value="draft">草稿</option>
         </select>
+        {additionalFilters.map((filter) => (
+          <select
+            key={filter.key}
+            value={extraFilterValues[filter.key] || ''}
+            onChange={(e) => {
+              setExtraFilterValues((prev) => ({ ...prev, [filter.key]: e.target.value }));
+              setPage(1);
+            }}
+            className="px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 bg-cream-50 text-warm-gray-600"
+          >
+            <option value="">{filter.placeholder}</option>
+            {filter.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        ))}
         <span className="text-sm text-warm-gray-400 self-center">共 {total} 条</span>
       </div>
 

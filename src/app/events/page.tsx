@@ -6,6 +6,7 @@ import FilterBar from '@/components/FilterBar';
 import ArticleGuideTabs from '@/components/ArticleGuideTabs';
 import AnnualGuideTimeline from '@/components/events/AnnualGuideTimeline';
 import { GUIDE_EVENT_ORDER, type GuideTimelineEvent } from '@/lib/event-guide';
+import { getEventStarBadgeStyle } from '@/lib/event-stars';
 
 interface EventRow extends RowDataPacket {
   event_id: number;
@@ -24,6 +25,9 @@ interface EventRow extends RowDataPacket {
   disciplines: string | null;
   price_range: string | null;
   event_status: string;
+  star_level: string | null;
+  score_coefficient: string | null;
+  results_count: number;
 }
 
 type EventWithDisciplines = Omit<EventRow, 'disciplines'> & { disciplines: string[] };
@@ -84,8 +88,15 @@ async function getEvents(event_type?: string, event_status?: string, province?: 
     const [events] = await pool.execute<EventRow[]>(
       `SELECT event_id, name, slug, event_type, location, province, city, venue,
               start_date, end_date, registration_deadline, organizer,
-              description, disciplines, price_range, event_status
-       FROM sup_events ${where}
+              description, disciplines, price_range, event_status, star_level,
+              score_coefficient, COALESCE(r.results_count, 0) AS results_count
+       FROM sup_events
+       LEFT JOIN (
+         SELECT event_id, COUNT(*) AS results_count
+         FROM sup_event_results
+         GROUP BY event_id
+       ) r ON r.event_id = sup_events.event_id
+       ${where}
        ORDER BY
          CASE event_status WHEN 'ongoing' THEN 0 WHEN 'upcoming' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
          start_date ASC`,
@@ -267,6 +278,12 @@ function EventCard({ event, highlighted = false }: {
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusInfo.style}`}>
             {statusInfo.label}
           </span>
+          {event.star_level && (
+            <span className={`rounded-full border px-2 py-0.5 text-xs ${getEventStarBadgeStyle(event.star_level)}`}>
+              {event.star_level}
+              {event.score_coefficient ? ` / ${event.score_coefficient}` : ''}
+            </span>
+          )}
           <span className="rounded-full bg-[#F0EBE1] px-2 py-0.5 text-xs text-[#8B7355]">
             {typeLabel}
           </span>
@@ -287,6 +304,9 @@ function EventCard({ event, highlighted = false }: {
         )}
         {event.organizer && (
           <div className="mt-3 truncate text-xs text-stone-400">主办：{event.organizer}</div>
+        )}
+        {event.results_count > 0 && (
+          <div className="mt-2 text-xs text-stone-400">已录成绩 {event.results_count} 条</div>
         )}
         {event.price_range && (
           <div className="mt-2 text-sm font-medium text-[#8B7355]">{event.price_range}</div>

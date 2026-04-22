@@ -24,6 +24,7 @@ function CreatorForm({ data, onChange, token }: { data: Record<string, unknown>;
             <option value="youtube">YouTube</option>
             <option value="instagram">Instagram</option>
             <option value="weibo">微博</option>
+            <option value="wechat_channels">视频号</option>
           </select>
         </div>
       </div>
@@ -61,7 +62,7 @@ function CreatorForm({ data, onChange, token }: { data: Record<string, unknown>;
 
 const columns = [
   { key: 'nickname', label: '昵称' },
-  { key: 'platform', label: '平台', render: (v: unknown) => ({'douyin':'抖音','xiaohongshu':'小红书','bilibili':'B站','youtube':'YouTube','instagram':'Instagram','weibo':'微博'}[String(v)] || String(v)) },
+  { key: 'platform', label: '平台', render: (v: unknown) => ({'douyin':'抖音','xiaohongshu':'小红书','bilibili':'B站','youtube':'YouTube','instagram':'Instagram','weibo':'微博','wechat_channels':'视频号'}[String(v)] || String(v)) },
   { key: 'follower_tier', label: '粉丝量级' },
   { key: 'content_style', label: '内容风格', render: (v: unknown) => ({'tutorial':'教学','review':'测评','vlog':'Vlog','adventure':'探险'}[String(v)] || String(v)) },
 ];

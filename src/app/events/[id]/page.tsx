@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
+import { getEventResultStatusLabel, getEventStarBadgeStyle } from '@/lib/event-stars';
 
 interface EventRow extends RowDataPacket {
   event_id: number;
@@ -28,6 +29,25 @@ interface EventRow extends RowDataPacket {
   price_range: string | null;
   max_participants: number | null;
   event_status: string;
+  star_level: string | null;
+  score_coefficient: string | null;
+  source_scope: string | null;
+  result_status: string | null;
+  result_source_note: string | null;
+  result_source_links: string | null;
+}
+
+interface EventResultRow extends RowDataPacket {
+  result_id: number;
+  athlete_id: number | null;
+  athlete_name_snapshot: string;
+  gender_group: string;
+  discipline: string;
+  round_label: string | null;
+  rank_position: number;
+  result_label: string | null;
+  finish_time: string;
+  athlete_name: string | null;
 }
 
 const eventTypeLabels: Record<string, string> = {
@@ -59,11 +79,31 @@ async function getEvent(id: string) {
     if (rows.length === 0) return null;
     const e = rows[0];
     const parseJson = (v: unknown): unknown[] => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
+    const [results] = await pool.execute<EventResultRow[]>(
+      `SELECT
+         er.result_id,
+         er.athlete_id,
+         er.athlete_name_snapshot,
+         er.gender_group,
+         er.discipline,
+         er.round_label,
+         er.rank_position,
+         er.result_label,
+         er.finish_time,
+         a.name AS athlete_name
+       FROM sup_event_results er
+       LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
+       WHERE er.event_id = ?
+       ORDER BY er.gender_group ASC, er.discipline ASC, er.round_label ASC, er.rank_position ASC`,
+      [id]
+    );
     return {
       ...e,
       images: parseJson(e.images),
       schedule: parseJson(e.schedule),
       disciplines: parseJson(e.disciplines),
+      result_source_links: parseJson(e.result_source_links) as { title: string; url: string }[],
+      results,
     };
   } catch (error) {
     console.error('获取赛事详情失败:', error);
@@ -81,6 +121,14 @@ export default async function EventDetailPage({
   if (!event) notFound();
 
   const statusInfo = eventStatusLabels[event.event_status] || { label: event.event_status, style: 'bg-stone-100 text-stone-600' };
+  const groupedResults = (event.results as EventResultRow[]).reduce<Record<string, Record<string, EventResultRow[]>>>((acc, item) => {
+    const groupName = item.gender_group || '公开组';
+    const discipline = item.discipline || '未分项目';
+    acc[groupName] ||= {};
+    acc[groupName][discipline] ||= [];
+    acc[groupName][discipline].push(item);
+    return acc;
+  }, {});
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -99,6 +147,12 @@ export default async function EventDetailPage({
           <span className={`text-sm px-3 py-1 rounded-full font-medium ${statusInfo.style}`}>
             {statusInfo.label}
           </span>
+          {event.star_level && (
+            <span className={`text-sm px-3 py-1 rounded-full border ${getEventStarBadgeStyle(event.star_level)}`}>
+              {event.star_level}
+              {event.score_coefficient ? ` / ${event.score_coefficient}` : ''}
+            </span>
+          )}
           <span className="text-sm px-3 py-1 rounded-full bg-[#F0EBE1] text-[#8B7355]">
             {eventTypeLabels[event.event_type] || event.event_type}
           </span>
@@ -138,6 +192,12 @@ export default async function EventDetailPage({
             <div>
               <div className="text-xs text-stone-400 uppercase tracking-wide mb-1">主办方</div>
               <div className="text-stone-700 font-medium">{event.organizer}</div>
+            </div>
+          )}
+          {event.result_status && event.result_status !== 'none' && (
+            <div>
+              <div className="text-xs text-stone-400 uppercase tracking-wide mb-1">成绩档案</div>
+              <div className="text-stone-700 font-medium">{getEventResultStatusLabel(event.result_status)}</div>
             </div>
           )}
           {event.price_range && (
@@ -235,6 +295,84 @@ export default async function EventDetailPage({
           <h2 className="text-lg font-semibold text-stone-800 mb-3">联系方式</h2>
           <div className="bg-[#FEFCF9] border border-[#E0D8CC] rounded-xl p-6">
             <p className="text-stone-600">{event.contact_info}</p>
+          </div>
+        </div>
+      )}
+
+      {(event.results as EventResultRow[]).length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-stone-800 mb-3">赛事成绩档案</h2>
+          <div className="space-y-4">
+            {Object.entries(groupedResults).map(([groupName, disciplines]) => (
+              <div key={groupName} className="rounded-xl border border-[#E0D8CC] bg-[#FEFCF9] p-5">
+                <div className="mb-4 text-sm font-medium text-[#7A6145]">{groupName}</div>
+                <div className="space-y-4">
+                  {Object.entries(disciplines).map(([discipline, rows]) => (
+                    <div key={discipline}>
+                      <div className="mb-2 text-sm text-stone-500">{discipline}</div>
+                      <div className="overflow-x-auto rounded-lg border border-[#E8DED1]">
+                        <table className="w-full text-sm">
+                          <thead className="bg-[#F5F1EB] text-stone-500">
+                            <tr>
+                              <th className="px-4 py-3 text-left">名次</th>
+                              <th className="px-4 py-3 text-left">运动员</th>
+                              <th className="px-4 py-3 text-left">轮次</th>
+                              <th className="px-4 py-3 text-left">成绩说明</th>
+                              <th className="px-4 py-3 text-right">耗时</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((row) => (
+                              <tr key={row.result_id} className="border-t border-[#EEE4D8]">
+                                <td className="px-4 py-3 font-medium text-stone-700">{row.rank_position}</td>
+                                <td className="px-4 py-3 text-stone-700">
+                                  {row.athlete_id ? (
+                                    <Link href={`/athletes/${row.athlete_id}`} className="text-[#7A6145] hover:text-[#5E4A33]">
+                                      {row.athlete_name || row.athlete_name_snapshot}
+                                    </Link>
+                                  ) : (
+                                    row.athlete_name_snapshot
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-stone-500">{row.round_label || '—'}</td>
+                                <td className="px-4 py-3 text-stone-500">{row.result_label || '—'}</td>
+                                <td className="px-4 py-3 text-right font-medium text-[#8B7355]">{row.finish_time}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(event.result_source_note || (event.result_source_links as { title: string; url: string }[]).length > 0) && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-stone-800 mb-3">结果来源</h2>
+          <div className="bg-[#FEFCF9] border border-[#E0D8CC] rounded-xl p-6">
+            {event.result_source_note && (
+              <p className="text-stone-600 leading-relaxed whitespace-pre-wrap mb-4">{event.result_source_note}</p>
+            )}
+            {(event.result_source_links as { title: string; url: string }[]).length > 0 && (
+              <div className="space-y-2">
+                {(event.result_source_links as { title: string; url: string }[]).map((link, index) => (
+                  <a
+                    key={`${link.url}-${index}`}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-sm text-[#7A6145] hover:text-[#5E4A33]"
+                  >
+                    {link.title} ↗
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

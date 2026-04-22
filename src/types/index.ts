@@ -16,7 +16,7 @@ export type SuitableFor = 'beginner' | 'intermediate' | 'advanced';
 export type Discipline = 'race' | 'surf' | 'distance' | 'technical';
 
 // 社交平台
-export type Platform = 'douyin' | 'xiaohongshu' | 'bilibili' | 'youtube' | 'weibo' | 'instagram';
+export type Platform = 'douyin' | 'xiaohongshu' | 'bilibili' | 'youtube' | 'weibo' | 'instagram' | 'wechat_channels';
 
 // 粉丝量级
 export type FollowerTier = '1k-10k' | '10k-100k' | '100k-1m' | '1m+';
@@ -32,6 +32,9 @@ export type EventType = 'race' | 'festival' | 'training' | 'exhibition';
 
 // 赛事运行状态
 export type EventRunStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+export type EventStarLevel = '五星+' | '五星' | '四星+' | '四星' | '三星+' | '三星';
+export type EventResultStatus = 'none' | 'partial' | 'top10_complete' | 'extended_complete';
+export type EventResultSourceType = 'official' | 'media' | 'livestream' | 'manual';
 
 // 实体类型（用于批量导入等）
 export type EntityType = 'brand' | 'product' | 'athlete' | 'creator' | 'event' | 'shop_item';
@@ -199,6 +202,33 @@ export interface ScheduleItem {
   event: string;
 }
 
+export interface EventSourceLink {
+  title: string;
+  url: string;
+}
+
+export interface EventResult {
+  result_id: number;
+  event_id: number;
+  athlete_id?: number | null;
+  athlete_name_snapshot: string;
+  gender_group: string;
+  discipline: string;
+  round_label?: string | null;
+  rank_position: number;
+  result_label?: string | null;
+  finish_time: string;
+  time_seconds?: number | null;
+  team_name?: string | null;
+  nationality_snapshot?: string | null;
+  source_type?: EventResultSourceType | null;
+  source_title?: string | null;
+  source_url?: string | null;
+  source_note?: string | null;
+  is_verified: boolean;
+  athlete?: Pick<Athlete, 'athlete_id' | 'name' | 'photo'> | null;
+}
+
 // 赛事
 export interface Event {
   event_id: number;
@@ -224,6 +254,16 @@ export interface Event {
   disciplines?: string[];
   price_range?: string;
   max_participants?: number;
+  star_level?: EventStarLevel | null;
+  score_coefficient?: string | null;
+  source_scope?: string | null;
+  result_status?: EventResultStatus | null;
+  result_source_note?: string | null;
+  result_source_links?: EventSourceLink[];
+  result_last_verified_at?: string | null;
+  results_count?: number;
+  linked_athletes_count?: number;
+  results?: EventResult[];
   status: ContentStatus;
   event_status: EventRunStatus;
   created_at: Date;

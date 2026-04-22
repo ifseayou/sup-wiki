@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="520" viewBox="0 0 660 520">
+  <!-- Background -->
+  <rect width="660" height="520" fill="#FAF7F2" rx="8"/>
+  <!-- Title -->
+  <text x="330" y="34" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="#2E2118" text-anchor="middle">充气桨板两大气阀类型对比</text>
+  <text x="330" y="56" font-family="system-ui, -apple-system, sans-serif" font-size="12" fill="#8A8078" text-anchor="middle">Halkey-Roberts vs Leafield — 接口不同，气泵不通用</text>
+
+  <!-- ===== Left: Halkey-Roberts ===== -->
+  <g transform="translate(20, 75)">
+    <!-- Card background -->
+    <rect x="0" y="0" width="295" height="400" rx="10" fill="#fff" stroke="#A9DFBF" stroke-width="2"/>
+    <!-- Header -->
+    <rect x="0" y="0" width="295" height="44" rx="10" fill="#0E6655"/>
+    <rect x="0" y="20" width="295" height="24" fill="#0E6655"/>
+    <text x="147" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">Halkey-Roberts 阀</text>
+
+    <!-- Market share badge -->
+    <rect x="75" y="54" width="145" height="22" rx="11" fill="#E9F7EF" stroke="#A9DFBF" stroke-width="1"/>
+    <text x="147" y="69" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#0E6655" text-anchor="middle">90% 充气桨板使用此阀</text>
+
+    <!-- Valve diagram -->
+    <g transform="translate(72, 86)">
+      <!-- Valve body (circular top view) -->
+      <circle cx="75" cy="60" r="50" fill="#E8E0D4" stroke="#7A6145" stroke-width="2"/>
+      <!-- Inner ring -->
+      <circle cx="75" cy="60" r="34" fill="#F5F0E8" stroke="#7A6145" stroke-width="1.5"/>
+      <!-- Center pin (key feature!) -->
+      <circle cx="75" cy="60" r="10" fill="#7A6145" stroke="#2E2118" stroke-width="2"/>
+      <!-- Spring indicator lines -->
+      <line x1="75" y1="50" x2="75" y2="46" stroke="#2E2118" stroke-width="1.5"/>
+      <line x1="75" y1="70" x2="75" y2="74" stroke="#2E2118" stroke-width="1.5"/>
+      <line x1="65" y1="60" x2="61" y2="60" stroke="#2E2118" stroke-width="1.5"/>
+      <line x1="85" y1="60" x2="89" y2="60" stroke="#2E2118" stroke-width="1.5"/>
+      <!-- Pin label -->
+      <line x1="85" y1="52" x2="125" y2="32" stroke="#C0392B" stroke-width="1.2"/>
+      <text x="127" y="30" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="600" fill="#C0392B">弹簧 Pin</text>
+      <text x="127" y="42" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#C0392B">(核心特征)</text>
+    </g>
+
+    <!-- Key features -->
+    <g transform="translate(20, 210)">
+      <text x="0" y="0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118">接头方式</text>
+      <text x="0" y="18" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#3D3730">插入 → 旋转锁定 → 压住 Pin → 进气</text>
+
+      <line x1="0" y1="30" x2="255" y2="30" stroke="#EDE5D8" stroke-width="1"/>
+
+      <text x="0" y="48" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118">外观识别</text>
+      <text x="0" y="66" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#3D3730">中间有弹簧按压小柱（Pin）</text>
+      <text x="0" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#3D3730">顶部圆形开口，类似汽车气嘴</text>
+
+      <line x1="0" y1="94" x2="255" y2="94" stroke="#EDE5D8" stroke-width="1"/>
+
+      <text x="0" y="112" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118">典型品牌</text>
+      <text x="0" y="130" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#3D3730">Red Paddle Co、Starboard、BOTE</text>
+      <text x="0" y="146" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#3D3730">迪卡侬、大多数入门/中端品牌</text>
+
+      <line x1="0" y1="158" x2="255" y2="158" stroke="#EDE5D8" stroke-width="1"/>
+
+      <!-- Pros -->
+      <text x="0" y="176" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#0E6655">✅ 通用性强，气泵好找</text>
+      <text x="0" y="193" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#0E6655">✅ 成本低，维修方便</text>
+    </g>
+  </g>
+
+  <!-- ===== Right: Leafield ===== -->
+  <g transform="translate(345, 75)">
+    <!-- Card background -->
+    <rect x="0" y="0" width="295" height="400" rx="10" fill="#fff" stroke="#AED6F1" stroke-width="2"/>
+    <!-- Header -->
+    <rect x="0" y="0" width="295" height="44" rx="10" fill="#1A5276"/>
+    <rect x="0" y="20" width="295" height="24" fill="#1A5276"/>
+    <text x="147" y="28" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">Leafield 阀（利菲尔德）</text>
+
+    <!-- Specialty badge -->
+    <rect x="75" y="54" width="145" height="22" rx="11" fill="#EBF5FB" stroke="#AED6F1" stroke-width="1"/>
+    <text x="147" y="69" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="600" fill="#1A5276" text-anchor="middle">高端 / 军工级气阀</text>
+
+    <!-- Valve diagram -->
+    <g transform="translate(72, 86)">
+      <!-- Valve body (hexagonal top with grip edges) -->
+      <polygon points="75,10 125,30 125,90 75,110 25,90 25,30" fill="#C0C8D0" stroke="#1A5276" stroke-width="2"/>
+      <!-- Inner circle -->
+      <circle cx="75" cy="60" r="30" fill="#D5DBDB" stroke="#1A5276" stroke-width="1.5"/>
+      <!-- Flat valve surface (NO pin!) -->
+      <circle cx="75" cy="60" r="16" fill="#ABB2B9" stroke="#1A5276" stroke-width="1"/>
+      <!-- Bayonet slot marks -->
+      <line x1="62" y1="56" x2="68" y2="56" stroke="#1A5276" stroke-width="2"/>
+      <line x1="82" y1="56" x2="88" y2="56" stroke="#1A5276" stroke-width="2"/>
+      <line x1="62" y1="64" x2="68" y2="64" stroke="#1A5276" stroke-width="2"/>
+      <line x1="82" y1="64" x2="88" y2="64" stroke="#1A5276" stroke-width="2"/>
+      <!-- No-pin label -->
+      <line x1="85" y1="52" x2="125" y2="32" stroke="#1A5276" stroke-width="1.2"/>
+      <text x="127" y="30" font-family="system-ui, -apple-system, sans-serif" font-size="10" font-weight="600" fill="#1A5276">无 Pin</text>
+      <text x="127" y="42" font-family="system-ui, -apple-system, sans-serif" font-size="9" fill="#1A5276">(卡口锁定)</text>
+    </g>
+
+    <!-- Key features -->
+    <g transform="translate(20, 210)">
+      <text x="0" y="0" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118">接头方式</text>
+      <text x="0" y="18" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#3D3730">卡口式（Bayonet）：插入 → 旋转 → 锁死</text>
+
+      <line x1="0" y1="30" x2="255" y2="30" stroke="#EDE5D8" stroke-width="1"/>
+
+      <text x="0" y="48" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118">外观识别</text>
+      <text x="0" y="66" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#3D3730">无中间小柱，内部平整阀门</text>
+      <text x="0" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#3D3730">外形更工业化，类似相机镜头卡口</text>
+
+      <line x1="0" y1="94" x2="255" y2="94" stroke="#EDE5D8" stroke-width="1"/>
+
+      <text x="0" y="112" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#2E2118">典型品牌</text>
+      <text x="0" y="130" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#3D3730">部分高端竞速充气板</text>
+      <text x="0" y="146" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#3D3730">军用/救援充气艇、专业水翼平台</text>
+
+      <line x1="0" y1="158" x2="255" y2="158" stroke="#EDE5D8" stroke-width="1"/>
+
+      <!-- Pros & Cons -->
+      <text x="0" y="176" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#0E6655">✅ 气密性更强，支持更高压力</text>
+      <text x="0" y="193" font-family="system-ui, -apple-system, sans-serif" font-size="11" fill="#C0392B">❌ 成本高，需专用气泵头</text>
+    </g>
+  </g>
+
+  <!-- ===== Bottom conclusion ===== -->
+  <g transform="translate(30, 487)">
+    <rect x="0" y="0" width="600" height="26" rx="6" fill="#FDEDEC" stroke="#F5B7B1" stroke-width="1"/>
+    <text x="300" y="18" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="#C0392B" text-anchor="middle">⚠️ 两种气阀接口不兼容！购买气泵前务必确认你的桨板使用哪种气阀</text>
+  </g>
+</svg>

@@ -39,6 +39,17 @@ interface RaceTime {
   result?: string;      // 名次说明（可选）
   time: string;         // 耗时，格式自由："57.124"（秒）或 "38:23"（分:秒）等
   note?: string;        // 备注（可选）
+  event_id?: number;
+}
+
+interface AthleteEventResultRow extends RowDataPacket {
+  event_id: number;
+  event_name: string;
+  start_date: string | null;
+  discipline: string;
+  round_label: string | null;
+  result_label: string | null;
+  finish_time: string;
 }
 
 const distanceLabels: Record<string, { label: string; icon: string; order: number }> = {
@@ -72,7 +83,27 @@ async function getAthlete(id: number) {
       'SELECT * FROM sup_athletes WHERE athlete_id = ?', [id]
     );
     if (athletes.length === 0) return null;
-    return athletes[0];
+
+    const [linkedResults] = await pool.execute<AthleteEventResultRow[]>(
+      `SELECT
+         er.event_id,
+         e.name AS event_name,
+         e.start_date,
+         er.discipline,
+         er.round_label,
+         er.result_label,
+         er.finish_time
+       FROM sup_event_results er
+       INNER JOIN sup_events e ON e.event_id = er.event_id
+       WHERE er.athlete_id = ?
+       ORDER BY e.start_date DESC, er.rank_position ASC`,
+      [id]
+    );
+
+    return {
+      ...athletes[0],
+      linked_results: linkedResults,
+    };
   } catch (error) {
     console.error('获取运动员详情失败:', error);
     return null;
@@ -113,9 +144,23 @@ export default async function AthleteDetailPage({
     : (athlete.photos ? JSON.parse(String(athlete.photos)) : []);
 
   // 关键项目耗时
-  const rawRaceTimes: RaceTime[] = Array.isArray(athlete.race_times)
-    ? athlete.race_times
-    : (athlete.race_times ? JSON.parse(String(athlete.race_times)) : []);
+  const linkedResults = Array.isArray((athlete as AthleteRow & { linked_results?: AthleteEventResultRow[] }).linked_results)
+    ? ((athlete as AthleteRow & { linked_results?: AthleteEventResultRow[] }).linked_results as AthleteEventResultRow[])
+    : [];
+
+  const rawRaceTimes: RaceTime[] = linkedResults.length > 0
+    ? linkedResults.map((row) => ({
+        distance: row.discipline,
+        year: row.start_date ? new Date(row.start_date).getFullYear() : undefined,
+        event: row.event_name,
+        event_id: row.event_id,
+        round: row.round_label || undefined,
+        result: row.result_label || undefined,
+        time: row.finish_time,
+      }))
+    : (Array.isArray(athlete.race_times)
+      ? athlete.race_times
+      : (athlete.race_times ? JSON.parse(String(athlete.race_times)) : []));
 
   // 按距离分组
   const raceTimesByDistance = rawRaceTimes.reduce<Record<string, RaceTime[]>>((acc, rt) => {
@@ -263,7 +308,11 @@ export default async function AthleteDetailPage({
                           <tr key={i} style={{ borderTop: i === 0 ? 'none' : '1px solid #F0EAE0' }}>
                             <td style={{ padding: '10px 12px', color: '#3D3730', lineHeight: 1.55 }}>
                               {rt.year && <span style={{ color: '#8A8078', marginRight: 6 }}>{rt.year}</span>}
-                              {rt.event}
+                              {rt.event_id ? (
+                                <Link href={`/events/${rt.event_id}`} style={{ color: '#7A6145', textDecoration: 'none' }}>
+                                  {rt.event}
+                                </Link>
+                              ) : rt.event}
                               {rt.note && (
                                 <div style={{ fontSize: 11, color: '#8A8078', marginTop: 3, fontStyle: 'italic' }}>※ {rt.note}</div>
                               )}

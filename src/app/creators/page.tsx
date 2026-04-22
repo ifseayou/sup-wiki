@@ -25,6 +25,7 @@ const platformLabels: Record<string, { name: string; color: string; tip?: string
   youtube: { name: 'YouTube', color: 'bg-red-600 text-white', tip: '谷歌旗下视频分享平台' },
   instagram: { name: 'Instagram', color: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white', tip: 'Meta 旗下图文社交平台' },
   weibo: { name: '微博', color: 'bg-orange-500 text-white' },
+  wechat_channels: { name: '视频号', color: 'bg-green-600 text-white', tip: '微信视频号' },
 };
 
 const styleLabels: Record<string, string> = {
@@ -50,6 +51,7 @@ const domesticPlatformFilters = [
   { label: '小红书', value: 'xiaohongshu' },
   { label: 'B站', value: 'bilibili' },
   { label: '微博', value: 'weibo' },
+  { label: '视频号', value: 'wechat_channels' },
 ];
 
 const internationalPlatformFilters = [

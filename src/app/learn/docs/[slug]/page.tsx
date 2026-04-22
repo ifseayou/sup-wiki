@@ -7,6 +7,7 @@ import MuscleDiagram from '@/components/MuscleDiagram';
 import { StretchInline, StretchAnimationsStyle } from '@/components/StretchAnimationGallery';
 import { TechniqueInline } from '@/components/TechniqueAssessmentCard';
 import BoardAnatomyGuide from '@/components/BoardAnatomyGuide';
+import TrainingCertGuide from '@/components/TrainingCertGuide';
 
 export const dynamic = 'force-dynamic';
 
@@ -162,6 +163,8 @@ export default async function LearnDocDetailPage({
       {/* 文章正文渲染：按 slug/category 派发到不同组件 */}
       {doc.slug === 'sup-board-anatomy' ? (
         <BoardAnatomyGuide />
+      ) : doc.slug === 'sup-training-class-process-l1-l6' ? (
+        <TrainingCertGuide />
       ) : contentHtml ? (
         doc.category === 'stretch'
           ? renderStretchBody(contentHtml)

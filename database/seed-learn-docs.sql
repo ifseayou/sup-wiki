@@ -122,12 +122,16 @@ INSERT INTO sup_learn_articles (title, slug, category, summary, content, difficu
 
 ### 1. 肩绕环（Arm Circles）
 
+{{stretch:arm-circles}}
+
 - **动作**：双手侧平举，画 10 圈向前、10 圈向后
 - **时长**：30 秒
 - **目标**：激活三角肌三个束 + 胸肌 + 斜方肌
 - **常见错误**：耸肩代偿 → 把肩胛骨主动下沉再画圈
 
 ### 2. 躯干旋转（Trunk Rotation）
+
+{{stretch:trunk-rotation}}
 
 - **动作**：双脚与肩同宽站立，双手合十举至胸前，交替向左右转体
 - **时长**：每侧 15 次
@@ -136,6 +140,8 @@ INSERT INTO sup_learn_articles (title, slug, category, summary, content, difficu
 
 ### 3. 弓步扭转（Lunge with Twist）
 
+{{stretch:lunge-twist}}
+
 - **动作**：向前跨一大步成弓步，前膝呈 90°，双手举过头顶向前膝一侧扭转
 - **时长**：每侧 8 次
 - **目标**：髋屈肌 + 胸椎 + 核心旋转能力
@@ -143,12 +149,16 @@ INSERT INTO sup_learn_articles (title, slug, category, summary, content, difficu
 
 ### 4. 手腕前臂激活（Wrist Mobilization）
 
+{{stretch:wrist-activation}}
+
 - **动作**：双手合十胸前，互压做腕关节屈伸；然后双手张开，逐个手指按压拉伸
 - **时长**：1 分钟
 - **目标**：前臂屈肌 + 腕关节
 - **常见错误**：动作幅度太小 → 让手腕感到"微痛"即可
 
 ### 5. 桨板起手式（Paddle Rehearsal，可选）
+
+{{stretch:paddle-rehearsal}}
 
 - **动作**：双手持桨（或模拟持桨）做 20 次完整划桨动作，幅度从小到大
 - **时长**：1 分钟
@@ -160,12 +170,16 @@ INSERT INTO sup_learn_articles (title, slug, category, summary, content, difficu
 
 ### 1. 胸肩拉伸（Doorway Chest Stretch）
 
+{{stretch:chest-stretch}}
+
 - **动作**：找一面墙或门框，一侧手臂贴在门框上呈 90°，身体缓慢向前转
 - **时长**：每侧 30 秒 × 2 组
 - **目标**：胸大肌、胸小肌、三角肌前束
 - **常见错误**：耸肩 → 保持肩胛骨下沉
 
 ### 2. 背阔肌拉伸（Lat Stretch）
+
+{{stretch:lat-stretch}}
 
 - **动作**：双手扶住高处（或用桨做支撑），身体向后坐直到臀部接近脚后跟，感觉腋下到侧腰被拉长
 - **时长**：30 秒 × 2 组
@@ -174,12 +188,16 @@ INSERT INTO sup_learn_articles (title, slug, category, summary, content, difficu
 
 ### 3. 髋屈肌拉伸（Hip Flexor Stretch）
 
+{{stretch:hip-flexor}}
+
 - **动作**：跪姿半弓步，后脚跪地前脚踩地成 90°，骨盆主动向前推
 - **时长**：每侧 30 秒 × 2 组
 - **目标**：髂腰肌、股直肌
 - **常见错误**：前膝超过脚尖 → 前膝应在脚踝正上方
 
 ### 4. 腘绳肌拉伸（Hamstring Stretch）
+
+{{stretch:hamstring-stretch}}
 
 - **动作**：坐姿，一腿伸直另一腿弯曲，上半身前倾手摸伸直腿的脚尖
 - **时长**：每侧 30 秒 × 2 组
@@ -188,12 +206,16 @@ INSERT INTO sup_learn_articles (title, slug, category, summary, content, difficu
 
 ### 5. 小腿拉伸（Calf Stretch）
 
+{{stretch:calf-stretch}}
+
 - **动作**：面墙站立，一脚向后一步脚跟贴地伸直，前腿屈膝，身体向前倾
 - **时长**：每侧 30 秒 × 2 组
 - **目标**：腓肠肌、比目鱼肌
 - **常见错误**：脚后跟离地 → 脚跟必须贴地
 
 ### 6. 前臂 / 手腕拉伸（Wrist Flexor / Extensor Stretch）
+
+{{stretch:wrist-flexor}}
 
 - **动作**：一手伸直，另一手把手指向下 / 向上掰
 - **时长**：每侧 20 秒 × 2 组

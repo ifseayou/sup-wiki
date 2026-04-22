@@ -1,6 +1,4 @@
--- =====================================================================
--- SUP Wiki — 博主/KOL 种子数据（当前仅保留 4 位）
--- =====================================================================
+DELETE FROM sup_creators;
 
 INSERT INTO sup_creators (
   nickname,
@@ -15,7 +13,7 @@ INSERT INTO sup_creators (
 ) VALUES
 (
   '大力桨板',
-  'https://sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com/sup-wiki/creators/1776406761607-hjdcjn.png',
+  '/creator-import/dali.png',
   '专注站立式桨板教学与基础动作分享的内容创作者，内容以入门技巧、器材认知和日常划行训练为主，适合新手建立稳定的 SUP 基础。',
   'bilibili',
   '1k-10k',
@@ -26,18 +24,18 @@ INSERT INTO sup_creators (
 ),
 (
   '黑猫BC',
-  'https://sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com/sup-wiki/creators/1776406763646-xv388f.png',
-  '水上运动爱好者与从业者，苏州索酷海翼水上运动俱乐部核心成员。内容以桨板新手教学、动作拆解（划桨五步分解、平移桨法、平衡训练）和装备科普（充气桨板、碳纤/玻纤桨叶、手动气泵、快插尾鳍）为主线，兼有进阶器材测评（Starboard 硬板、Armstrong 水翼板、SUNOVA）和赛事参与内容。活跃水域以苏州东太湖为主，也覆盖威海、南浔、巴厘岛等地。关联账号：@ToTheWater向水而生、@索酷海翼水上运动俱乐部。2025 年 3 月起仅保留微信视频号更新。',
-  'wechat_channels',
+  '/creator-import/heimao-bc.png',
+  '长期分享桨板日常、装备体验和水域出行内容的中文桨板博主，风格直接，兼具玩家视角与户外生活方式表达。',
+  'bilibili',
   '1k-10k',
-  'tutorial',
+  'vlog',
   'domestic',
   NULL,
   'published'
 ),
 (
   'Bill桨真的',
-  'https://sport-hacker-assets.oss-cn-hangzhou.aliyuncs.com/sup-wiki/creators/1776406768874-g9pexx.png',
+  '/creator-import/bill-jiangzhende.png',
   '以真实下水体验、训练片段和划行交流内容为主的桨板博主，内容偏实战型，适合关注水上体验与技术交流的读者。',
   'bilibili',
   '1k-10k',

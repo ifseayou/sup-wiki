@@ -20,6 +20,10 @@ interface EventRow extends RowDataPacket {
   images: string | null;
   disciplines: string | null;
   price_range: string | null;
+  star_level: string | null;
+  score_coefficient: string | null;
+  result_status: string | null;
+  results_count: number;
   status: string;
   event_status: string;
   created_at: Date;
@@ -73,8 +77,16 @@ export async function GET(request: NextRequest) {
     const [events] = await pool.execute<EventRow[]>(
       `SELECT event_id, name, name_en, slug, event_type, location, province, city, venue,
               start_date, end_date, registration_deadline, organizer, description,
-              images, disciplines, price_range, status, event_status, created_at
-       FROM sup_events ${where}
+              images, disciplines, price_range, star_level, score_coefficient, result_status,
+              COALESCE(r.results_count, 0) AS results_count,
+              status, event_status, created_at
+       FROM sup_events
+       LEFT JOIN (
+         SELECT event_id, COUNT(*) AS results_count
+         FROM sup_event_results
+         GROUP BY event_id
+       ) r ON r.event_id = sup_events.event_id
+       ${where}
        ORDER BY
          CASE event_status WHEN 'ongoing' THEN 0 WHEN 'upcoming' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
          start_date ASC
