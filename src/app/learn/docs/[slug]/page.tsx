@@ -27,6 +27,7 @@ const categoryLabels: Record<string, { name: string; icon: string }> = {
   stretch:   { name: '拉伸指南', icon: '🧘' },
   technique: { name: '技术动作', icon: '🏄' },
   safety:    { name: '安全知识', icon: '🛟' },
+  nutrition: { name: '运动饮食', icon: '🥗' },
   equipment: { name: '装备知识', icon: '🧰' },
   general:   { name: '通用', icon: '📘' },
 };
