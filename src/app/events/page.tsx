@@ -86,7 +86,7 @@ async function getEvents(event_type?: string, event_status?: string, province?: 
     const where = `WHERE ${conditions.join(' AND ')}`;
 
     const [events] = await pool.execute<EventRow[]>(
-      `SELECT event_id, name, slug, event_type, location, province, city, venue,
+      `SELECT sup_events.event_id, name, slug, event_type, location, province, city, venue,
               start_date, end_date, registration_deadline, organizer,
               description, disciplines, price_range, event_status, star_level,
               score_coefficient, COALESCE(r.results_count, 0) AS results_count
