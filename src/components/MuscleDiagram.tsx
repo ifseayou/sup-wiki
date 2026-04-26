@@ -23,6 +23,8 @@ const BACK_IMG = {
   h: 1746,
 };
 
+const BIODIGITAL_MODEL_URL = 'https://human.biodigital.com/view?id=production/maleAdult/male_complete_anatomy_20&lang=zh';
+
 interface MuscleHotspot {
   id: string;
   name: string;
@@ -447,6 +449,7 @@ function BodyCanvas({
 }
 
 export default function MuscleDiagram() {
+  const [mode, setMode] = useState<'sup' | 'model3d'>('sup');
   const [view, setView] = useState<'anterior' | 'posterior'>('anterior');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [debug, setDebug] = useState(false);
@@ -456,6 +459,7 @@ export default function MuscleDiagram() {
     const qs = new URLSearchParams(window.location.search);
     if (qs.get('debug') === 'hotspots') setDebug(true);
     if (qs.get('view') === 'back') setView('posterior');
+    if (qs.get('mode') === '3d') setMode('model3d');
   }, []);
 
   const muscles = view === 'anterior' ? ANTERIOR : POSTERIOR;
@@ -489,40 +493,130 @@ export default function MuscleDiagram() {
           </p>
         </div>
 
-        <div style={{
-          display: 'inline-flex', background: '#F5EDE4', borderRadius: 10, padding: 3,
-          border: '1px solid #EDE5D8',
-        }}>
-          {[
-            { key: 'anterior',  label: '正面（前侧肌群）' },
-            { key: 'posterior', label: '背面（后侧肌群）' },
-          ].map(t => (
-            <button
-              key={t.key}
-              onClick={() => switchView(t.key as 'anterior' | 'posterior')}
-              style={{
-                padding: '6px 14px',
-                fontSize: 12,
-                fontWeight: view === t.key ? 600 : 400,
-                color: view === t.key ? '#2E2118' : '#8A8078',
-                background: view === t.key ? '#FEFCF9' : 'transparent',
-                border: 'none', borderRadius: 7, cursor: 'pointer',
-                boxShadow: view === t.key ? '0 1px 3px rgba(46,33,24,0.08)' : 'none',
-                transition: 'all 0.15s',
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{
+            display: 'inline-flex', background: '#F5EDE4', borderRadius: 10, padding: 3,
+            border: '1px solid #EDE5D8',
+          }}>
+            {[
+              { key: 'sup', label: '桨板发力图' },
+              { key: 'model3d', label: '3D 解剖模型' },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => {
+                  setMode(t.key as 'sup' | 'model3d');
+                  setActiveId(null);
+                }}
+                style={{
+                  padding: '6px 14px',
+                  fontSize: 12,
+                  fontWeight: mode === t.key ? 600 : 400,
+                  color: mode === t.key ? '#2E2118' : '#8A8078',
+                  background: mode === t.key ? '#FEFCF9' : 'transparent',
+                  border: 'none', borderRadius: 7, cursor: 'pointer',
+                  boxShadow: mode === t.key ? '0 1px 3px rgba(46,33,24,0.08)' : 'none',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {mode === 'sup' && (
+            <div style={{
+              display: 'inline-flex', background: '#F5EDE4', borderRadius: 10, padding: 3,
+              border: '1px solid #EDE5D8',
+            }}>
+              {[
+                { key: 'anterior',  label: '正面（前侧肌群）' },
+                { key: 'posterior', label: '背面（后侧肌群）' },
+              ].map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => switchView(t.key as 'anterior' | 'posterior')}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: 12,
+                    fontWeight: view === t.key ? 600 : 400,
+                    color: view === t.key ? '#2E2118' : '#8A8078',
+                    background: view === t.key ? '#FEFCF9' : 'transparent',
+                    border: 'none', borderRadius: 7, cursor: 'pointer',
+                    boxShadow: view === t.key ? '0 1px 3px rgba(46,33,24,0.08)' : 'none',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(260px, 380px) 1fr',
-        gap: 28,
-        alignItems: 'flex-start',
-      }} className="muscle-diagram-grid">
+      {mode === 'model3d' ? (
+        <div style={{
+          background: '#FFFFFF',
+          border: '1px solid #F0EAE0',
+          borderRadius: 12,
+          overflow: 'hidden',
+          boxShadow: '0 18px 45px rgba(46,33,24,0.08)',
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+            padding: '12px 14px',
+            background: '#F7F1E8',
+            borderBottom: '1px solid #EDE5D8',
+          }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#2E2118' }}>BioDigital Human 3D 模型</div>
+              <div style={{ fontSize: 11, color: '#8A8078', marginTop: 2 }}>旋转、缩放、选择肌肉层，辅助理解真实解剖位置</div>
+            </div>
+            <a
+              href={BIODIGITAL_MODEL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: 12,
+                color: '#7A4F23',
+                textDecoration: 'none',
+                border: '1px solid #D8C6AE',
+                borderRadius: 8,
+                padding: '6px 10px',
+                background: '#FEFCF9',
+              }}
+            >
+              新窗口打开
+            </a>
+          </div>
+          <iframe
+            src={BIODIGITAL_MODEL_URL}
+            title="BioDigital Human 3D Anatomy Model"
+            loading="lazy"
+            allow="fullscreen; xr-spatial-tracking"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-pointer-lock"
+            style={{
+              display: 'block',
+              width: '100%',
+              height: 'min(72vh, 720px)',
+              minHeight: 520,
+              border: 0,
+              background: '#FFFFFF',
+            }}
+          />
+        </div>
+      ) : (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(260px, 380px) 1fr',
+          gap: 28,
+          alignItems: 'flex-start',
+        }} className="muscle-diagram-grid">
         <div style={{
           position: 'relative',
           background: '#FFFFFF',
@@ -641,7 +735,8 @@ export default function MuscleDiagram() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes muscle-panel-fade {
