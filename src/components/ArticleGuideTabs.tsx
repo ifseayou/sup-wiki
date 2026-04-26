@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 interface Article { article_id: number; title: string; summary: string | null; content: string | null }
 interface Props { articles: Article[] }
@@ -997,22 +997,65 @@ const BUILT_IN_TABS = [
   { key: 'intl', label: '国际赛事体系' },
 ];
 
+const EVENT_GUIDE_ANCHOR_ID = 'event-guide-tabs';
+
 export default function ArticleGuideTabs({ articles }: Props) {
   const [activeTab, setActiveTab] = useState('china');
   const [expanded, setExpanded] = useState(false);
 
   // 数据库文章作为额外 tab
-  const articleTabs = articles
+  const articleTabs = useMemo(() => articles
     .filter(a => a.title !== '中国桨板赛事体系' && a.title !== '国际桨板赛事体系')
-    .map(a => ({ key: `article-${a.article_id}`, label: a.title, content: a.content }));
+    .map(a => ({ key: `article-${a.article_id}`, label: a.title, content: a.content })), [articles]);
 
-  const allTabs = [...BUILT_IN_TABS, ...articleTabs];
+  const allTabs = useMemo(() => [...BUILT_IN_TABS, ...articleTabs], [articleTabs]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const qs = new URLSearchParams(window.location.search);
+    const tab = qs.get('eventGuide');
+    if (tab && allTabs.some(t => t.key === tab)) {
+      setActiveTab(tab);
+      setExpanded(true);
+    } else if (qs.get('eventGuideOpen') === '1') {
+      setExpanded(true);
+    }
+  }, [allTabs]);
+
+  function updateGuideUrl(tab: string, open: boolean) {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (open) {
+      url.searchParams.set('eventGuide', tab);
+      url.searchParams.set('eventGuideOpen', '1');
+      url.hash = EVENT_GUIDE_ANCHOR_ID;
+    } else {
+      url.searchParams.delete('eventGuide');
+      url.searchParams.delete('eventGuideOpen');
+      if (url.hash === `#${EVENT_GUIDE_ANCHOR_ID}`) url.hash = '';
+    }
+    window.history.replaceState(null, '', url);
+  }
+
+  function openTab(tab: string) {
+    setActiveTab(tab);
+    setExpanded(true);
+    updateGuideUrl(tab, true);
+  }
+
+  function toggleExpanded() {
+    setExpanded(current => {
+      const next = !current;
+      updateGuideUrl(activeTab, next);
+      return next;
+    });
+  }
 
   return (
-    <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 12, marginBottom: 32 }}>
+    <div id={EVENT_GUIDE_ANCHOR_ID} style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 12, marginBottom: 32 }}>
       {/* 折叠头部 */}
       <div
-        onClick={() => setExpanded(e => !e)}
+        onClick={toggleExpanded}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', cursor: 'pointer', userSelect: 'none' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
@@ -1021,7 +1064,7 @@ export default function ArticleGuideTabs({ articles }: Props) {
             {allTabs.map(t => (
               <span
                 key={t.key}
-                onClick={e => { e.stopPropagation(); setActiveTab(t.key); setExpanded(true); }}
+                onClick={e => { e.stopPropagation(); openTab(t.key); }}
                 style={{
                   fontSize: 12,
                   color: activeTab === t.key && expanded ? '#7A6145' : '#8A8078',
@@ -1047,7 +1090,7 @@ export default function ArticleGuideTabs({ articles }: Props) {
             {allTabs.map(t => (
               <button
                 key={t.key}
-                onClick={() => setActiveTab(t.key)}
+                onClick={() => openTab(t.key)}
                 style={{
                   background: 'none', border: 'none',
                   borderBottom: activeTab === t.key ? '2px solid #7A6145' : '2px solid transparent',

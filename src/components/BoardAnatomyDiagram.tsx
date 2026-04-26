@@ -8,6 +8,8 @@
 
 import React, { useEffect, useState } from 'react';
 
+const BOARD_ANATOMY_ANCHOR_ID = 'sup-board-anatomy';
+
 interface BoardPart {
   id: string;
   name: string;
@@ -254,7 +256,7 @@ export default function BoardAnatomyDiagram() {
     if (typeof window === 'undefined') return;
     const qs = new URLSearchParams(window.location.search);
     if (qs.get('debug') === 'parts') setDebug(true);
-    const v = qs.get('view');
+    const v = qs.get('boardView') || qs.get('view');
     if (v === 'side' || v === 'bottom' || v === 'top') setViewKey(v);
   }, []);
 
@@ -264,10 +266,16 @@ export default function BoardAnatomyDiagram() {
   function switchView(k: 'top' | 'side' | 'bottom') {
     setViewKey(k);
     setActiveId(null);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('boardView', k);
+      url.hash = BOARD_ANATOMY_ANCHOR_ID;
+      window.history.replaceState(null, '', url);
+    }
   }
 
   return (
-    <div style={{
+    <div id={BOARD_ANATOMY_ANCHOR_ID} style={{
       background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 16,
       padding: 20, marginBottom: 32,
       boxShadow: '0 4px 20px rgba(46, 33, 24, 0.04)',
