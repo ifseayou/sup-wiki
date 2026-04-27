@@ -73,6 +73,7 @@ export default function Header() {
                   {userMenuOpen && (
                     <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 10, minWidth: 140, boxShadow: '0 4px 16px rgba(0,0,0,0.08)', zIndex: 100 }}>
                       <Link href="/my-learning" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: '#2E2118', textDecoration: 'none', borderBottom: '1px solid #EDE5D8' }}>📚 我的学习</Link>
+                      <Link href="/my-training" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: '#2E2118', textDecoration: 'none', borderBottom: '1px solid #EDE5D8' }}>🏄 我的训练</Link>
                       {!hasSportHacker && (
                         <Link href="/link-account" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', padding: '10px 16px', fontSize: 13, color: '#7A6145', textDecoration: 'none', borderBottom: '1px solid #EDE5D8' }}>🔗 关联运动骇客</Link>
                       )}
