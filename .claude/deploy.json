@@ -1,6 +1,6 @@
 {
   "server": "root@120.55.113.181",
-  "deployPath": "/www/wwwroot/sup-wiki",
+  "deployPath": "/root/sup-wiki",
   "branch": "main",
   "packageManager": "npm",
   "processManager": "pm2",
