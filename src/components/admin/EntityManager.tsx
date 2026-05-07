@@ -196,6 +196,7 @@ export default function EntityManager({
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | number | null>(null);
   const [msg, setMsg] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
 
   const idKey = Object.keys(defaultFormData).find(k => k.endsWith('_id')) || 'id';
@@ -225,6 +226,7 @@ export default function EntityManager({
 
     async function run() {
       setLoading(true);
+      setLoadError('');
       try {
         const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
         if (search) params.set('search', search);
@@ -236,11 +238,22 @@ export default function EntityManager({
         const res = await fetch(`${apiPath}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
         if (cancelled) return;
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
+            localStorage.removeItem('admin_token');
+            setLoadError('登录状态已失效，请重新登录');
+            window.location.reload();
+            return;
+          }
+          throw new Error(data.error || `${entityName}列表加载失败`);
+        }
         setItems(data.items || []);
         setTotal(data.total || 0);
-      } catch {
+      } catch (error) {
         if (cancelled) return;
         setItems([]);
+        setTotal(0);
+        setLoadError(error instanceof Error ? error.message : `${entityName}列表加载失败`);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -251,7 +264,7 @@ export default function EntityManager({
     return () => {
       cancelled = true;
     };
-  }, [queryKey, apiPath, token, page, pageSize, search, statusFilter, extraFilterValues, filters]);
+  }, [queryKey, apiPath, token, page, pageSize, search, statusFilter, extraFilterValues, filters, entityName]);
 
   function refreshItems() {
     setRefreshTick((tick) => tick + 1);
@@ -411,6 +424,12 @@ export default function EntityManager({
       {msg && (
         <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm ${msg.startsWith('失败') || msg.startsWith('网络') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
           {msg}
+        </div>
+      )}
+
+      {loadError && (
+        <div className="mb-4 px-4 py-2.5 rounded-lg text-sm bg-red-50 text-red-600">
+          {loadError}
         </div>
       )}
 
