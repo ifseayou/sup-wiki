@@ -72,6 +72,22 @@ function sourcePriority(payload) {
   return score;
 }
 
+function hasFullBookSource(payload) {
+  const sourceName = `${payload.source?.file_name || ''} ${payload.source?.original_path || ''}`;
+  return /成绩册|总结册|汇总|总成绩|全册|总排名|大排名/.test(sourceName);
+}
+
+function isGroupSidecarSource(payload) {
+  const sourceName = `${payload.source?.file_name || ''} ${payload.source?.original_path || ''}`;
+  return /成绩公告|成绩单|预赛|决赛|大师组|公开组|男子|女子|单项|分组/.test(sourceName) && !hasFullBookSource(payload);
+}
+
+function isDistinctiveFileName(fileName) {
+  const name = String(fileName || '').trim();
+  if (!name || name.length < 14) return false;
+  return !/^(成绩册|成绩|成绩单|成绩公告|总成绩)\.(pdf|xlsx?|txt)$/i.test(name);
+}
+
 function eventKey(payload) {
   const event = payload.event || {};
   return `${event.start_date || ''}|${String(event.name || '').trim()}`;
@@ -108,12 +124,37 @@ function dedupePayloads(payloads) {
 
   const seenStrict = new Set();
   const seenRelaxed = new Map();
+  const eventHasFullBook = new Set();
   let skipped = 0;
   const output = [];
 
   for (const entry of sorted) {
+    if (hasFullBookSource(entry.payload) && Array.isArray(entry.payload.results) && entry.payload.results.length >= 30) {
+      eventHasFullBook.add(eventKey(entry.payload));
+    }
+  }
+
+  for (const entry of sorted) {
     const payload = entry.payload;
     const evKey = eventKey(payload);
+    if (eventHasFullBook.has(evKey) && isGroupSidecarSource(payload)) {
+      skipped += Array.isArray(payload.results) ? payload.results.length : 0;
+      output.push({
+        ...payload,
+        results: [],
+        source: {
+          ...(payload.source || {}),
+          parser_note: `${payload.source?.parser_note || ''} 完整成绩册已覆盖该分组来源，导入时跳过成绩行。`.trim(),
+          metadata: {
+            ...(payload.source?.metadata || {}),
+            import_priority: entry.priority,
+            dedupe_applied: true,
+            skipped_by_full_book: true,
+          },
+        },
+      });
+      continue;
+    }
     const nextResults = [];
     const results = Array.isArray(payload.results) ? payload.results : [];
 
@@ -437,6 +478,17 @@ async function insertResultRow(connection, eventId, sourceId, source, result, at
 
 async function importPayload(connection, payload, dryRun, athleteCache) {
   const results = Array.isArray(payload.results) ? payload.results.filter((row) => row.athlete_name_snapshot && row.discipline && row.finish_time) : [];
+  if (!dryRun && results.length && isDistinctiveFileName(payload.source?.file_name)) {
+    const [existingSources] = await connection.execute(
+      `SELECT source_id FROM sup_event_result_sources
+       WHERE file_name = ? AND imported_rows > 0 AND COALESCE(original_path, '') <> COALESCE(?, '')
+       LIMIT 1`,
+      [payload.source.file_name, payload.source?.original_path || '']
+    );
+    if (existingSources.length) {
+      return { eventId: null, sourceId: Number(existingSources[0].source_id), results: 0, athletes: 0, athleteIds: [] };
+    }
+  }
   if (dryRun) {
     return { eventId: null, sourceId: null, results: results.length, athletes: 0 };
   }
