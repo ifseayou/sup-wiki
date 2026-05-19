@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Tooltip from '@/components/Tooltip';
+import AthleteResultsPanel from '@/components/AthleteResultsPanel';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import { marked } from 'marked';
@@ -228,18 +229,7 @@ export default async function AthleteDetailPage({
         </div>
       )}
 
-      <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '24px 28px', marginBottom: 32 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <div style={{ width: 3, height: 20, background: '#7A6145', borderRadius: 2 }} />
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', margin: 0 }}>成绩档案</h2>
-        </div>
-        <p style={{ fontSize: 14, lineHeight: 1.75, color: '#655D56', margin: '0 0 14px' }}>
-          运动员的完整比赛成绩、原始成绩册和对标查询需要登录后查看。
-        </p>
-        <Link href={`/login?redirect=${encodeURIComponent('/results')}`} style={{ display: 'inline-flex', background: '#8B7355', color: '#fff', borderRadius: 8, padding: '9px 14px', fontSize: 13, textDecoration: 'none' }}>
-          登录后进入成绩查询
-        </Link>
-      </div>
+      <AthleteResultsPanel athleteId={athleteId} />
 
       {/* ── 关键项目耗时 ──────────────────────────────────── */}
       {distanceKeys.length > 0 && (

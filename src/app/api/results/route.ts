@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireUser } from '@/lib/user-auth';
+import { localResultSourceCondition } from '@/lib/result-source-scope';
 import type { RowDataPacket } from 'mysql2';
 
 export async function GET(request: NextRequest) {
@@ -13,6 +14,7 @@ export async function GET(request: NextRequest) {
     const gender = searchParams.get('gender')?.trim();
     const discipline = searchParams.get('discipline')?.trim();
     const eventId = searchParams.get('event_id');
+    const athleteId = searchParams.get('athlete_id');
     const year = searchParams.get('year');
     const star = searchParams.get('star_level')?.trim();
     const rankMax = searchParams.get('rank_max');
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
       "e.status = 'published'",
       "e.event_status = 'completed'",
       'er.source_id IS NOT NULL',
-      "(src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')",
+      localResultSourceCondition,
       "er.review_status <> 'pending'",
     ];
     const params: (string | number)[] = [];
@@ -38,6 +40,7 @@ export async function GET(request: NextRequest) {
     if (gender) { conditions.push('er.gender_group LIKE ?'); params.push(`%${gender}%`); }
     if (discipline) { conditions.push('er.discipline LIKE ?'); params.push(`%${discipline}%`); }
     if (eventId) { conditions.push('er.event_id = ?'); params.push(Number(eventId)); }
+    if (athleteId) { conditions.push('er.athlete_id = ?'); params.push(Number(athleteId)); }
     if (year) { conditions.push('YEAR(e.start_date) = ?'); params.push(Number(year)); }
     if (star) { conditions.push('e.star_level = ?'); params.push(star); }
     if (rankMax) { conditions.push('er.rank_position <= ?'); params.push(Number(rankMax)); }
@@ -80,7 +83,7 @@ export async function GET(request: NextRequest) {
             FROM sup_event_results er
             INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
             WHERE er.discipline IS NOT NULL AND er.discipline <> ''
-              AND (src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')
+              AND ${localResultSourceCondition}
             ORDER BY er.discipline LIMIT 80
           ) d) AS disciplines,
          (SELECT JSON_ARRAYAGG(gender_group) FROM (
@@ -88,7 +91,7 @@ export async function GET(request: NextRequest) {
             FROM sup_event_results er
             INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
             WHERE er.gender_group IS NOT NULL AND er.gender_group <> ''
-              AND (src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')
+              AND ${localResultSourceCondition}
             ORDER BY er.gender_group LIMIT 60
           ) g) AS genders,
          (SELECT JSON_ARRAYAGG(event_year) FROM (
@@ -97,7 +100,7 @@ export async function GET(request: NextRequest) {
             INNER JOIN sup_event_results er ON er.event_id = e.event_id
             INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
             WHERE e.start_date IS NOT NULL
-              AND (src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')
+              AND ${localResultSourceCondition}
             ORDER BY event_year DESC LIMIT 40
           ) y) AS years`
     );

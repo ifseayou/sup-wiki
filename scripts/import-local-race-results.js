@@ -6,6 +6,11 @@ const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 
 const repoRoot = path.resolve(__dirname, '..');
+const LOCAL_RESULT_SOURCE_FILTER = `(
+         src.parser_name IN ('parse-race-results.py', 'local-race-results-import')
+         OR src.original_path LIKE '%/桨板赛事/%'
+         OR src.original_path LIKE '%/桨板比赛成绩/%'
+       )`;
 
 function usage() {
   console.log(`Usage:
@@ -262,7 +267,7 @@ async function syncAthleteRaceTimesBatch(connection, athleteIds) {
      INNER JOIN sup_events e ON e.event_id = er.event_id
      INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
      WHERE er.athlete_id IN (${placeholders})
-       AND (src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')
+       AND ${LOCAL_RESULT_SOURCE_FILTER}
      ORDER BY er.athlete_id ASC, e.start_date DESC, er.rank_position ASC`,
     ids
   );

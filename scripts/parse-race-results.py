@@ -11,10 +11,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import signal
 import shutil
 import sys
+import subprocess
+import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
@@ -242,9 +245,11 @@ def parse_pdf(path: Path) -> list[dict[str, Any]]:
     import pdfplumber
 
     results: list[dict[str, Any]] = []
+    text_chars = 0
     with pdfplumber.open(path) as pdf:
         for index, page in enumerate(pdf.pages, start=1):
             text = page.extract_text() or ""
+            text_chars += len(text.strip())
             title = text.split("\n")[:8]
             page_title = " ".join(title)
             tables = page.extract_tables() or []
@@ -265,6 +270,58 @@ def parse_pdf(path: Path) -> list[dict[str, Any]]:
                     if parsed:
                         results.append(parsed)
             results.extend(parse_pdf_text_page(text, index))
+    if not results and text_chars < 40:
+        results = parse_scanned_pdf(path)
+    return results
+
+
+def parse_scanned_pdf(path: Path) -> list[dict[str, Any]]:
+    swift_script = Path(__file__).with_name("ocr-image-macos.swift")
+    if not swift_script.exists() or not sys.platform == "darwin":
+        return []
+
+    try:
+        import fitz
+    except Exception:
+        return []
+
+    results: list[dict[str, Any]] = []
+    doc = fitz.open(path)
+    page_count = min(len(doc), 80)
+    with tempfile.TemporaryDirectory(prefix="sup-ocr-") as tmp:
+        tmp_path = Path(tmp)
+        for index in range(page_count):
+            page = doc[index]
+            pix = page.get_pixmap(matrix=fitz.Matrix(2.2, 2.2), alpha=False)
+            image_path = tmp_path / f"page-{index + 1}.png"
+            pix.save(str(image_path))
+            try:
+                env = {
+                    **os.environ,
+                    "CLANG_MODULE_CACHE_PATH": str(tmp_path / "clang-module-cache"),
+                    "SWIFT_MODULE_CACHE_PATH": str(tmp_path / "swift-module-cache"),
+                }
+                completed = subprocess.run(
+                    ["swift", str(swift_script), str(image_path)],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=25,
+                    env=env,
+                )
+            except subprocess.TimeoutExpired:
+                continue
+            if completed.returncode != 0:
+                continue
+            text = completed.stdout
+            if text.strip():
+                parsed = parse_pdf_text_page(text, index + 1)
+                for item in parsed:
+                    item["parse_confidence"] = 0.58
+                    item["review_status"] = "needs_review"
+                    item["source_note"] = "macOS Vision OCR"
+                results.extend(parsed)
+    doc.close()
     return results
 
 
@@ -303,7 +360,75 @@ def parse_pdf_text_page(text: str, page_number: int) -> list[dict[str, Any]]:
             parsed["parse_confidence"] = 0.72
             parsed["review_status"] = "needs_review"
             out.append(parsed)
+    if not out:
+        out.extend(parse_columnar_ocr_page(lines, page_number))
     return out
+
+
+def parse_columnar_ocr_page(lines: list[str], page_number: int) -> list[dict[str, Any]]:
+    if not any("成绩单" in line for line in lines) or not any(line in {"姓名", "咸名"} for line in lines):
+        return []
+    title = " ".join(line for line in lines if "成绩单" in line or "公里" in line or "米" in line)[:160]
+    rank_idx = first_index(lines, {"名次"})
+    bib_idx = first_index(lines, {"参赛号码"})
+    name_idx = first_index(lines, {"姓名", "咸名"})
+    score_idx = first_index(lines, {"成绩", "咸绩"})
+    if rank_idx is None or bib_idx is None or name_idx is None or score_idx is None:
+        return []
+
+    title_idx = min((i for i, line in enumerate(lines) if "成绩单" in line), default=name_idx)
+    ranks = [line for line in lines[rank_idx + 1:bib_idx] if re.fullmatch(r"\d{1,3}", line)]
+    if not ranks and bib_idx > rank_idx:
+        ranks = [line for line in lines[rank_idx + 1:title_idx] if re.fullmatch(r"\d{1,3}", line)]
+    bibs = [line for line in lines[bib_idx + 1:title_idx] if re.fullmatch(r"[A-Z]?\d{3,5}", line)]
+    people_block = lines[name_idx + 1:score_idx]
+    people_block = [
+        line for line in people_block
+        if not is_ocr_noise(line) and line not in {"代表单位", "中国体育彩票", "飞翔体育", "发令：07:30", "发令：07:40", "发令：08:25"}
+    ]
+    names = people_block[0::2]
+    teams = people_block[1::2]
+    finishes = [
+        line for line in lines[score_idx + 1:]
+        if re.fullmatch(TIME_PATTERN, line) or line.upper() in {"DNS", "DNF", "DQ"}
+    ]
+
+    count = min(len(ranks), len(names), len(finishes))
+    if count < 3:
+        return []
+    out = []
+    for index in range(count):
+        parsed = normalize_result_row(
+            {
+                "名次": ranks[index],
+                "号码": bibs[index] if index < len(bibs) else "",
+                "姓名": names[index],
+                "代表队": teams[index] if index < len(teams) else "",
+                "成绩": finishes[index],
+            },
+            {"title": title, "locator": f"page:{page_number}", "round_label": infer_round(title)},
+        )
+        if parsed:
+            parsed["parse_confidence"] = 0.58
+            parsed["review_status"] = "needs_review"
+            parsed["source_note"] = "macOS Vision OCR column parse"
+            out.append(parsed)
+    return out
+
+
+def first_index(lines: list[str], values: set[str]) -> int | None:
+    for idx, line in enumerate(lines):
+        if line in values:
+            return idx
+    return None
+
+
+def is_ocr_noise(line: str) -> bool:
+    if any(token in line for token in ("MTS", "世恒杯", "Bmis", "SHAEN", "NINEPHOENIX", "裁判长", "报判长", "装判长", "水趣", "丽水山")):
+        return True
+    if line.startswith("NO.") or line.startswith("地点：") or line.startswith("备注"):
+        return True
+    return False
 
 
 def looks_like_result_line(line: str) -> bool:

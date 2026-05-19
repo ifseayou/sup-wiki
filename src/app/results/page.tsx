@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
 
 interface ResultRow {
@@ -18,8 +18,6 @@ interface ResultRow {
   rank_position: number;
   result_label: string | null;
   finish_time: string;
-  time_seconds: number | null;
-  points: number | null;
   team_name: string | null;
   source_title: string | null;
   source_url: string | null;
@@ -29,30 +27,146 @@ interface ResultRow {
   city: string | null;
   province: string | null;
   star_level: string | null;
-  score_coefficient: string | null;
   athlete_name: string | null;
   source_file_url: string | null;
   source_file_name: string | null;
 }
 
-const inputStyle = 'h-10 rounded-md border border-[#D8CDBE] bg-[#FEFCF9] px-3 text-sm text-stone-700 outline-none focus:border-[#8B7355] focus:ring-2 focus:ring-[#8B7355]/15';
+interface FilterOption {
+  value: string;
+  label: string;
+  meta?: string | null;
+}
 
-export default function ResultsPage() {
+const rankOptions: FilterOption[] = [
+  { value: '', label: '全部名次' },
+  { value: '3', label: '前三' },
+  { value: '10', label: '前十' },
+  { value: '30', label: '前三十' },
+];
+
+const pageSize = 30;
+
+function SearchSelect({
+  label,
+  type,
+  value,
+  display,
+  onChange,
+  staticOptions,
+}: {
+  label: string;
+  type?: string;
+  value: string;
+  display: string;
+  onChange: (value: string, display: string) => void;
+  staticOptions?: FilterOption[];
+}) {
+  const { token } = useUser();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(display);
+  const [options, setOptions] = useState<FilterOption[]>(staticOptions || []);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setText(display), [display]);
+
+  useEffect(() => {
+    if (staticOptions || !token || !type || !open) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ type, q: text });
+    fetch(`/api/results/options?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then((res) => res.json())
+      .then((data) => setOptions(data.items || []))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [open, staticOptions, text, token, type]);
+
+  useEffect(() => {
+    function onPointerDown(event: PointerEvent) {
+      if (boxRef.current && !boxRef.current.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, []);
+
+  return (
+    <div ref={boxRef} className="relative">
+      <input
+        className="h-12 w-full rounded-md border border-[#D8CDBE] bg-[#FEFCF9] px-3 text-sm text-stone-700 outline-none transition focus:border-[#8B7355] focus:ring-2 focus:ring-[#8B7355]/15"
+        placeholder={label}
+        value={text}
+        onFocus={() => setOpen(true)}
+        onChange={(event) => {
+          const next = event.target.value;
+          setText(next);
+          setOpen(true);
+          if (!next && value) onChange('', '');
+        }}
+      />
+      {open && (
+        <div className="absolute left-0 right-0 z-20 mt-2 max-h-72 overflow-auto rounded-md border border-[#D8CDBE] bg-[#FFFCF7] shadow-[0_16px_40px_rgba(74,56,37,0.14)]">
+          {options.map((option) => (
+            <button
+              type="button"
+              key={`${option.value}-${option.label}`}
+              className="flex w-full items-center justify-between gap-3 border-b border-[#EFE5D8] px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-[#F4EBDD]"
+              onClick={() => {
+                onChange(option.value, option.label);
+                setText(option.label);
+                setOpen(false);
+              }}
+            >
+              <span className="truncate font-medium text-[#3A2B20]">{option.label}</span>
+              {option.meta && <span className="shrink-0 text-xs text-stone-400">{option.meta}</span>}
+            </button>
+          ))}
+          {options.length === 0 && <div className="px-3 py-3 text-sm text-stone-400">没有匹配选项</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { token, loading } = useUser();
   const [items, setItems] = useState<ResultRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
+  const [jumpPage, setJumpPage] = useState('1');
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({
-    search: '',
+    athlete_id: '',
+    athlete_label: '',
+    event_id: '',
+    event_label: '',
     gender: '',
+    gender_label: '',
     discipline: '',
+    discipline_label: '',
     year: '',
+    year_label: '',
     rank_max: '',
+    rank_label: '',
     star_level: '',
+    star_label: '',
   });
+
+  useEffect(() => {
+    const athleteId = searchParams.get('athlete_id') || '';
+    if (!athleteId) return;
+    setFilters((prev) => prev.athlete_id === athleteId ? prev : {
+      ...prev,
+      athlete_id: athleteId,
+      athlete_label: prev.athlete_label || `运动员 #${athleteId}`,
+    });
+  }, [searchParams]);
 
   useEffect(() => {
     if (!loading && !token) {
@@ -61,10 +175,14 @@ export default function ResultsPage() {
   }, [loading, token, router]);
 
   const query = useMemo(() => {
-    const params = new URLSearchParams({ page: String(page), pageSize: '30' });
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value.trim()) params.set(key, value.trim());
-    });
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (filters.athlete_id) params.set('athlete_id', filters.athlete_id);
+    if (filters.event_id) params.set('event_id', filters.event_id);
+    if (filters.gender) params.set('gender', filters.gender);
+    if (filters.discipline) params.set('discipline', filters.discipline);
+    if (filters.year) params.set('year', filters.year);
+    if (filters.rank_max) params.set('rank_max', filters.rank_max);
+    if (filters.star_level) params.set('star_level', filters.star_level);
     return params.toString();
   }, [filters, page]);
 
@@ -78,14 +196,42 @@ export default function ResultsPage() {
         if (!res.ok) throw new Error(data.error || '成绩查询失败');
         setItems(data.items || []);
         setTotal(Number(data.total || 0));
+        setTotalPages(Math.max(1, Number(data.totalPages || 1)));
       })
       .catch((err) => setError(err instanceof Error ? err.message : '成绩查询失败'))
       .finally(() => setFetching(false));
   }, [token, query]);
 
-  function setFilter(key: keyof typeof filters, value: string) {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+  useEffect(() => setJumpPage(String(page)), [page]);
+
+  function updateFilter(valueKey: keyof typeof filters, labelKey: keyof typeof filters, value: string, label: string) {
+    setFilters((prev) => ({ ...prev, [valueKey]: value, [labelKey]: label }));
     setPage(1);
+  }
+
+  function clearFilters() {
+    setFilters({
+      athlete_id: '',
+      athlete_label: '',
+      event_id: '',
+      event_label: '',
+      gender: '',
+      gender_label: '',
+      discipline: '',
+      discipline_label: '',
+      year: '',
+      year_label: '',
+      rank_max: '',
+      rank_label: '',
+      star_level: '',
+      star_label: '',
+    });
+    setPage(1);
+  }
+
+  function jumpToPage() {
+    const next = Math.min(totalPages, Math.max(1, Number(jumpPage) || 1));
+    setPage(next);
   }
 
   if (loading || !token) {
@@ -94,51 +240,61 @@ export default function ResultsPage() {
 
   return (
     <main className="min-h-screen bg-[#F7F2EA]">
-      <section className="border-b border-[#E5D9C8] bg-[#2E281F] text-[#F9F3E8]">
+      <section className="border-b border-[#E5D9C8] bg-[#29231B] text-[#F9F3E8]">
         <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="mb-2 text-xs uppercase tracking-[0.28em] text-[#CDBB9E]">Race Intelligence</p>
               <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">桨板成绩查询</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#D9CDBA]">
-                按运动员、项目、组别和赛事等级筛选成绩，用于查看个人档案、对标目标选手和回溯官方成绩册。
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[#D9CDBA]">
+                用结构化成绩册筛选运动员、赛事、项目和组别，查看个人档案、对标目标选手并回溯原始成绩来源。
               </p>
             </div>
-            <div className="rounded-md border border-[#7D6B52] px-4 py-3 text-sm text-[#E7D9C3]">
-              已收录 <span className="text-xl font-semibold text-white">{total}</span> 条成绩
+            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+              <div className="rounded-md border border-[#7D6B52] px-4 py-3">
+                <div className="text-xs text-[#BCA98B]">总记录数</div>
+                <div className="mt-1 text-2xl font-semibold text-white">{total}</div>
+              </div>
+              <div className="rounded-md border border-[#7D6B52] px-4 py-3">
+                <div className="text-xs text-[#BCA98B]">当前页</div>
+                <div className="mt-1 text-2xl font-semibold text-white">{page}</div>
+              </div>
+              <div className="rounded-md border border-[#7D6B52] px-4 py-3">
+                <div className="text-xs text-[#BCA98B]">总页数</div>
+                <div className="mt-1 text-2xl font-semibold text-white">{totalPages}</div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-5 grid gap-3 rounded-lg border border-[#DED2C1] bg-[#FFFCF7] p-4 md:grid-cols-[1.5fr_repeat(5,1fr)]">
-          <input className={inputStyle} placeholder="运动员 / 队伍 / 赛事" value={filters.search} onChange={(e) => setFilter('search', e.target.value)} />
-          <input className={inputStyle} placeholder="性别组" value={filters.gender} onChange={(e) => setFilter('gender', e.target.value)} />
-          <input className={inputStyle} placeholder="项目，如 200米" value={filters.discipline} onChange={(e) => setFilter('discipline', e.target.value)} />
-          <input className={inputStyle} placeholder="年份" value={filters.year} onChange={(e) => setFilter('year', e.target.value)} />
-          <select className={inputStyle} value={filters.rank_max} onChange={(e) => setFilter('rank_max', e.target.value)}>
-            <option value="">全部名次</option>
-            <option value="3">前三</option>
-            <option value="10">前十</option>
-            <option value="30">前三十</option>
-          </select>
-          <select className={inputStyle} value={filters.star_level} onChange={(e) => setFilter('star_level', e.target.value)}>
-            <option value="">全部星级</option>
-            <option value="五星+">五星+</option>
-            <option value="五星">五星</option>
-            <option value="四星+">四星+</option>
-            <option value="四星">四星</option>
-            <option value="三星">三星</option>
-          </select>
+        <div className="mb-5 rounded-lg border border-[#DED2C1] bg-[#FFFCF7] p-4 shadow-[0_14px_36px_rgba(93,72,48,0.07)]">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+            <div className="xl:col-span-2">
+              <SearchSelect label="运动员" type="athlete" value={filters.athlete_id} display={filters.athlete_label} onChange={(v, l) => updateFilter('athlete_id', 'athlete_label', v, l)} />
+            </div>
+            <div className="xl:col-span-2">
+              <SearchSelect label="赛事" type="event" value={filters.event_id} display={filters.event_label} onChange={(v, l) => updateFilter('event_id', 'event_label', v, l)} />
+            </div>
+            <SearchSelect label="项目" type="discipline" value={filters.discipline} display={filters.discipline_label} onChange={(v, l) => updateFilter('discipline', 'discipline_label', v, l)} />
+            <SearchSelect label="性别组" type="gender" value={filters.gender} display={filters.gender_label} onChange={(v, l) => updateFilter('gender', 'gender_label', v, l)} />
+            <SearchSelect label="年份" type="year" value={filters.year} display={filters.year_label} onChange={(v, l) => updateFilter('year', 'year_label', v, l)} />
+            <SearchSelect label="名次" value={filters.rank_max} display={filters.rank_label} staticOptions={rankOptions} onChange={(v, l) => updateFilter('rank_max', 'rank_label', v, l)} />
+            <SearchSelect label="星级" type="star_level" value={filters.star_level} display={filters.star_label} onChange={(v, l) => updateFilter('star_level', 'star_label', v, l)} />
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 text-sm text-stone-500">
+            <span>每页 {pageSize} 条，当前筛选命中 {total} 条</span>
+            <button type="button" onClick={clearFilters} className="rounded-md border border-[#D8CDBE] px-3 py-2 text-[#6F563B] hover:bg-[#F4EBDD]">清空筛选</button>
+          </div>
         </div>
 
         {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-        <div className="overflow-hidden rounded-lg border border-[#DED2C1] bg-[#FFFCF7]">
+        <div className="overflow-hidden rounded-lg border border-[#DED2C1] bg-[#FFFCF7] shadow-[0_18px_42px_rgba(93,72,48,0.08)]">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm">
-              <thead className="bg-[#ECE2D3] text-left text-xs uppercase tracking-wide text-[#6E604E]">
+            <table className="w-full min-w-[1080px] text-sm">
+              <thead className="bg-[#E9DECD] text-left text-xs uppercase tracking-wide text-[#6E604E]">
                 <tr>
                   <th className="px-4 py-3">运动员</th>
                   <th className="px-4 py-3">赛事</th>
@@ -171,7 +327,7 @@ export default function ResultsPage() {
                         <a className="text-[#7A6145] hover:text-[#4B3927]" href={row.source_file_url || row.source_url || '#'} target="_blank" rel="noopener noreferrer">
                           {row.source_file_name || row.source_title || '成绩册'}{row.source_locator ? ` · ${row.source_locator}` : ''}
                         </a>
-                      ) : '—'}
+                      ) : (row.source_file_name || row.source_title || '—')}
                     </td>
                   </tr>
                 ))}
@@ -184,14 +340,24 @@ export default function ResultsPage() {
           {fetching && <div className="border-t border-[#EEE4D8] px-4 py-4 text-center text-sm text-stone-400">加载中...</div>}
         </div>
 
-        <div className="mt-5 flex items-center justify-between text-sm text-stone-500">
-          <span>第 {page} 页</span>
-          <div className="flex gap-2">
+        <div className="mt-5 flex flex-col gap-3 rounded-lg border border-[#DED2C1] bg-[#FFFCF7] px-4 py-3 text-sm text-stone-500 sm:flex-row sm:items-center sm:justify-between">
+          <span>共 {total} 条记录，第 {page} / {totalPages} 页</span>
+          <div className="flex flex-wrap items-center gap-2">
             <button disabled={page <= 1} onClick={() => setPage((v) => Math.max(1, v - 1))} className="rounded-md border border-[#D8CDBE] px-3 py-2 disabled:opacity-40">上一页</button>
-            <button disabled={items.length < 30} onClick={() => setPage((v) => v + 1)} className="rounded-md border border-[#D8CDBE] px-3 py-2 disabled:opacity-40">下一页</button>
+            <button disabled={page >= totalPages} onClick={() => setPage((v) => Math.min(totalPages, v + 1))} className="rounded-md border border-[#D8CDBE] px-3 py-2 disabled:opacity-40">下一页</button>
+            <input value={jumpPage} onChange={(e) => setJumpPage(e.target.value.replace(/[^\d]/g, ''))} className="h-10 w-20 rounded-md border border-[#D8CDBE] bg-[#FEFCF9] px-3 text-center outline-none focus:border-[#8B7355]" />
+            <button onClick={jumpToPage} className="rounded-md bg-[#8B7355] px-3 py-2 text-white hover:bg-[#6F5B42]">跳转</button>
           </div>
         </div>
       </section>
     </main>
+  );
+}
+
+export default function ResultsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[60vh] px-6 py-20 text-center text-stone-500">正在加载成绩查询...</div>}>
+      <ResultsContent />
+    </Suspense>
   );
 }

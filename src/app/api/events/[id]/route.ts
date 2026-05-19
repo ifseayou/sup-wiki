@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import { extractToken, verifyUserToken } from '@/lib/auth';
+import { localResultSourceCondition } from '@/lib/result-source-scope';
 
 interface EventRow extends RowDataPacket {
   event_id: number;
@@ -96,7 +97,7 @@ export async function GET(
        LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
        WHERE er.event_id = ?
          AND er.review_status <> 'pending'
-         AND (src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')
+         AND ${localResultSourceCondition}
        ORDER BY er.gender_group ASC, er.discipline ASC, er.round_label ASC, er.rank_position ASC`,
       [id]
     ) : [[] as EventResultRow[]];

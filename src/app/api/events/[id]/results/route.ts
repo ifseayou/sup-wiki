@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireUser } from '@/lib/user-auth';
+import { localResultSourceCondition } from '@/lib/result-source-scope';
 import type { RowDataPacket } from 'mysql2';
 
 export async function GET(
@@ -27,7 +28,7 @@ export async function GET(
        INNER JOIN sup_events e ON e.event_id = er.event_id
        WHERE er.event_id = ? AND e.status = 'published'
          AND er.review_status <> 'pending'
-         AND (src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')
+         AND ${localResultSourceCondition}
        ORDER BY er.gender_group ASC, er.discipline ASC, er.round_label ASC, er.rank_position ASC`,
       [id]
     );
