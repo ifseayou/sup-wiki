@@ -26,6 +26,8 @@ const navItems = [
   { href: '/admin/athletes', label: '运动员' },
   { href: '/admin/creators', label: '博主' },
   { href: '/admin/events', label: '赛事' },
+  { href: '/admin/courses', label: '课程' },
+  { href: '/admin/techniques', label: '技术动作库' },
   { href: '/admin/articles', label: '文章' },
   { href: '/admin/learn-questions', label: '题库' },
   { href: '/admin/learn-docs', label: '学习文档' },
@@ -435,9 +437,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('admin_token');
-    if (saved) setToken(saved);
-    setLoading(false);
+    const timer = window.setTimeout(() => {
+      const saved = localStorage.getItem('admin_token');
+      if (saved) setToken(saved);
+      setLoading(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   function handleLogin(t: string) {

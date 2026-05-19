@@ -37,7 +37,7 @@ export type EventResultStatus = 'none' | 'partial' | 'top10_complete' | 'extende
 export type EventResultSourceType = 'official' | 'media' | 'livestream' | 'manual';
 
 // 实体类型（用于批量导入等）
-export type EntityType = 'brand' | 'product' | 'athlete' | 'creator' | 'event' | 'shop_item';
+export type EntityType = 'brand' | 'product' | 'athlete' | 'creator' | 'event' | 'shop_item' | 'course' | 'technique';
 
 // 商城商品分类
 export type ShopCategory = 'board' | 'paddle' | 'life_jacket' | 'accessory';

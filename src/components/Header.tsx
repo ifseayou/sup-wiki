@@ -12,6 +12,7 @@ const navLinks = [
   { href: '/events', label: '赛事' },
   { href: '/shop', label: '商城' },
   { href: '/learn', label: '学习' },
+  { href: '/courses', label: '课程' },
 ];
 
 export default function Header() {
