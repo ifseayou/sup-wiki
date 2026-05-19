@@ -481,7 +481,7 @@ def parse_structured_ocr_score_sheet(lines: list[str], page_number: int) -> list
         return []
 
     name_idx = first_index_contains(lines, ("运动员姓名", "姓名"))
-    bib_idx = first_index_contains(lines, ("参赛号码", "编号"))
+    bib_idx = first_index_contains(lines, ("参赛号", "参赛号码", "编号"))
     if name_idx is None:
         return []
 
@@ -554,11 +554,23 @@ def normalize_ocr_time(line: str) -> str | None:
     text = clean_cell(line)
     if text.upper() in {"DNS", "DNF", "DQ"}:
         return text.upper()
-    text = text.replace("’", "'").replace("‘", "'").replace("〞", '"').replace("^", '"').replace("*", '"').replace("°", "'")
+    text = (
+        text.replace("’", "'")
+        .replace("‘", "'")
+        .replace("”", '"')
+        .replace("“", '"')
+        .replace("〞", '"')
+        .replace("^", '"')
+        .replace("~", '"')
+        .replace("*", '"')
+        .replace("°", "'")
+        .replace("/", "'")
+    )
     text = re.sub(r"\s+", "", text)
-    match = re.fullmatch(r"(\d{1,2}):(\d{2})'(\d{1,2})[\"']?", text)
+    match = re.fullmatch(r"(\d{1,2}):(\d{2})'(\d{1,2})[\"']?(\d{0,2})", text)
     if match:
-        return f"{match.group(1)}:{match.group(2)}.{match.group(3)}"
+        suffix = match.group(4)
+        return f"{match.group(1)}:{match.group(2)}.{match.group(3)}{suffix}"
     match = re.fullmatch(r"(\d{1,2})'(\d{2})\"?(\d{0,2})", text)
     if match:
         suffix = match.group(3)
