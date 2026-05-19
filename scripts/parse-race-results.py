@@ -62,6 +62,8 @@ def is_probable_result_file(path: Path) -> bool:
         return True
     if path.suffix.lower() in EXCEL_EXTS:
         return True
+    if path.suffix.lower() == ".pdf" and any(k in path.parent.name for k in RESULT_KEYWORDS + EVENT_KEYWORDS):
+        return True
     return path.suffix.lower() in IMAGE_EXTS and any(k in path.parent.name for k in SUP_KEYWORDS)
 
 
@@ -270,7 +272,7 @@ def parse_pdf(path: Path) -> list[dict[str, Any]]:
                     if parsed:
                         results.append(parsed)
             results.extend(parse_pdf_text_page(text, index))
-    if not results and text_chars < 40:
+    if not results:
         results = parse_scanned_pdf(path)
     return results
 
@@ -325,6 +327,38 @@ def parse_scanned_pdf(path: Path) -> list[dict[str, Any]]:
     return results
 
 
+def parse_image(path: Path) -> list[dict[str, Any]]:
+    text = ocr_image(path)
+    if not text.strip():
+        return []
+    return parse_pdf_text_page(text, 1)
+
+
+def ocr_image(path: Path) -> str:
+    swift_script = Path(__file__).with_name("ocr-image-macos.swift")
+    if not swift_script.exists() or not sys.platform == "darwin":
+        return ""
+    with tempfile.TemporaryDirectory(prefix="sup-image-ocr-") as tmp:
+        tmp_path = Path(tmp)
+        env = {
+            **os.environ,
+            "CLANG_MODULE_CACHE_PATH": str(tmp_path / "clang-module-cache"),
+            "SWIFT_MODULE_CACHE_PATH": str(tmp_path / "swift-module-cache"),
+        }
+        try:
+            completed = subprocess.run(
+                ["swift", str(swift_script), str(path)],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=35,
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            return ""
+    return completed.stdout if completed.returncode == 0 else ""
+
+
 def find_header_index(table: list[list[Any]]) -> int | None:
     for idx, row in enumerate(table[:5]):
         header = "".join(clean_cell(v).replace("\n", "") for v in row)
@@ -366,7 +400,10 @@ def parse_pdf_text_page(text: str, page_number: int) -> list[dict[str, Any]]:
 
 
 def parse_columnar_ocr_page(lines: list[str], page_number: int) -> list[dict[str, Any]]:
-    if not any("成绩单" in line for line in lines) or not any(line in {"姓名", "咸名"} for line in lines):
+    structured = parse_structured_ocr_score_sheet(lines, page_number)
+    if structured:
+        return structured
+    if not any(("成绩单" in line or "成绩公示" in line) for line in lines) or not any(line in {"姓名", "咸名", "运动员姓名"} for line in lines):
         return []
     title = " ".join(line for line in lines if "成绩单" in line or "公里" in line or "米" in line)[:160]
     rank_idx = first_index(lines, {"名次"})
@@ -423,6 +460,123 @@ def first_index(lines: list[str], values: set[str]) -> int | None:
     return None
 
 
+def first_index_contains(lines: list[str], values: tuple[str, ...], start: int = 0) -> int | None:
+    for idx, line in enumerate(lines[start:], start=start):
+        if any(value in line for value in values):
+            return idx
+    return None
+
+
+def parse_structured_ocr_score_sheet(lines: list[str], page_number: int) -> list[dict[str, Any]]:
+    title = " ".join(line for line in lines if any(k in line for k in ("成绩单", "成绩公示", "预赛", "决赛", "公里", "200M", "200米")))[:180]
+    if not title:
+        return []
+    team_idx = first_index_contains(lines, ("代表单位",))
+    score_idx = first_index(lines[team_idx + 1:] if team_idx is not None else lines, {"成绩", "咸绩"})
+    if score_idx is not None and team_idx is not None:
+        score_idx += team_idx + 1
+    if score_idx is None:
+        score_idx = first_exact_or_short_score_index(lines)
+    if score_idx is None:
+        return []
+
+    name_idx = first_index_contains(lines, ("运动员姓名", "姓名"))
+    bib_idx = first_index_contains(lines, ("参赛号码", "编号"))
+    if name_idx is None:
+        return []
+
+    front_end = min([idx for idx in (team_idx, score_idx) if idx is not None])
+    front = lines[name_idx + 1:front_end]
+    if bib_idx is not None and bib_idx > name_idx and bib_idx < front_end:
+        front = lines[bib_idx + 1:front_end]
+    front = [line for line in front if not is_ocr_noise(line) and not re.fullmatch(r"\d{1,2}", line)]
+
+    bibs = [line for line in front if re.fullmatch(r"[A-Z]?\d{3,5}", line)]
+    names = [
+        line for line in front
+        if is_probable_person_name(line) and not re.fullmatch(r"[A-Z]?\d{3,5}", line)
+    ]
+    if len(names) < 3:
+        return []
+
+    teams: list[str] = []
+    if team_idx is not None and team_idx < score_idx:
+        teams = [
+            line for line in lines[team_idx + 1:score_idx]
+            if not is_ocr_noise(line)
+            and not re.fullmatch(r"[A-Z]?\d{3,5}", line)
+            and not is_probable_person_name(line)
+            and not re.fullmatch(r"\d{1,2}", line)
+        ]
+
+    finishes = [normalize_ocr_time(line) for line in lines[score_idx + 1:] if normalize_ocr_time(line)]
+    if len(finishes) < 3:
+        return []
+
+    rank_lines: list[str] = []
+    rank_idx = first_index_contains(lines, ("预赛排名", "名次"))
+    rank_stop = min([idx for idx in (bib_idx, name_idx) if idx is not None and idx > (rank_idx or -1)] or [front_end])
+    if rank_idx is not None:
+        rank_lines = [line for line in lines[rank_idx + 1:rank_stop] if re.fullmatch(r"\d{1,3}", line)]
+
+    count = min(len(names), len(finishes))
+    out = []
+    for index in range(count):
+        rank = rank_lines[index] if index < len(rank_lines) else str(index + 1)
+        parsed = normalize_result_row(
+            {
+                "名次": rank,
+                "号码": bibs[index] if index < len(bibs) else "",
+                "姓名": names[index],
+                "代表队": teams[index] if index < len(teams) else "",
+                "成绩": finishes[index],
+            },
+            {"title": title, "locator": f"page:{page_number}", "round_label": infer_round(title)},
+        )
+        if parsed:
+            parsed["parse_confidence"] = 0.52
+            parsed["review_status"] = "needs_review"
+            parsed["source_note"] = "macOS Vision OCR structured parse"
+            out.append(parsed)
+    return out
+
+
+def is_probable_person_name(line: str) -> bool:
+    text = clean_cell(line)
+    if not text or len(text) > 32:
+        return False
+    if any(k in text for k in ("俱乐部", "协会", "体育", "个人", "大学", "联盟", "桨板", "皮划艇", "户外", "水上", "科技", "义桨", "力格", "栖拓", "余慈甬", "温州飞速", "上海", "宁波", "杭州", "绍兴")):
+        return False
+    return bool(re.search(r"[\u4e00-\u9fa5A-Za-z]", text))
+
+
+def normalize_ocr_time(line: str) -> str | None:
+    text = clean_cell(line)
+    if text.upper() in {"DNS", "DNF", "DQ"}:
+        return text.upper()
+    text = text.replace("’", "'").replace("‘", "'").replace("〞", '"').replace("^", '"').replace("*", '"').replace("°", "'")
+    text = re.sub(r"\s+", "", text)
+    match = re.fullmatch(r"(\d{1,2}):(\d{2})'(\d{1,2})[\"']?", text)
+    if match:
+        return f"{match.group(1)}:{match.group(2)}.{match.group(3)}"
+    match = re.fullmatch(r"(\d{1,2})'(\d{2})\"?(\d{0,2})", text)
+    if match:
+        suffix = match.group(3)
+        return f"{match.group(1)}:{match.group(2)}{'.' + suffix if suffix else ''}"
+    if re.fullmatch(r"\d{1,2}:\d{2}[:.]\d{1,3}", text):
+        return text
+    if re.fullmatch(r"\d{1,2}[:.]\d{2}(?:[.:]\d{1,3})?", text):
+        return text
+    return None
+
+
+def first_exact_or_short_score_index(lines: list[str]) -> int | None:
+    for idx, line in enumerate(lines):
+        if line in {"成绩", "咸绩"}:
+            return idx
+    return None
+
+
 def is_ocr_noise(line: str) -> bool:
     if any(token in line for token in ("MTS", "世恒杯", "Bmis", "SHAEN", "NINEPHOENIX", "裁判长", "报判长", "装判长", "水趣", "丽水山")):
         return True
@@ -451,6 +605,8 @@ def parse_one(path: Path, root: Path) -> dict[str, Any] | None:
             results = parse_excel(path)
         elif file_type == "pdf":
             results = parse_pdf(path)
+        elif file_type == "image":
+            results = parse_image(path)
         elif file_type == "text":
             text = path.read_text(encoding="utf-8", errors="ignore")
             results = parse_pdf_text_page(text, 1)
