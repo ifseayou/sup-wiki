@@ -45,13 +45,13 @@ CREATE TABLE IF NOT EXISTS sup_athlete_identity_links (
 
 DROP PROCEDURE IF EXISTS add_col_if_missing;
 DELIMITER //
-CREATE PROCEDURE add_col_if_missing(IN table_name VARCHAR(64), IN column_name VARCHAR(64), IN ddl TEXT)
+CREATE PROCEDURE add_col_if_missing(IN p_table_name VARCHAR(64), IN p_column_name VARCHAR(64), IN p_ddl TEXT)
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = table_name AND COLUMN_NAME = column_name
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = p_table_name AND COLUMN_NAME = p_column_name
   ) THEN
-    SET @sql = ddl;
+    SET @sql = p_ddl;
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
@@ -71,13 +71,13 @@ DROP PROCEDURE IF EXISTS add_col_if_missing;
 
 DROP PROCEDURE IF EXISTS add_idx_if_missing;
 DELIMITER //
-CREATE PROCEDURE add_idx_if_missing(IN index_name VARCHAR(64), IN ddl TEXT)
+CREATE PROCEDURE add_idx_if_missing(IN p_index_name VARCHAR(64), IN p_ddl TEXT)
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sup_event_results' AND INDEX_NAME = index_name
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sup_event_results' AND INDEX_NAME = p_index_name
   ) THEN
-    SET @sql = ddl;
+    SET @sql = p_ddl;
     PREPARE stmt FROM @sql;
     EXECUTE stmt;
     DEALLOCATE PREPARE stmt;
