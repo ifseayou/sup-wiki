@@ -9,10 +9,13 @@ records so the admin review queue can track them back to the original book.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
+import signal
 import shutil
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +30,10 @@ SUP_KEYWORDS = ("桨板", "SUP", "sup")
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 EXCEL_EXTS = {".xlsx", ".xls"}
 TIME_PATTERN = r"(?:\d+:)?\d{1,2}[:.]\d{2}(?:[.:]\d{1,3})?|\d+'\d+(?:\.\d+)?\"?|\d{1,3}(?:\.\d{1,3})"
+
+
+class FileParseTimeout(Exception):
+    pass
 
 
 def classify_file(path: Path) -> str:
@@ -366,6 +373,89 @@ def dedupe_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return deduped
 
 
+def cache_key(path: Path) -> str:
+    stat = path.stat()
+    raw = f"{path.resolve()}:{stat.st_mtime_ns}:{stat.st_size}"
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def pending_payload(path: Path, root: Path, note: str, status: str = "pending_review") -> dict[str, Any]:
+    return {
+        "event": event_from_path(path, root),
+        "source": {
+            "original_path": str(path),
+            "file_name": path.name,
+            "file_type": classify_file(path),
+            "parser_name": "parse-race-results.py",
+            "parser_status": status,
+            "parser_note": note,
+            "extracted_rows": 0,
+            "source_kind": "local_result_book",
+            "metadata": {"relative_path": str(path.relative_to(root)) if path.is_relative_to(root) else str(path)},
+        },
+        "results": [],
+    }
+
+
+def parse_with_timeout(path: Path, root: Path, timeout_seconds: int) -> dict[str, Any] | None:
+    if timeout_seconds <= 0:
+        return parse_one(path, root)
+
+    def handle_timeout(_signum: int, _frame: Any) -> None:
+        raise FileParseTimeout(f"单文件解析超过 {timeout_seconds} 秒，已转入待复核")
+
+    previous = signal.signal(signal.SIGALRM, handle_timeout)
+    signal.alarm(timeout_seconds)
+    try:
+        return parse_one(path, root)
+    except FileParseTimeout as exc:
+        if not is_probable_result_file(path):
+            return None
+        return pending_payload(path, root, str(exc))
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous)
+
+
+def parse_cached_worker(args: tuple[str, str, str, int, bool]) -> dict[str, Any]:
+    path_str, root_str, cache_dir_str, timeout_seconds, refresh = args
+    path = Path(path_str)
+    root = Path(root_str)
+    cache_dir = Path(cache_dir_str)
+    key = cache_key(path)
+    cache_path = cache_dir / f"{key}.json"
+
+    if cache_path.exists() and not refresh:
+        cached = json.loads(cache_path.read_text(encoding="utf-8"))
+        cached["cache_hit"] = True
+        return cached
+
+    try:
+        payload = parse_with_timeout(path, root, timeout_seconds)
+        cached = {
+            "cache_hit": False,
+            "path": str(path),
+            "payload": payload,
+            "status": payload["source"]["parser_status"] if payload else "ignored",
+            "rows": len(payload.get("results", [])) if payload else 0,
+        }
+    except Exception as exc:  # noqa: BLE001
+        payload = pending_payload(path, root, f"解析失败：{exc}", "failed") if is_probable_result_file(path) else None
+        cached = {
+            "cache_hit": False,
+            "path": str(path),
+            "payload": payload,
+            "status": payload["source"]["parser_status"] if payload else "ignored",
+            "rows": 0,
+        }
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    tmp_path = cache_path.with_suffix(".tmp")
+    tmp_path.write_text(json.dumps(cached, ensure_ascii=False), encoding="utf-8")
+    tmp_path.replace(cache_path)
+    return cached
+
+
 def copy_source_file(path: Path, root: Path, public_root: Path) -> str:
     rel = path.relative_to(root) if path.is_relative_to(root) else Path(path.name)
     dest = public_root / "result-books" / rel
@@ -382,19 +472,41 @@ def main() -> None:
     parser.add_argument("--jsonl", action="store_true", help="write one payload per line")
     parser.add_argument("--copy-to-public", type=Path, help="copy source files under this public directory and set source_url")
     parser.add_argument("--limit", type=int, default=0, help="stop after N payloads for quick validation")
+    parser.add_argument("--workers", type=int, default=4, help="number of parallel parser workers")
+    parser.add_argument("--cache-dir", type=Path, default=Path(".cache/race-results-parse"), help="per-file parse cache directory")
+    parser.add_argument("--refresh", action="store_true", help="ignore existing per-file cache")
+    parser.add_argument("--file-timeout", type=int, default=45, help="seconds allowed per file before pending_review")
     args = parser.parse_args()
     payloads = []
-    paths = [args.root] if args.root.is_file() else sorted(args.root.rglob("*"))
+    paths = [args.root] if args.root.is_file() else sorted(
+        path for path in args.root.rglob("*") if path.is_file() and classify_file(path) != "unknown"
+    )
+    if args.limit:
+        paths = paths[:args.limit]
     scan_root = args.root.parent if args.root.is_file() else args.root
-    for path in paths:
-        if path.is_file() and classify_file(path) != "unknown":
-            item = parse_one(path, scan_root)
+    args.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    worker_args = [
+        (str(path), str(scan_root), str(args.cache_dir), args.file_timeout, args.refresh)
+        for path in paths
+    ]
+    completed = 0
+    with ProcessPoolExecutor(max_workers=max(1, args.workers)) as executor:
+        futures = [executor.submit(parse_cached_worker, item) for item in worker_args]
+        for future in as_completed(futures):
+            completed += 1
+            cached = future.result()
+            item = cached.get("payload")
+            marker = "cache" if cached.get("cache_hit") else "parse"
+            print(
+                f"{completed:03d}/{len(futures):03d} {marker} {cached.get('status')} rows={cached.get('rows')} {Path(cached.get('path', '')).name}",
+                file=sys.stderr,
+                flush=True,
+            )
             if item:
                 if args.copy_to_public:
-                    item["source"]["source_url"] = copy_source_file(path, scan_root, args.copy_to_public)
+                    item["source"]["source_url"] = copy_source_file(Path(cached["path"]), scan_root, args.copy_to_public)
                 payloads.append(item)
-                if args.limit and len(payloads) >= args.limit:
-                    break
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.jsonl:
         args.output.write_text("\n".join(json.dumps(item, ensure_ascii=False) for item in payloads) + "\n", encoding="utf-8")

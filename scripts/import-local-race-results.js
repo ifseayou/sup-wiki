@@ -55,6 +55,102 @@ function readPayloads(filePath) {
   return Array.isArray(parsed) ? parsed : [parsed];
 }
 
+function sourcePriority(payload) {
+  const sourceName = `${payload.source?.file_name || ''} ${payload.source?.original_path || ''}`;
+  let score = 0;
+  if (/成绩册|总结册|汇总|总成绩|全册|总排名|大排名/.test(sourceName)) score += 50;
+  if (/成绩公告|成绩单|预赛|决赛|大师组|公开组|男子|女子|单项|分组/.test(sourceName)) score += 10;
+  if (/jpg|jpeg|png|图片/i.test(sourceName)) score -= 20;
+  score += Array.isArray(payload.results) ? Math.min(payload.results.length, 200) / 10 : 0;
+  return score;
+}
+
+function eventKey(payload) {
+  const event = payload.event || {};
+  return `${event.start_date || ''}|${String(event.name || '').trim()}`;
+}
+
+function strictResultKey(result) {
+  return [
+    result.gender_group || '公开组',
+    result.discipline || '',
+    result.board_class || '',
+    result.round_label || '',
+    result.rank_position || '',
+    normalizedName(result.athlete_name_snapshot || result.athlete_name || ''),
+    String(result.finish_time || '').trim(),
+  ].join('|');
+}
+
+function relaxedResultKey(result) {
+  return [
+    result.discipline || '',
+    normalizedName(result.athlete_name_snapshot || result.athlete_name || ''),
+    String(result.finish_time || '').trim(),
+  ].join('|');
+}
+
+function dedupePayloads(payloads) {
+  const sorted = payloads
+    .map((payload, originalIndex) => ({ payload, originalIndex, priority: sourcePriority(payload) }))
+    .sort((a, b) => {
+      if (eventKey(a.payload) !== eventKey(b.payload)) return eventKey(a.payload).localeCompare(eventKey(b.payload));
+      if (b.priority !== a.priority) return b.priority - a.priority;
+      return a.originalIndex - b.originalIndex;
+    });
+
+  const seenStrict = new Set();
+  const seenRelaxed = new Map();
+  let skipped = 0;
+  const output = [];
+
+  for (const entry of sorted) {
+    const payload = entry.payload;
+    const evKey = eventKey(payload);
+    const nextResults = [];
+    const results = Array.isArray(payload.results) ? payload.results : [];
+
+    for (const result of results) {
+      if (!result.athlete_name_snapshot || !result.discipline || !result.finish_time) {
+        skipped += 1;
+        continue;
+      }
+
+      const strictKey = `${evKey}|${strictResultKey(result)}`;
+      const relaxedKey = `${evKey}|${relaxedResultKey(result)}`;
+      if (seenStrict.has(strictKey)) {
+        skipped += 1;
+        continue;
+      }
+
+      const relaxedOwner = seenRelaxed.get(relaxedKey);
+      if (relaxedOwner && relaxedOwner.priority >= entry.priority) {
+        skipped += 1;
+        continue;
+      }
+
+      seenStrict.add(strictKey);
+      seenRelaxed.set(relaxedKey, { priority: entry.priority });
+      nextResults.push(result);
+    }
+
+    output.push({
+      ...payload,
+      results: nextResults,
+      source: {
+        ...(payload.source || {}),
+        metadata: {
+          ...(payload.source?.metadata || {}),
+          import_priority: entry.priority,
+          dedupe_applied: true,
+        },
+      },
+    });
+  }
+
+  return { payloads: output, skipped };
+}
+
 function slugify(name, startDate) {
   const ascii = name
     .normalize('NFKD')
@@ -350,7 +446,8 @@ async function main() {
     usage();
     process.exit(args.help ? 0 : 1);
   }
-  const payloads = readPayloads(args.input);
+  const rawPayloads = readPayloads(args.input);
+  const { payloads, skipped } = dedupePayloads(rawPayloads);
   if (args.dryRun) {
     const summary = payloads.reduce((acc, payload) => {
       acc.sources += 1;
@@ -360,7 +457,7 @@ async function main() {
     for (const payload of payloads) {
       console.log(`checked source=${payload.source?.file_name || '-'} results=${Array.isArray(payload.results) ? payload.results.length : 0}`);
     }
-    console.log(`dry-run sources=${summary.sources} results=${summary.results}`);
+    console.log(`dry-run sources=${summary.sources} results=${summary.results} skippedDuplicates=${skipped}`);
     return;
   }
   const env = loadEnv();
@@ -383,7 +480,7 @@ async function main() {
   } finally {
     await connection.end();
   }
-  console.log(`${args.dryRun ? 'dry-run' : 'done'} sources=${summary.sources} results=${summary.results} touchedAthletes=${summary.athletes}`);
+  console.log(`${args.dryRun ? 'dry-run' : 'done'} sources=${summary.sources} results=${summary.results} touchedAthletes=${summary.athletes} skippedDuplicates=${skipped}`);
 }
 
 main().catch((error) => {
