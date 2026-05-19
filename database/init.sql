@@ -169,19 +169,26 @@ CREATE TABLE IF NOT EXISTS sup_event_results (
     event_id BIGINT NOT NULL,
     athlete_id BIGINT NULL,
     athlete_name_snapshot VARCHAR(100) NOT NULL,
+    bib_number VARCHAR(50) NULL,
     gender_group VARCHAR(100) NOT NULL DEFAULT '公开组',
     discipline VARCHAR(100) NOT NULL,
+    board_class VARCHAR(100) NULL,
     round_label VARCHAR(100) NULL,
     rank_position INT NOT NULL,
     result_label VARCHAR(100) NULL,
     finish_time VARCHAR(50) NOT NULL,
     time_seconds DECIMAL(10,3) NULL,
+    points DECIMAL(10,2) NULL,
     team_name VARCHAR(200) NULL,
     nationality_snapshot VARCHAR(50) NULL,
     source_type ENUM('official','media','livestream','manual') DEFAULT 'official',
+    source_id BIGINT NULL,
     source_title VARCHAR(255) NULL,
+    source_locator VARCHAR(100) NULL,
     source_url VARCHAR(500) NULL,
     source_note TEXT NULL,
+    parse_confidence DECIMAL(4,3) DEFAULT 1.000,
+    review_status ENUM('pending','confirmed','needs_review') DEFAULT 'confirmed',
     is_verified TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -189,8 +196,31 @@ CREATE TABLE IF NOT EXISTS sup_event_results (
     INDEX idx_event_results_event (event_id),
     INDEX idx_event_results_athlete (athlete_id),
     INDEX idx_event_results_rank (rank_position),
+    INDEX idx_event_results_gender_discipline (gender_group, discipline),
+    INDEX idx_event_results_time (time_seconds),
+    INDEX idx_event_results_review (review_status),
+    INDEX idx_event_results_source (source_id),
     CONSTRAINT fk_event_results_event FOREIGN KEY (event_id) REFERENCES sup_events(event_id) ON DELETE CASCADE,
     CONSTRAINT fk_event_results_athlete FOREIGN KEY (athlete_id) REFERENCES sup_athletes(athlete_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sup_athlete_identity_links (
+    link_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    athlete_id BIGINT NULL,
+    normalized_name VARCHAR(100) NOT NULL,
+    display_name VARCHAR(100) NOT NULL,
+    gender_hint VARCHAR(50) NULL,
+    team_hint VARCHAR(200) NULL,
+    nationality_hint VARCHAR(50) NULL,
+    confidence DECIMAL(4,3) DEFAULT 0.500,
+    status ENUM('pending','confirmed','rejected') DEFAULT 'pending',
+    note TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_identity_candidate (normalized_name, display_name, gender_hint, team_hint),
+    INDEX idx_identity_athlete (athlete_id),
+    INDEX idx_identity_status (status),
+    CONSTRAINT fk_identity_athlete FOREIGN KEY (athlete_id) REFERENCES sup_athletes(athlete_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 技术动作库表
@@ -260,6 +290,30 @@ CREATE TABLE IF NOT EXISTS sup_media_assets (
     INDEX idx_media_folder (folder),
     INDEX idx_media_status (status),
     INDEX idx_media_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sup_event_result_sources (
+    source_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    event_id BIGINT NULL,
+    asset_id BIGINT NULL,
+    original_path VARCHAR(700) NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_type ENUM('pdf','excel','image','text','unknown') DEFAULT 'unknown',
+    source_url VARCHAR(700) NULL,
+    parser_name VARCHAR(100) NULL,
+    parser_status ENUM('pending_review','parsed','imported','ignored','failed') DEFAULT 'pending_review',
+    parser_note TEXT NULL,
+    extracted_rows INT DEFAULT 0,
+    reviewed_rows INT DEFAULT 0,
+    imported_rows INT DEFAULT 0,
+    metadata JSON NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_result_sources_event (event_id),
+    INDEX idx_result_sources_status (parser_status),
+    INDEX idx_result_sources_type (file_type),
+    CONSTRAINT fk_result_sources_event FOREIGN KEY (event_id) REFERENCES sup_events(event_id) ON DELETE SET NULL,
+    CONSTRAINT fk_result_sources_asset FOREIGN KEY (asset_id) REFERENCES sup_media_assets(asset_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 课程与技术动作关联表

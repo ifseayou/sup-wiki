@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
+import { extractToken, verifyUserToken } from '@/lib/auth';
 
 interface EventRow extends RowDataPacket {
   event_id: number;
@@ -73,7 +74,9 @@ export async function GET(
 
     const event = rows[0];
     const parseJson = (v: unknown) => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
-    const [results] = await pool.execute<EventResultRow[]>(
+    const token = extractToken(_request.headers.get('authorization'));
+    const user = token ? verifyUserToken(token) : null;
+    const [results] = user ? await pool.execute<EventResultRow[]>(
       `SELECT
          er.result_id,
          er.event_id,
@@ -93,7 +96,7 @@ export async function GET(
        WHERE er.event_id = ?
        ORDER BY er.gender_group ASC, er.discipline ASC, er.round_label ASC, er.rank_position ASC`,
       [id]
-    );
+    ) : [[] as EventResultRow[]];
 
     return NextResponse.json({
       ...event,

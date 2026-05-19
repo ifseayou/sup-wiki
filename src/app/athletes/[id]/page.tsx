@@ -42,16 +42,6 @@ interface RaceTime {
   event_id?: number;
 }
 
-interface AthleteEventResultRow extends RowDataPacket {
-  event_id: number;
-  event_name: string;
-  start_date: string | null;
-  discipline: string;
-  round_label: string | null;
-  result_label: string | null;
-  finish_time: string;
-}
-
 const distanceLabels: Record<string, { label: string; icon: string; order: number }> = {
   '200m':  { label: '200 米竞速',    icon: '⚡', order: 1 },
   '500m':  { label: '500 米竞速',    icon: '⚡', order: 2 },
@@ -84,26 +74,7 @@ async function getAthlete(id: number) {
     );
     if (athletes.length === 0) return null;
 
-    const [linkedResults] = await pool.execute<AthleteEventResultRow[]>(
-      `SELECT
-         er.event_id,
-         e.name AS event_name,
-         e.start_date,
-         er.discipline,
-         er.round_label,
-         er.result_label,
-         er.finish_time
-       FROM sup_event_results er
-       INNER JOIN sup_events e ON e.event_id = er.event_id
-       WHERE er.athlete_id = ?
-       ORDER BY e.start_date DESC, er.rank_position ASC`,
-      [id]
-    );
-
-    return {
-      ...athletes[0],
-      linked_results: linkedResults,
-    };
+    return athletes[0];
   } catch (error) {
     console.error('获取运动员详情失败:', error);
     return null;
@@ -143,24 +114,7 @@ export default async function AthleteDetailPage({
     ? athlete.photos
     : (athlete.photos ? JSON.parse(String(athlete.photos)) : []);
 
-  // 关键项目耗时
-  const linkedResults = Array.isArray((athlete as AthleteRow & { linked_results?: AthleteEventResultRow[] }).linked_results)
-    ? ((athlete as AthleteRow & { linked_results?: AthleteEventResultRow[] }).linked_results as AthleteEventResultRow[])
-    : [];
-
-  const rawRaceTimes: RaceTime[] = linkedResults.length > 0
-    ? linkedResults.map((row) => ({
-        distance: row.discipline,
-        year: row.start_date ? new Date(row.start_date).getFullYear() : undefined,
-        event: row.event_name,
-        event_id: row.event_id,
-        round: row.round_label || undefined,
-        result: row.result_label || undefined,
-        time: row.finish_time,
-      }))
-    : (Array.isArray(athlete.race_times)
-      ? athlete.race_times
-      : (athlete.race_times ? JSON.parse(String(athlete.race_times)) : []));
+  const rawRaceTimes: RaceTime[] = [];
 
   // 按距离分组
   const raceTimesByDistance = rawRaceTimes.reduce<Record<string, RaceTime[]>>((acc, rt) => {
@@ -273,6 +227,19 @@ export default async function AthleteDetailPage({
           </div>
         </div>
       )}
+
+      <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '24px 28px', marginBottom: 32 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div style={{ width: 3, height: 20, background: '#7A6145', borderRadius: 2 }} />
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', margin: 0 }}>成绩档案</h2>
+        </div>
+        <p style={{ fontSize: 14, lineHeight: 1.75, color: '#655D56', margin: '0 0 14px' }}>
+          运动员的完整比赛成绩、原始成绩册和对标查询需要登录后查看。
+        </p>
+        <Link href={`/login?redirect=${encodeURIComponent('/results')}`} style={{ display: 'inline-flex', background: '#8B7355', color: '#fff', borderRadius: 8, padding: '9px 14px', fontSize: 13, textDecoration: 'none' }}>
+          登录后进入成绩查询
+        </Link>
+      </div>
 
       {/* ── 关键项目耗时 ──────────────────────────────────── */}
       {distanceKeys.length > 0 && (

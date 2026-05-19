@@ -10,18 +10,25 @@ export interface EventResultInput {
   athlete_id?: number | null;
   athlete_name?: string;
   athlete_name_snapshot: string;
+  bib_number?: string | null;
   gender_group?: string;
   discipline: string;
+  board_class?: string | null;
   round_label?: string | null;
   rank_position: number;
   result_label?: string | null;
   finish_time: string;
+  points?: number | null;
   team_name?: string | null;
   nationality_snapshot?: string | null;
   source_type?: string | null;
+  source_id?: number | null;
   source_title?: string | null;
+  source_locator?: string | null;
   source_url?: string | null;
   source_note?: string | null;
+  parse_confidence?: number | null;
+  review_status?: 'pending' | 'confirmed' | 'needs_review';
   is_verified?: boolean;
 }
 
@@ -88,23 +95,32 @@ export function normalizeEventResultsInput(value: unknown): EventResultInput[] {
       const discipline = String(item.discipline ?? '').trim();
       const finishTime = String(item.finish_time ?? item.time ?? '').trim();
       const rankPosition = Number(item.rank_position);
+      const reviewStatus: EventResultInput['review_status'] =
+        item.review_status === 'pending' || item.review_status === 'needs_review' ? item.review_status : 'confirmed';
 
       return {
         athlete_id: item.athlete_id ? Number(item.athlete_id) : null,
         athlete_name: athleteName,
         athlete_name_snapshot: athleteName,
+        bib_number: item.bib_number ? String(item.bib_number) : null,
         gender_group: item.gender_group ? String(item.gender_group) : '公开组',
         discipline,
+        board_class: item.board_class ? String(item.board_class) : null,
         round_label: item.round_label ? String(item.round_label) : null,
         rank_position: Number.isFinite(rankPosition) ? rankPosition : NaN,
         result_label: item.result_label ? String(item.result_label) : null,
         finish_time: finishTime,
+        points: item.points === undefined || item.points === null || item.points === '' ? null : Number(item.points),
         team_name: item.team_name ? String(item.team_name) : null,
         nationality_snapshot: item.nationality_snapshot ? String(item.nationality_snapshot) : null,
         source_type: item.source_type ? String(item.source_type) : null,
+        source_id: item.source_id ? Number(item.source_id) : null,
         source_title: item.source_title ? String(item.source_title) : null,
+        source_locator: item.source_locator ? String(item.source_locator) : null,
         source_url: item.source_url ? String(item.source_url) : null,
         source_note: item.source_note ? String(item.source_note) : null,
+        parse_confidence: item.parse_confidence === undefined || item.parse_confidence === null || item.parse_confidence === '' ? null : Number(item.parse_confidence),
+        review_status: reviewStatus,
         is_verified: item.is_verified === undefined ? true : Boolean(item.is_verified),
       };
     })
@@ -129,6 +145,12 @@ export function parseFinishTimeToSeconds(input: string) {
   const raw = input.trim();
   if (!raw) return null;
   if (/^\d+(\.\d+)?$/.test(raw)) return Number(raw);
+  const quoteMatch = raw.match(/^(\d+)'(\d+(?:\.\d+)?)"?$/);
+  if (quoteMatch) return Number(quoteMatch[1]) * 60 + Number(quoteMatch[2]);
+  const dottedTime = raw.match(/^(\d+):(\d{2})\.(\d{2})\.(\d{1,3})$/);
+  if (dottedTime) {
+    return Number(dottedTime[1]) * 3600 + Number(dottedTime[2]) * 60 + Number(`${dottedTime[3]}.${dottedTime[4]}`);
+  }
 
   const parts = raw.split(':').map((part) => part.trim());
   if (parts.some((part) => !/^\d+(\.\d+)?$/.test(part))) return null;
@@ -148,11 +170,26 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
   const athleteName = result.athlete_name_snapshot.trim();
 
   const [existingRows] = await connection.execute<AthleteRow[]>(
-    'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 1',
+    'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5',
     [athleteName]
   );
 
   if (existingRows.length > 0) {
+    if (existingRows.length > 1) {
+      await connection.execute(
+        `INSERT IGNORE INTO sup_athlete_identity_links
+          (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
+         VALUES (?, ?, ?, ?, ?, ?, 0.500, 'pending', '同名运动员存在多个候选，需后台确认')`,
+        [
+          existingRows[0].athlete_id,
+          athleteName.replace(/\s+/g, '').toLowerCase(),
+          athleteName,
+          result.gender_group || null,
+          result.team_name || null,
+          result.nationality_snapshot || null,
+        ]
+      );
+    }
     return existingRows[0].athlete_id;
   }
 
@@ -166,7 +203,22 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
     ]
   );
 
-  return Number((insertResult as { insertId: number }).insertId);
+  const athleteId = Number((insertResult as { insertId: number }).insertId);
+  await connection.execute(
+    `INSERT IGNORE INTO sup_athlete_identity_links
+      (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
+     VALUES (?, ?, ?, ?, ?, ?, 0.800, 'confirmed', '导入成绩时自动创建草稿运动员')`,
+    [
+      athleteId,
+      athleteName.replace(/\s+/g, '').toLowerCase(),
+      athleteName,
+      result.gender_group || null,
+      result.team_name || null,
+      result.nationality_snapshot || null,
+    ]
+  );
+
+  return athleteId;
 }
 
 export async function syncAthleteRaceTimes(connection: PoolConnection, athleteId: number) {
@@ -220,27 +272,98 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
 
     await connection.execute(
       `INSERT INTO sup_event_results (
-        event_id, athlete_id, athlete_name_snapshot, gender_group, discipline, round_label,
-        rank_position, result_label, finish_time, time_seconds, team_name, nationality_snapshot,
-        source_type, source_title, source_url, source_note, is_verified
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
+        rank_position, result_label, finish_time, time_seconds, points, team_name, nationality_snapshot,
+        source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
         athleteId,
         result.athlete_name_snapshot,
+        result.bib_number || null,
         result.gender_group || '公开组',
         result.discipline,
+        result.board_class || null,
         result.round_label || null,
         result.rank_position,
         result.result_label || null,
         result.finish_time,
         parseFinishTimeToSeconds(result.finish_time),
+        typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
         result.team_name || null,
         result.nationality_snapshot || null,
         result.source_type || 'official',
+        result.source_id || null,
         result.source_title || null,
+        result.source_locator || null,
         result.source_url || null,
         result.source_note || null,
+        typeof result.parse_confidence === 'number' && Number.isFinite(result.parse_confidence) ? result.parse_confidence : 1,
+        result.review_status || 'confirmed',
+        result.is_verified !== false ? 1 : 0,
+      ]
+    );
+  }
+
+  for (const athleteId of touchedAthleteIds) {
+    await syncAthleteRaceTimes(connection, athleteId);
+  }
+}
+
+export async function appendEventResults(connection: PoolConnection, eventId: number, inputResults: EventResultInput[]) {
+  const touchedAthleteIds = new Set<number>();
+
+  for (const result of inputResults) {
+    const athleteId = await resolveAthleteId(connection, result);
+    touchedAthleteIds.add(athleteId);
+
+    await connection.execute(
+      `INSERT INTO sup_event_results (
+        event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
+        rank_position, result_label, finish_time, time_seconds, points, team_name, nationality_snapshot,
+        source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        athlete_id = VALUES(athlete_id),
+        bib_number = VALUES(bib_number),
+        board_class = VALUES(board_class),
+        result_label = VALUES(result_label),
+        finish_time = VALUES(finish_time),
+        time_seconds = VALUES(time_seconds),
+        points = VALUES(points),
+        team_name = VALUES(team_name),
+        source_id = VALUES(source_id),
+        source_title = VALUES(source_title),
+        source_locator = VALUES(source_locator),
+        source_url = VALUES(source_url),
+        source_note = VALUES(source_note),
+        parse_confidence = VALUES(parse_confidence),
+        review_status = VALUES(review_status),
+        is_verified = VALUES(is_verified)`,
+      [
+        eventId,
+        athleteId,
+        result.athlete_name_snapshot,
+        result.bib_number || null,
+        result.gender_group || '公开组',
+        result.discipline,
+        result.board_class || null,
+        result.round_label || null,
+        result.rank_position,
+        result.result_label || null,
+        result.finish_time,
+        parseFinishTimeToSeconds(result.finish_time),
+        typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
+        result.team_name || null,
+        result.nationality_snapshot || null,
+        result.source_type || 'official',
+        result.source_id || null,
+        result.source_title || null,
+        result.source_locator || null,
+        result.source_url || null,
+        result.source_note || null,
+        typeof result.parse_confidence === 'number' && Number.isFinite(result.parse_confidence) ? result.parse_confidence : 1,
+        result.review_status || 'confirmed',
         result.is_verified !== false ? 1 : 0,
       ]
     );

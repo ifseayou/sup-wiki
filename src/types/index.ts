@@ -212,19 +212,26 @@ export interface EventResult {
   event_id: number;
   athlete_id?: number | null;
   athlete_name_snapshot: string;
+  bib_number?: string | null;
   gender_group: string;
   discipline: string;
+  board_class?: string | null;
   round_label?: string | null;
   rank_position: number;
   result_label?: string | null;
   finish_time: string;
   time_seconds?: number | null;
+  points?: number | null;
   team_name?: string | null;
   nationality_snapshot?: string | null;
   source_type?: EventResultSourceType | null;
+  source_id?: number | null;
   source_title?: string | null;
+  source_locator?: string | null;
   source_url?: string | null;
   source_note?: string | null;
+  parse_confidence?: number | null;
+  review_status?: 'pending' | 'confirmed' | 'needs_review' | null;
   is_verified: boolean;
   athlete?: Pick<Athlete, 'athlete_id' | 'name' | 'photo'> | null;
 }
