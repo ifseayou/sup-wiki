@@ -198,6 +198,8 @@ CREATE TABLE IF NOT EXISTS sup_techniques (
     technique_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     source_code VARCHAR(20) UNIQUE NULL COMMENT '来自 35 项考核清单的编号，如 01',
     name VARCHAR(120) NOT NULL,
+    cover_image VARCHAR(500),
+    images JSON,
     stage TINYINT NOT NULL DEFAULT 1,
     stage_label VARCHAR(80) NOT NULL,
     level ENUM('beginner','intermediate','advanced') DEFAULT 'beginner',
@@ -224,6 +226,8 @@ CREATE TABLE IF NOT EXISTS sup_courses (
     subtitle VARCHAR(200),
     summary TEXT,
     description TEXT,
+    cover_image VARCHAR(500),
+    images JSON,
     venue VARCHAR(200) DEFAULT '中流击水桨板俱乐部（余杭塘河-梦想小镇段）',
     schedule_note VARCHAR(200) DEFAULT '课程时间和教练自行约定',
     equipment_note VARCHAR(300),
@@ -237,6 +241,25 @@ CREATE TABLE IF NOT EXISTS sup_courses (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_courses_status (status),
     INDEX idx_courses_sort (sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 全站图片库表
+CREATE TABLE IF NOT EXISTS sup_media_assets (
+    asset_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    url VARCHAR(700) NOT NULL,
+    folder VARCHAR(100) DEFAULT 'misc',
+    filename VARCHAR(255),
+    mime_type VARCHAR(100),
+    size_bytes INT,
+    alt_text VARCHAR(300),
+    source_context VARCHAR(100),
+    status ENUM('active','hidden') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_media_url (url),
+    INDEX idx_media_folder (folder),
+    INDEX idx_media_status (status),
+    INDEX idx_media_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 课程与技术动作关联表

@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
                  'technique_id', t.technique_id,
                  'source_code', t.source_code,
                  'name', t.name,
+                 'cover_image', t.cover_image,
+                 'images', t.images,
                  'stage', t.stage,
                  'stage_label', t.stage_label,
                  'level', t.level,
@@ -64,6 +66,7 @@ export async function GET(request: NextRequest) {
     const items = rows.map((row) => ({
       ...row,
       price_options: parseJsonArray(row.price_options),
+      images: parseJsonArray(row.images),
       techniques: parseTechniqueJson(row.techniques).filter(Boolean),
     }));
 

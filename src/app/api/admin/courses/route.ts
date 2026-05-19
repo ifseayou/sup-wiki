@@ -66,6 +66,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const items = rows.map((row) => ({
       ...row,
       price_options: parseJsonArray(row.price_options),
+      images: parseJsonArray(row.images),
       technique_ids: getTechniqueIdsFromRows(relations.filter((relation) => Number(relation.course_id) === Number(row.course_id))),
     }));
 
@@ -82,6 +83,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
     const body = await request.json();
     const {
       slug, title, subtitle, summary, description,
+      cover_image, images,
       venue = '中流击水桨板俱乐部（余杭塘河-梦想小镇段）',
       schedule_note = '课程时间和教练自行约定',
       equipment_note, board_note, duration_minutes, price_display, price_options,
@@ -93,15 +95,17 @@ export const POST = withAdmin(async (request: NextRequest) => {
     await connection.beginTransaction();
     const [result] = await connection.execute<ResultSetHeader>(
       `INSERT INTO sup_courses
-        (slug, title, subtitle, summary, description, venue, schedule_note, equipment_note, board_note,
+        (slug, title, subtitle, summary, description, cover_image, images, venue, schedule_note, equipment_note, board_note,
          duration_minutes, price_display, price_options, sort_order, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         slug,
         title,
         subtitle || null,
         summary || null,
         description || null,
+        cover_image || null,
+        images ? JSON.stringify(images) : null,
         venue || null,
         schedule_note || null,
         equipment_note || null,

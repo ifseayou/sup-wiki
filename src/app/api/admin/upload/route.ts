@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractToken, verifyToken, isAdmin } from '@/lib/auth';
+import pool from '@/lib/db';
 import crypto from 'crypto';
+import type { ResultSetHeader } from 'mysql2';
 
 const OSS_AK = process.env.OSS_ACCESS_KEY_ID || '';
 const OSS_SK = process.env.OSS_ACCESS_KEY_SECRET || '';
@@ -55,7 +57,33 @@ export async function POST(request: NextRequest) {
     }
 
     const url = `https://${OSS_ENDPOINT}/${ossKey}`;
-    return NextResponse.json({ success: true, url });
+    let asset = null;
+    try {
+      const [result] = await pool.execute<ResultSetHeader>(
+        `INSERT INTO sup_media_assets (url, folder, filename, mime_type, size_bytes, source_context, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'active')
+         ON DUPLICATE KEY UPDATE
+           folder = VALUES(folder),
+           filename = VALUES(filename),
+           mime_type = VALUES(mime_type),
+           size_bytes = VALUES(size_bytes),
+           source_context = VALUES(source_context),
+           status = 'active'`,
+        [url, folder, file.name, file.type, file.size, 'admin_upload']
+      );
+      asset = {
+        asset_id: result.insertId || undefined,
+        url,
+        folder,
+        filename: file.name,
+        mime_type: file.type,
+        size_bytes: file.size,
+        status: 'active',
+      };
+    } catch (dbError) {
+      console.error('写入图片库失败:', dbError);
+    }
+    return NextResponse.json({ success: true, url, asset });
   } catch (error) {
     console.error('上传失败:', error);
     return NextResponse.json({ error: '上传失败' }, { status: 500 });

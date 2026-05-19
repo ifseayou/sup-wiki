@@ -1,7 +1,10 @@
 'use client';
 
 import EntityManager from '@/components/admin/EntityManager';
+import ImageUpload, { MultiImageUpload } from '@/components/admin/ImageUpload';
+import MediaLibraryPicker from '@/components/admin/MediaLibraryPicker';
 import { useAdminAuth } from '../layout';
+import { useState } from 'react';
 
 const stageOptions = [
   { value: '1', label: '跪姿基础' },
@@ -33,9 +36,16 @@ const categoryOptions = [
   { value: 'general', label: '通用' },
 ];
 
-function TechniqueForm({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
+function getStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+}
+
+function TechniqueForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
+  const [pickerMode, setPickerMode] = useState<'cover' | 'gallery' | null>(null);
   const input = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
+  const images = getStringArray(data.images);
 
   return (
     <div className="space-y-4">
@@ -47,6 +57,45 @@ function TechniqueForm({ data, onChange }: { data: Record<string, unknown>; onCh
         <div className="col-span-2">
           <label className="block text-xs text-warm-gray-400 mb-1">动作名称 *</label>
           <input className={input} value={String(data.name || '')} onChange={e => set('name', e.target.value)} placeholder="站立划行" />
+        </div>
+      </div>
+      <div className="rounded-xl border border-cream-200 bg-cream-100/60 p-4">
+        <h3 className="mb-3 text-sm font-medium text-brown-700">动作图片</h3>
+        <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+          <div>
+            <ImageUpload
+              value={String(data.cover_image || '')}
+              onChange={(url) => set('cover_image', url)}
+              folder="techniques"
+              token={token}
+              label="动作封面"
+            />
+            <button
+              type="button"
+              onClick={() => setPickerMode('cover')}
+              className="mt-2 rounded-lg border border-cream-300 px-3 py-1.5 text-xs text-brown-600 hover:border-brown-500"
+            >
+              从图片库选择封面
+            </button>
+          </div>
+          <div>
+            <MultiImageUpload
+              values={images}
+              onChange={(urls) => set('images', urls)}
+              folder="techniques"
+              token={token}
+              label="动作相册"
+              max={12}
+              sortable
+            />
+            <button
+              type="button"
+              onClick={() => setPickerMode('gallery')}
+              className="mt-2 rounded-lg border border-cream-300 px-3 py-1.5 text-xs text-brown-600 hover:border-brown-500"
+            >
+              从图片库添加到相册
+            </button>
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-4 gap-3">
@@ -98,12 +147,29 @@ function TechniqueForm({ data, onChange }: { data: Record<string, unknown>; onCh
         <label className="block text-xs text-warm-gray-400 mb-1">常见错误</label>
         <textarea className={input} rows={3} value={String(data.common_errors || '')} onChange={e => set('common_errors', e.target.value)} />
       </div>
+      <MediaLibraryPicker
+        token={token}
+        open={pickerMode !== null}
+        multiple={pickerMode === 'gallery'}
+        selectedUrls={pickerMode === 'gallery' ? images : (data.cover_image ? [String(data.cover_image)] : [])}
+        folder="techniques"
+        onClose={() => setPickerMode(null)}
+        onConfirm={(urls) => {
+          if (pickerMode === 'cover') {
+            set('cover_image', urls[0] || '');
+          } else if (pickerMode === 'gallery') {
+            set('images', Array.from(new Set([...images, ...urls])));
+          }
+          setPickerMode(null);
+        }}
+      />
     </div>
   );
 }
 
 const columns = [
   { key: 'source_code', label: '编号' },
+  { key: 'cover_image', label: '封面', render: (v: unknown) => v ? <img src={String(v)} alt="" className="h-10 w-14 rounded object-cover" /> : '—' },
   { key: 'name', label: '动作' },
   { key: 'stage_label', label: '阶段' },
   { key: 'level', label: '难度', render: (v: unknown) => levelOptions.find(option => option.value === String(v))?.label || String(v) },
@@ -115,6 +181,8 @@ const defaultFormData = {
   technique_id: undefined,
   source_code: '',
   name: '',
+  cover_image: '',
+  images: [],
   stage: 1,
   stage_label: '跪姿基础',
   level: 'beginner',

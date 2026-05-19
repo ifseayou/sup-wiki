@@ -28,6 +28,7 @@ const navItems = [
   { href: '/admin/events', label: '赛事' },
   { href: '/admin/courses', label: '课程' },
   { href: '/admin/techniques', label: '技术动作库' },
+  { href: '/admin/media', label: '图片库' },
   { href: '/admin/articles', label: '文章' },
   { href: '/admin/learn-questions', label: '题库' },
   { href: '/admin/learn-docs', label: '学习文档' },

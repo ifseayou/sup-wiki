@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
+import { parseJsonArray } from '@/lib/course-utils';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 export const GET = withAdmin(async (request: NextRequest) => {
@@ -41,7 +42,11 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params
     );
 
-    return NextResponse.json({ items: rows, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
+    const items = rows.map((row) => ({
+      ...row,
+      images: parseJsonArray(row.images),
+    }));
+    return NextResponse.json({ items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
   } catch (error) {
     console.error('获取技术动作列表失败:', error);
     return NextResponse.json({ error: '获取技术动作列表失败' }, { status: 500 });
@@ -53,17 +58,19 @@ export const POST = withAdmin(async (request: NextRequest) => {
     const body = await request.json();
     const {
       source_code, name, stage = 1, stage_label = '跪姿基础', level = 'beginner',
-      category = 'general', points = 1, key_points, common_errors, sort_order = 0, status = 'draft',
+      cover_image, images, category = 'general', points = 1, key_points, common_errors, sort_order = 0, status = 'draft',
     } = body;
     if (!name) return NextResponse.json({ error: '缺少必填字段: name' }, { status: 400 });
 
     const [result] = await pool.execute<ResultSetHeader>(
       `INSERT INTO sup_techniques
-        (source_code, name, stage, stage_label, level, category, points, key_points, common_errors, sort_order, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (source_code, name, cover_image, images, stage, stage_label, level, category, points, key_points, common_errors, sort_order, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         source_code || null,
         name,
+        cover_image || null,
+        images ? JSON.stringify(images) : null,
         Number(stage) || 1,
         stage_label || '跪姿基础',
         level,

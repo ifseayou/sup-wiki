@@ -4,6 +4,8 @@ export interface TechniqueItem {
   technique_id: number;
   source_code: string | null;
   name: string;
+  cover_image?: string | null;
+  images?: string[];
   stage: number;
   stage_label: string;
   level: string;
@@ -38,7 +40,12 @@ export function normalizeTechniqueIds(value: unknown): number[] {
 
 export function parseTechniqueJson(value: unknown): TechniqueItem[] {
   const list = parseJsonArray(value);
-  return list.filter((item): item is TechniqueItem => Boolean(item && typeof item === 'object')) as TechniqueItem[];
+  return list
+    .filter((item): item is TechniqueItem => Boolean(item && typeof item === 'object'))
+    .map((item) => ({
+      ...item,
+      images: parseJsonArray((item as TechniqueItem).images).filter((url): url is string => typeof url === 'string'),
+    })) as TechniqueItem[];
 }
 
 export function getTechniqueIdsFromRows(rows: RowDataPacket[]): number[] {

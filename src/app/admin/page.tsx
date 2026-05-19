@@ -12,6 +12,7 @@ interface Stats {
   events: { total: number; draft: number };
   courses: { total: number; draft: number };
   techniques: { total: number; draft: number };
+  media: { total: number; draft: number };
 }
 
 const entityCards = [
@@ -22,6 +23,7 @@ const entityCards = [
   { key: 'events' as const, label: '赛事', icon: '🗓️', href: '/admin/events' },
   { key: 'courses' as const, label: '课程', icon: '🧭', href: '/admin/courses' },
   { key: 'techniques' as const, label: '技术动作', icon: '🎯', href: '/admin/techniques' },
+  { key: 'media' as const, label: '图片库', icon: '🖼️', href: '/admin/media' },
 ];
 
 export default function AdminDashboard() {
@@ -33,7 +35,7 @@ export default function AdminDashboard() {
     async function fetchStats() {
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const [b, p, a, c, e, co, t, bd, pd, ad, cd, ed, cod, td] = await Promise.all([
+        const [b, p, a, c, e, co, t, m, bd, pd, ad, cd, ed, cod, td, md] = await Promise.all([
           fetch('/api/admin/brands?pageSize=1', { headers }).then(r => r.json()),
           fetch('/api/admin/products?pageSize=1', { headers }).then(r => r.json()),
           fetch('/api/admin/athletes?pageSize=1', { headers }).then(r => r.json()),
@@ -41,6 +43,7 @@ export default function AdminDashboard() {
           fetch('/api/admin/events?pageSize=1', { headers }).then(r => r.json()),
           fetch('/api/admin/courses?pageSize=1', { headers }).then(r => r.json()),
           fetch('/api/admin/techniques?pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/media?pageSize=1', { headers }).then(r => r.json()),
           fetch('/api/admin/brands?status=draft&pageSize=1', { headers }).then(r => r.json()),
           fetch('/api/admin/products?status=draft&pageSize=1', { headers }).then(r => r.json()),
           fetch('/api/admin/athletes?status=draft&pageSize=1', { headers }).then(r => r.json()),
@@ -48,6 +51,7 @@ export default function AdminDashboard() {
           fetch('/api/admin/events?status=draft&pageSize=1', { headers }).then(r => r.json()),
           fetch('/api/admin/courses?status=draft&pageSize=1', { headers }).then(r => r.json()),
           fetch('/api/admin/techniques?status=draft&pageSize=1', { headers }).then(r => r.json()),
+          fetch('/api/admin/media?status=hidden&pageSize=1', { headers }).then(r => r.json()),
         ]);
         setStats({
           brands: { total: b.total ?? 0, draft: bd.total ?? 0 },
@@ -57,6 +61,7 @@ export default function AdminDashboard() {
           events: { total: e.total ?? 0, draft: ed.total ?? 0 },
           courses: { total: co.total ?? 0, draft: cod.total ?? 0 },
           techniques: { total: t.total ?? 0, draft: td.total ?? 0 },
+          media: { total: m.total ?? 0, draft: md.total ?? 0 },
         });
       } catch {
         // ignore
@@ -75,7 +80,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4 mb-8">
         {entityCards.map(card => {
           const s = stats?.[card.key];
           return (

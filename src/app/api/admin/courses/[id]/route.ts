@@ -21,7 +21,7 @@ export const PUT = withAdmin(async (request: NextRequest) => {
     const body = await request.json();
     const allowed = [
       'slug', 'title', 'subtitle', 'summary', 'description', 'venue', 'schedule_note',
-      'equipment_note', 'board_note', 'duration_minutes', 'price_display', 'price_options',
+      'cover_image', 'images', 'equipment_note', 'board_note', 'duration_minutes', 'price_display', 'price_options',
       'sort_order', 'status',
     ];
     const fields: string[] = [];
@@ -29,7 +29,7 @@ export const PUT = withAdmin(async (request: NextRequest) => {
     for (const field of allowed) {
       if (body[field] !== undefined) {
         fields.push(`${field} = ?`);
-        if (field === 'price_options') {
+        if (field === 'price_options' || field === 'images') {
           values.push(body[field] ? JSON.stringify(body[field]) : null);
         } else {
           values.push(body[field] === '' ? null : body[field]);

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import EntityManager from '@/components/admin/EntityManager';
+import ImageUpload, { MultiImageUpload } from '@/components/admin/ImageUpload';
+import MediaLibraryPicker from '@/components/admin/MediaLibraryPicker';
 import { useAdminAuth } from '../layout';
 
 interface TechniqueOption {
@@ -23,6 +25,11 @@ const levelLabels: Record<string, string> = {
 function getIds(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
   return value.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0);
+}
+
+function getStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
 }
 
 function TechniquePicker({
@@ -139,10 +146,12 @@ function TechniquePicker({
 
 function CourseForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
+  const [pickerMode, setPickerMode] = useState<'cover' | 'gallery' | null>(null);
   const input = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
   const priceOptionsText = typeof data.price_options_text === 'string'
     ? data.price_options_text
     : JSON.stringify(data.price_options || [], null, 2);
+  const images = getStringArray(data.images);
 
   return (
     <div className="space-y-4">
@@ -167,6 +176,50 @@ function CourseForm({ data, onChange, token }: { data: Record<string, unknown>; 
       <div>
         <label className="block text-xs text-warm-gray-400 mb-1">课程介绍</label>
         <textarea className={input} rows={4} value={String(data.description || '')} onChange={e => set('description', e.target.value)} />
+      </div>
+      <div className="rounded-xl border border-cream-200 bg-cream-100/60 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-brown-700">课程图片</h3>
+            <p className="mt-1 text-xs text-warm-gray-400">上传后会自动进入全站图片库，也可以直接从图片库复用。</p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+          <div>
+            <ImageUpload
+              value={String(data.cover_image || '')}
+              onChange={(url) => set('cover_image', url)}
+              folder="courses"
+              token={token}
+              label="课程封面"
+            />
+            <button
+              type="button"
+              onClick={() => setPickerMode('cover')}
+              className="mt-2 rounded-lg border border-cream-300 px-3 py-1.5 text-xs text-brown-600 hover:border-brown-500"
+            >
+              从图片库选择封面
+            </button>
+          </div>
+          <div>
+            <MultiImageUpload
+              values={images}
+              onChange={(urls) => set('images', urls)}
+              folder="courses"
+              token={token}
+              label="课程相册"
+              max={12}
+              sortable
+            />
+            <button
+              type="button"
+              onClick={() => setPickerMode('gallery')}
+              className="mt-2 rounded-lg border border-cream-300 px-3 py-1.5 text-xs text-brown-600 hover:border-brown-500"
+            >
+              从图片库添加到相册
+            </button>
+          </div>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -223,12 +276,29 @@ function CourseForm({ data, onChange, token }: { data: Record<string, unknown>; 
         selectedIds={getIds(data.technique_ids)}
         onSelect={(ids) => set('technique_ids', ids)}
       />
+      <MediaLibraryPicker
+        token={token}
+        open={pickerMode !== null}
+        multiple={pickerMode === 'gallery'}
+        selectedUrls={pickerMode === 'gallery' ? images : (data.cover_image ? [String(data.cover_image)] : [])}
+        folder="courses"
+        onClose={() => setPickerMode(null)}
+        onConfirm={(urls) => {
+          if (pickerMode === 'cover') {
+            set('cover_image', urls[0] || '');
+          } else if (pickerMode === 'gallery') {
+            set('images', Array.from(new Set([...images, ...urls])));
+          }
+          setPickerMode(null);
+        }}
+      />
     </div>
   );
 }
 
 const columns = [
   { key: 'title', label: '课程' },
+  { key: 'cover_image', label: '封面', render: (v: unknown) => v ? <img src={String(v)} alt="" className="h-10 w-14 rounded object-cover" /> : '—' },
   { key: 'price_display', label: '费用' },
   { key: 'duration_minutes', label: '时长', render: (v: unknown) => v ? `${v} 分钟` : '—' },
   { key: 'venue', label: '场地' },
@@ -243,6 +313,8 @@ const defaultFormData = {
   subtitle: '',
   summary: '',
   description: '',
+  cover_image: '',
+  images: [],
   venue: '中流击水桨板俱乐部（余杭塘河-梦想小镇段）',
   schedule_note: '课程时间和教练自行约定',
   equipment_note: '',
