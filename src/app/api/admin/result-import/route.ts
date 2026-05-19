@@ -62,25 +62,54 @@ export const POST = withAdmin(async (request: NextRequest) => {
       }
     }
 
-    const [sourceResult] = await connection.execute<ResultSetHeader>(
-      `INSERT INTO sup_event_result_sources
-        (event_id, original_path, file_name, file_type, source_url, parser_name, parser_status, parser_note, extracted_rows, imported_rows, metadata)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    const sourceMetadata = {
+      ...(sourceInput.metadata || {}),
+      source_kind: sourceInput.source_kind || sourceInput.metadata?.source_kind || 'local_result_book',
+    };
+    const [existingSource] = await connection.execute<RowDataPacket[]>(
+      `SELECT source_id FROM sup_event_result_sources
+       WHERE event_id = ? AND ((original_path IS NOT NULL AND original_path = ?) OR (file_name = ? AND COALESCE(source_url, '') = COALESCE(?, '')))
+       ORDER BY source_id ASC LIMIT 1`,
+      [eventId, sourceInput.original_path || null, sourceInput.file_name, sourceInput.source_url || null]
+    );
+    let sourceId = Number(existingSource[0]?.source_id || 0) || null;
+    if (sourceId) {
+      await connection.execute(
+        `UPDATE sup_event_result_sources
+         SET source_url = ?, parser_name = ?, parser_status = ?, parser_note = ?, extracted_rows = ?, imported_rows = ?, metadata = ?
+         WHERE source_id = ?`,
+        [
+          sourceInput.source_url || null,
+          sourceInput.parser_name || 'local-race-results-import',
+          results.length ? 'imported' : (sourceInput.parser_status || 'pending_review'),
+          sourceInput.parser_note || null,
+          Number(sourceInput.extracted_rows || results.length || 0),
+          results.length,
+          JSON.stringify(sourceMetadata),
+          sourceId,
+        ]
+      );
+    } else {
+      const [sourceResult] = await connection.execute<ResultSetHeader>(
+        `INSERT INTO sup_event_result_sources
+          (event_id, original_path, file_name, file_type, source_url, parser_name, parser_status, parser_note, extracted_rows, imported_rows, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
         sourceInput.original_path || null,
         sourceInput.file_name,
         sourceInput.file_type || 'unknown',
         sourceInput.source_url || null,
-        sourceInput.parser_name || 'race-result-import',
+        sourceInput.parser_name || 'local-race-results-import',
         results.length ? 'imported' : (sourceInput.parser_status || 'pending_review'),
         sourceInput.parser_note || null,
         Number(sourceInput.extracted_rows || results.length || 0),
         results.length,
-        sourceInput.metadata ? JSON.stringify(sourceInput.metadata) : null,
+        JSON.stringify(sourceMetadata),
       ]
-    );
-    const sourceId = Number(sourceResult.insertId || sourceInput.source_id || 0) || null;
+      );
+      sourceId = Number(sourceResult.insertId || sourceInput.source_id || 0) || null;
+    }
     const hydratedResults = results.map((item) => ({
       ...item,
       source_id: item.source_id || sourceId,

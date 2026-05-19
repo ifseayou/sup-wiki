@@ -92,8 +92,11 @@ export async function GET(
          a.name AS athlete_name,
          a.photo AS athlete_photo
        FROM sup_event_results er
+       INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
        LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
        WHERE er.event_id = ?
+         AND er.review_status <> 'pending'
+         AND (src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')
        ORDER BY er.gender_group ASC, er.discipline ASC, er.round_label ASC, er.rank_position ASC`,
       [id]
     ) : [[] as EventResultRow[]];

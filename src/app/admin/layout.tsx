@@ -27,7 +27,6 @@ const navItems = [
   { href: '/admin/athlete-identities', label: '身份匹配' },
   { href: '/admin/creators', label: '博主' },
   { href: '/admin/events', label: '赛事' },
-  { href: '/admin/result-sources', label: '成绩复核' },
   { href: '/admin/courses', label: '课程' },
   { href: '/admin/techniques', label: '技术动作库' },
   { href: '/admin/media', label: '图片库' },

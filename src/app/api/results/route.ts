@@ -21,7 +21,13 @@ export async function GET(request: NextRequest) {
     const pageSize = Math.min(100, Math.max(10, Number(searchParams.get('pageSize') || 30)));
     const offset = (page - 1) * pageSize;
 
-    const conditions = ["e.status = 'published'", "e.event_status = 'completed'"];
+    const conditions = [
+      "e.status = 'published'",
+      "e.event_status = 'completed'",
+      'er.source_id IS NOT NULL',
+      "(src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')",
+      "er.review_status <> 'pending'",
+    ];
     const params: (string | number)[] = [];
 
     if (search) {
@@ -42,6 +48,7 @@ export async function GET(request: NextRequest) {
       `SELECT COUNT(*) AS total
        FROM sup_event_results er
        INNER JOIN sup_events e ON e.event_id = er.event_id
+       INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
        LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
        ${where}`,
       params
@@ -59,7 +66,7 @@ export async function GET(request: NextRequest) {
        FROM sup_event_results er
        INNER JOIN sup_events e ON e.event_id = er.event_id
        LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
-       LEFT JOIN sup_event_result_sources src ON src.source_id = er.source_id
+       INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
        ${where}
        ORDER BY e.start_date DESC, er.discipline ASC, er.gender_group ASC, er.rank_position ASC
        LIMIT ${pageSize} OFFSET ${offset}`,
@@ -68,9 +75,31 @@ export async function GET(request: NextRequest) {
 
     const [facets] = await pool.execute<RowDataPacket[]>(
       `SELECT
-         (SELECT JSON_ARRAYAGG(discipline) FROM (SELECT DISTINCT discipline FROM sup_event_results WHERE discipline IS NOT NULL AND discipline <> '' ORDER BY discipline LIMIT 80) d) AS disciplines,
-         (SELECT JSON_ARRAYAGG(gender_group) FROM (SELECT DISTINCT gender_group FROM sup_event_results WHERE gender_group IS NOT NULL AND gender_group <> '' ORDER BY gender_group LIMIT 60) g) AS genders,
-         (SELECT JSON_ARRAYAGG(YEAR(start_date)) FROM (SELECT DISTINCT start_date FROM sup_events WHERE start_date IS NOT NULL ORDER BY start_date DESC LIMIT 40) y) AS years`
+         (SELECT JSON_ARRAYAGG(discipline) FROM (
+            SELECT DISTINCT er.discipline
+            FROM sup_event_results er
+            INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
+            WHERE er.discipline IS NOT NULL AND er.discipline <> ''
+              AND (src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')
+            ORDER BY er.discipline LIMIT 80
+          ) d) AS disciplines,
+         (SELECT JSON_ARRAYAGG(gender_group) FROM (
+            SELECT DISTINCT er.gender_group
+            FROM sup_event_results er
+            INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
+            WHERE er.gender_group IS NOT NULL AND er.gender_group <> ''
+              AND (src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')
+            ORDER BY er.gender_group LIMIT 60
+          ) g) AS genders,
+         (SELECT JSON_ARRAYAGG(event_year) FROM (
+            SELECT DISTINCT YEAR(e.start_date) AS event_year
+            FROM sup_events e
+            INNER JOIN sup_event_results er ON er.event_id = e.event_id
+            INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
+            WHERE e.start_date IS NOT NULL
+              AND (src.parser_name IN ('parse-race-results.py', 'local-race-results-import') OR src.original_path LIKE '%/桨板赛事/%')
+            ORDER BY event_year DESC LIMIT 40
+          ) y) AS years`
     );
 
     const total = Number(countRows[0]?.total || 0);

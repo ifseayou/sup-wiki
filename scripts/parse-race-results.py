@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Parse local SUP result books into JSON payloads for /api/admin/result-import.
+"""Parse local SUP result books into import payloads.
 
-This script is intentionally conservative: text PDFs and spreadsheets are parsed
-when a stable table shape is detected; image-only files are emitted as
-pending_review sources so the original asset can still be tracked.
+The local directory is the canonical race-result source. Parseable PDF/Excel/TXT
+files produce result rows. Image-only and unparseable files still produce source
+records so the admin review queue can track them back to the original book.
 """
 
 from __future__ import annotations
@@ -11,18 +11,22 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
 
-CORE_KEYWORDS = (
-    "亚洲", "全国", "中国桨板", "冠军", "超级联赛", "俱乐部联赛", "百城",
-    "省", "长三角", "公开赛", "精英赛",
+EVENT_KEYWORDS = (
+    "桨板", "SUP", "sup", "皮划艇桨板", "浆板",
 )
-SKIP_KEYWORDS = ("皮划艇", "独木舟", "龙舟")
+RESULT_KEYWORDS = ("成绩", "成绩册", "成绩单", "成绩公告", "排名", "总成绩", "获奖名单", "龙虎榜")
+IGNORE_FILE_KEYWORDS = ("气象", "照片", "技术会议", "会议", "奖金发放")
+SKIP_DISCIPLINE_KEYWORDS = ("皮划艇", "独木舟", "龙舟")
 SUP_KEYWORDS = ("桨板", "SUP", "sup")
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 EXCEL_EXTS = {".xlsx", ".xls"}
+TIME_PATTERN = r"(?:\d+:)?\d{1,2}[:.]\d{2}(?:[.:]\d{1,3})?|\d+'\d+(?:\.\d+)?\"?|\d{1,3}(?:\.\d{1,3})"
 
 
 def classify_file(path: Path) -> str:
@@ -38,13 +42,17 @@ def classify_file(path: Path) -> str:
     return "unknown"
 
 
-def is_core(path: Path) -> bool:
+def is_probable_result_file(path: Path) -> bool:
     text = str(path)
-    if not any(k in text for k in SUP_KEYWORDS):
+    if not any(k in text for k in EVENT_KEYWORDS):
         return False
-    if any(k in text for k in CORE_KEYWORDS):
+    if any(k in path.name for k in IGNORE_FILE_KEYWORDS):
+        return False
+    if any(k in path.name for k in RESULT_KEYWORDS):
         return True
-    return False
+    if path.suffix.lower() in EXCEL_EXTS:
+        return True
+    return path.suffix.lower() in IMAGE_EXTS and any(k in path.parent.name for k in SUP_KEYWORDS)
 
 
 def event_from_path(path: Path, root: Path) -> dict[str, Any]:
@@ -57,7 +65,7 @@ def event_from_path(path: Path, root: Path) -> dict[str, Any]:
     start_date = None
     if date_match:
         start_date = f"{date_match.group(1)}-{date_match.group(2)}-{date_match.group(3)}"
-    name = re.sub(r"^\d{8}\s*", "", first).strip() or path.stem
+    name = re.sub(r"^\d{8}\s*期?\s*", "", first).strip() or path.stem
     name = name.replace("2O026", "2026")
     return {
         "name": name,
@@ -87,31 +95,64 @@ def infer_score(name: str) -> float | None:
 
 
 def normalize_result_row(row: dict[str, Any], context: dict[str, Any]) -> dict[str, Any] | None:
-    name = str(row.get("姓名") or row.get("运动员姓名") or row.get("运动员") or row.get("name") or "").strip()
-    rank_raw = str(row.get("名次") or row.get("排名") or row.get("rank") or "").strip()
-    finish = str(row.get("成绩") or row.get("赛会成绩") or row.get("finish_time") or "").strip()
+    row = normalize_keys(row)
+    name = clean_cell(row.get("姓名") or row.get("运动员姓名") or row.get("运动员") or row.get("name") or "")
+    rank_raw = clean_cell(row.get("名次") or row.get("排名") or row.get("rank") or "")
+    finish = clean_cell(row.get("成绩") or row.get("赛会成绩") or row.get("finish_time") or row.get("用时") or "")
     if not name or not rank_raw or not finish:
         return None
-    if rank_raw in {"/", "·", "-", "DNS", "DNF"}:
+    if is_non_result(rank_raw):
         return None
     try:
         rank = int(float(rank_raw))
     except ValueError:
         return None
+    title = context.get("sheet") or context.get("title") or context.get("file_name") or ""
+    if is_non_sup_context(str(title)):
+        return None
     return {
         "athlete_name_snapshot": name,
-        "bib_number": str(row.get("参赛号") or row.get("号码") or row.get("参赛号码") or "").strip() or None,
-        "gender_group": context.get("gender_group") or infer_gender(context.get("sheet") or context.get("title") or ""),
-        "discipline": context.get("discipline") or infer_discipline(context.get("sheet") or context.get("title") or ""),
+        "bib_number": clean_cell(row.get("参赛号") or row.get("号码") or row.get("参赛号码") or row.get("号码布") or "") or None,
+        "gender_group": context.get("gender_group") or infer_gender(str(title)),
+        "discipline": context.get("discipline") or infer_discipline(str(title)),
+        "board_class": context.get("board_class") or infer_board_class(str(title)),
         "round_label": context.get("round_label"),
         "rank_position": rank,
+        "result_label": clean_cell(row.get("备注") or row.get("备注1") or row.get("成绩说明") or "") or None,
         "finish_time": finish,
-        "team_name": str(row.get("代表队") or row.get("代表单位/地区") or row.get("单位") or row.get("队伍") or "").strip() or None,
+        "team_name": clean_cell(row.get("代表队") or row.get("代表单位/地区") or row.get("单位") or row.get("队伍") or row.get("俱乐部") or "") or None,
         "points": parse_number(row.get("积分") or row.get("总积分")),
         "source_locator": context.get("locator"),
         "parse_confidence": 0.86,
         "review_status": "confirmed",
     }
+
+
+def normalize_keys(row: dict[str, Any]) -> dict[str, Any]:
+    normalized: dict[str, Any] = {}
+    for key, value in row.items():
+        clean_key = clean_cell(key).replace("\n", "").replace(" ", "")
+        normalized[clean_key] = value
+    return normalized
+
+
+def clean_cell(value: Any) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if text.lower() == "nan":
+        return ""
+    return re.sub(r"\s+", " ", text)
+
+
+def is_non_result(value: str) -> bool:
+    return value.upper() in {"/", "·", "-", "DNS", "DNF", "DQ", "DNQ"}
+
+
+def is_non_sup_context(text: str) -> bool:
+    if any(k in text for k in SUP_KEYWORDS):
+        return False
+    return any(k in text for k in SKIP_DISCIPLINE_KEYWORDS)
 
 
 def infer_gender(text: str) -> str:
@@ -135,6 +176,20 @@ def infer_discipline(text: str) -> str:
     if "竞速" in text or "冲刺" in text:
         return "竞速赛"
     return text[:40] or "未分项目"
+
+
+def infer_board_class(text: str) -> str | None:
+    for label in ("硬板", "充气板", "救生板", "竞速板", "龙板"):
+        if label in text:
+            return label
+    return None
+
+
+def infer_round(text: str) -> str | None:
+    for label in ("预赛", "半决赛", "决赛", "总决赛", "初赛", "排名赛"):
+        if label in text:
+            return label
+    return None
 
 
 def parse_number(value: Any) -> float | None:
@@ -182,38 +237,60 @@ def parse_pdf(path: Path) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     with pdfplumber.open(path) as pdf:
         for index, page in enumerate(pdf.pages, start=1):
-            title = (page.extract_text() or "").split("\n")[:3]
+            text = page.extract_text() or ""
+            title = text.split("\n")[:8]
             page_title = " ".join(title)
             tables = page.extract_tables() or []
             for table in tables:
                 if not table or len(table) < 2:
                     continue
-                header = [str(v or "").strip().replace("\n", "") for v in table[0]]
-                if "姓名" not in "".join(header) or not any("名次" in h or "排名" in h for h in header):
+                header_index = find_header_index(table)
+                if header_index is None:
                     continue
-                for row in table[1:]:
+                header = [clean_cell(v).replace("\n", "") for v in table[header_index]]
+                for row in table[header_index + 1:]:
                     item = {header[i]: row[i] if i < len(row) else "" for i in range(len(header))}
-                    parsed = normalize_result_row(item, {"title": page_title, "locator": f"page:{index}"})
+                    parsed = normalize_result_row(item, {
+                        "title": page_title,
+                        "locator": f"page:{index}",
+                        "round_label": infer_round(page_title),
+                    })
                     if parsed:
                         results.append(parsed)
-            if not tables:
-                results.extend(parse_pdf_text_page(page.extract_text() or "", index))
+            results.extend(parse_pdf_text_page(text, index))
     return results
+
+
+def find_header_index(table: list[list[Any]]) -> int | None:
+    for idx, row in enumerate(table[:5]):
+        header = "".join(clean_cell(v).replace("\n", "") for v in row)
+        if "姓名" in header and ("名次" in header or "排名" in header):
+            return idx
+    return None
 
 
 def parse_pdf_text_page(text: str, page_number: int) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    title = " ".join(lines[:3])
-    pattern = re.compile(r"^(\d+)\s+([A-Z]?\d{1,4})?\s*([\u4e00-\u9fa5A-Za-z·]{2,30})\s+(.+?)\s+((?:\d+:)?\d{1,2}[:.]\d{2}(?:[.:]\d{1,3})?|\d+'\d+(?:\.\d+)?\"?)$")
+    title = " ".join(lines[:8])
+    pattern = re.compile(rf"^(\d+)\s+([A-Z]?\d{{1,4}})?\s*([\u4e00-\u9fa5A-Za-z·]{{2,30}})\s+(.+?)\s+({TIME_PATTERN})$")
+    lane_pattern = re.compile(rf"^(\d+)\s+\d+\s+([A-Z]?\d{{1,4}})\s+([\u4e00-\u9fa5A-Za-z·]{{2,30}})\s+(.+?)\s+({TIME_PATTERN})$")
+    compact_pattern = re.compile(rf"^(\d+)\s+([A-Z]?\d{{1,4}})?\s*([\u4e00-\u9fa5A-Za-z·]{{2,30}})\s+({TIME_PATTERN})$")
     for line in lines:
-        match = pattern.match(line)
+        if not looks_like_result_line(line):
+            continue
+        match = lane_pattern.match(line) or pattern.match(line) or compact_pattern.match(line)
         if not match:
             continue
-        rank, bib, name, team, finish = match.groups()
+        groups = match.groups()
+        if len(groups) == 5:
+            rank, bib, name, team, finish = groups
+        else:
+            rank, bib, name, finish = groups
+            team = ""
         parsed = normalize_result_row(
             {"名次": rank, "号码": bib or "", "姓名": name, "代表队": team, "成绩": finish},
-            {"title": title, "locator": f"page:{page_number}"},
+            {"title": title, "locator": f"page:{page_number}", "round_label": infer_round(title)},
         )
         if parsed:
             parsed["parse_confidence"] = 0.72
@@ -222,11 +299,17 @@ def parse_pdf_text_page(text: str, page_number: int) -> list[dict[str, Any]]:
     return out
 
 
+def looks_like_result_line(line: str) -> bool:
+    if not re.match(r"^\d{1,3}\s+", line):
+        return False
+    return bool(re.search(TIME_PATTERN, line))
+
+
 def parse_one(path: Path, root: Path) -> dict[str, Any] | None:
     file_type = classify_file(path)
-    if not is_core(path):
+    if not is_probable_result_file(path):
         return None
-    if any(k in path.name for k in SKIP_KEYWORDS) and "桨板" not in path.name:
+    if any(k in path.name for k in SKIP_DISCIPLINE_KEYWORDS) and "桨板" not in path.name:
         return None
     results: list[dict[str, Any]] = []
     note = ""
@@ -245,6 +328,7 @@ def parse_one(path: Path, root: Path) -> dict[str, Any] | None:
         note = f"解析失败：{exc}"
         status = "failed"
     if results:
+        results = dedupe_results(results)
         status = "parsed"
     return {
         "event": event_from_path(path, root),
@@ -256,16 +340,48 @@ def parse_one(path: Path, root: Path) -> dict[str, Any] | None:
             "parser_status": status,
             "parser_note": note,
             "extracted_rows": len(results),
+            "source_kind": "local_result_book",
             "metadata": {"relative_path": str(path.relative_to(root)) if path.is_relative_to(root) else str(path)},
         },
         "results": results,
     }
 
 
+def dedupe_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen = set()
+    deduped = []
+    for item in results:
+        key = (
+            item.get("gender_group"),
+            item.get("discipline"),
+            item.get("round_label"),
+            item.get("rank_position"),
+            item.get("athlete_name_snapshot"),
+            item.get("finish_time"),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped
+
+
+def copy_source_file(path: Path, root: Path, public_root: Path) -> str:
+    rel = path.relative_to(root) if path.is_relative_to(root) else Path(path.name)
+    dest = public_root / "result-books" / rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if not dest.exists() or dest.stat().st_size != path.stat().st_size:
+        shutil.copy2(path, dest)
+    return "/" + str(dest.relative_to(public_root)).replace("\\", "/")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
     parser.add_argument("-o", "--output", type=Path, default=Path("race-results-import.json"))
+    parser.add_argument("--jsonl", action="store_true", help="write one payload per line")
+    parser.add_argument("--copy-to-public", type=Path, help="copy source files under this public directory and set source_url")
+    parser.add_argument("--limit", type=int, default=0, help="stop after N payloads for quick validation")
     args = parser.parse_args()
     payloads = []
     paths = [args.root] if args.root.is_file() else sorted(args.root.rglob("*"))
@@ -274,8 +390,16 @@ def main() -> None:
         if path.is_file() and classify_file(path) != "unknown":
             item = parse_one(path, scan_root)
             if item:
+                if args.copy_to_public:
+                    item["source"]["source_url"] = copy_source_file(path, scan_root, args.copy_to_public)
                 payloads.append(item)
-    args.output.write_text(json.dumps(payloads, ensure_ascii=False, indent=2), encoding="utf-8")
+                if args.limit and len(payloads) >= args.limit:
+                    break
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    if args.jsonl:
+        args.output.write_text("\n".join(json.dumps(item, ensure_ascii=False) for item in payloads) + "\n", encoding="utf-8")
+    else:
+        args.output.write_text(json.dumps(payloads, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"wrote {len(payloads)} payloads to {args.output}")
 
 
