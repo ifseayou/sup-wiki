@@ -41,6 +41,8 @@ export const GET = withAdmin(async (request: NextRequest, _ctx) => {
       `SELECT
          er.*,
          a.name AS athlete_name,
+         src.file_name AS source_file_name,
+         src.source_url AS source_file_url,
          (
            SELECT JSON_ARRAYAGG(JSON_OBJECT('athlete_id', erm.athlete_id, 'name', erm.member_name, 'member_order', erm.member_order))
            FROM sup_event_result_members erm
@@ -48,6 +50,7 @@ export const GET = withAdmin(async (request: NextRequest, _ctx) => {
          ) AS team_members
        FROM sup_event_results er
        LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
+       LEFT JOIN sup_event_result_sources src ON src.source_id = er.source_id
        WHERE er.event_id = ?
        ORDER BY ${resultDefaultOrderBy()}`,
       [id]
@@ -56,9 +59,12 @@ export const GET = withAdmin(async (request: NextRequest, _ctx) => {
     const [pointStandings] = await pool.execute<RowDataPacket[]>(
       `SELECT
          ps.*,
-         a.name AS athlete_name
+         a.name AS athlete_name,
+         src.file_name AS source_file_name,
+         src.source_url AS source_file_url
        FROM sup_event_point_standings ps
        LEFT JOIN sup_athletes a ON a.athlete_id = ps.athlete_id
+       LEFT JOIN sup_event_result_sources src ON src.source_id = ps.source_id
        WHERE ps.event_id = ?
        ORDER BY
          FIELD(ps.group_name, '公开男子组', '公开女子组', '大师男子组', '大师女子组', '卡胡纳男子组', '卡胡纳女子组', '高校男子组', '高校女子组', 'U15男子组', 'U15女子组', 'U12男子组', 'U12女子组', 'U9男子组', 'U9女子组'),

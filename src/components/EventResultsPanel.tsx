@@ -26,11 +26,6 @@ interface EventResultRow {
   team_members: unknown;
   athlete_name: string | null;
   athlete_photo: string | null;
-  source_file_url: string | null;
-  source_file_name: string | null;
-  source_url: string | null;
-  source_title: string | null;
-  source_locator: string | null;
 }
 
 interface PointStandingRow {
@@ -49,9 +44,6 @@ interface PointStandingRow {
   sprint_rank: string | null;
   sprint_points: number | null;
   total_points: number | null;
-  source_locator: string | null;
-  source_file_url: string | null;
-  source_file_name: string | null;
 }
 
 interface ResultModule {
@@ -450,7 +442,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                           <th className="px-4 py-3 text-left">赛段</th>
                           <th className="px-4 py-3 text-left">说明</th>
                           <th className="px-4 py-3 text-right">耗时</th>
-                          <th className="px-4 py-3 text-left">来源</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -466,13 +457,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                               <td className="px-4 py-3 text-stone-500">{row.round_label || '-'}</td>
                               <td className="px-4 py-3 text-stone-500">{row.result_label || '-'}</td>
                               <td className="px-4 py-3 text-right font-medium text-[#8B7355]"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></td>
-                              <td className="px-4 py-3 text-xs">
-                                {(row.source_file_url || row.source_url) ? (
-                                  <a href={row.source_file_url || row.source_url || '#'} target="_blank" rel="noopener noreferrer" className="text-[#7A6145] hover:text-[#5E4A33]">
-                                    {row.source_file_name || row.source_title || '成绩册'}{row.source_locator ? ` · ${row.source_locator}` : ''}
-                                  </a>
-                                ) : '-'}
-                              </td>
                             </tr>
                           );
                         })}
@@ -498,13 +482,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                             <div><div className="text-xs text-stone-400">赛段</div><div className="mt-0.5 text-stone-600">{row.round_label || '-'}</div></div>
                             <div><div className="text-xs text-stone-400">成绩</div><div className="mt-0.5 font-medium text-[#8B7355]"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></div></div>
                           </div>
-                          <div className="mt-3 text-xs text-stone-400">
-                            {(row.source_file_url || row.source_url) ? (
-                              <a href={row.source_file_url || row.source_url || '#'} target="_blank" rel="noopener noreferrer" className="text-[#7A6145]">
-                                {row.source_file_name || row.source_title || '成绩册'}{row.source_locator ? ` · ${row.source_locator}` : ''}
-                              </a>
-                            ) : '无来源链接'}
-                          </div>
                         </div>
                       );
                     })}
@@ -524,7 +501,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                           <th className="px-4 py-3 text-right">耐力赛</th>
                           <th className="px-4 py-3 text-right">冲刺赛</th>
                           <th className="px-4 py-3 text-right">总积分</th>
-                          <th className="px-4 py-3 text-left">来源</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -538,13 +514,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                             <td className="px-4 py-3 text-right text-stone-600">{row.endurance_rank || '-'}{row.endurance_points != null ? ` / ${row.endurance_points}` : ''}</td>
                             <td className="px-4 py-3 text-right text-stone-600">{row.sprint_rank || '-'}{row.sprint_points != null ? ` / ${row.sprint_points}` : ''}</td>
                             <td className="px-4 py-3 text-right font-semibold text-[#8B7355]">{row.total_points ?? '-'}</td>
-                            <td className="px-4 py-3 text-xs">
-                              {row.source_file_url ? (
-                                <a href={row.source_file_url} target="_blank" rel="noopener noreferrer" className="text-[#7A6145] hover:text-[#5E4A33]">
-                                  {row.source_file_name || '成绩册'}{row.source_locator ? ` · ${row.source_locator}` : ''}
-                                </a>
-                              ) : '-'}
-                            </td>
                           </tr>
                         ))}
                       </tbody>

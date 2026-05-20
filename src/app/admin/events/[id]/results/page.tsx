@@ -35,6 +35,12 @@ interface AdminEventResultRow {
   result_label?: string | null;
   finish_time: string;
   team_name?: string | null;
+  source_title?: string | null;
+  source_url?: string | null;
+  source_note?: string | null;
+  source_locator?: string | null;
+  source_file_name?: string | null;
+  source_file_url?: string | null;
 }
 
 interface AdminPointStandingRow {
@@ -51,6 +57,9 @@ interface AdminPointStandingRow {
   sprint_rank?: string | null;
   sprint_points?: number | null;
   total_points?: number | null;
+  source_locator?: string | null;
+  source_file_name?: string | null;
+  source_file_url?: string | null;
 }
 
 const emptyTemplate = [
@@ -69,6 +78,20 @@ const emptyTemplate = [
 function formatDate(date?: string | null) {
   if (!date) return '—';
   return new Date(date).toLocaleDateString('zh-CN');
+}
+
+function sourceLabel(row: {
+  source_title?: string | null;
+  source_note?: string | null;
+  source_locator?: string | null;
+  source_file_name?: string | null;
+}) {
+  const title = row.source_file_name || row.source_title || row.source_note || '成绩来源';
+  return row.source_locator ? `${title} · ${row.source_locator}` : title;
+}
+
+function sourceUrl(row: { source_file_url?: string | null; source_url?: string | null }) {
+  return row.source_file_url || row.source_url || '';
 }
 
 export default function EventResultsAdminPage() {
@@ -239,6 +262,7 @@ export default function EventResultsAdminPage() {
                   <th className="px-4 py-3 text-left">项目</th>
                   <th className="px-4 py-3 text-left">轮次</th>
                   <th className="px-4 py-3 text-left">耗时</th>
+                  <th className="px-4 py-3 text-left">来源索引</th>
                 </tr>
               </thead>
               <tbody>
@@ -250,6 +274,15 @@ export default function EventResultsAdminPage() {
                     <td className="px-4 py-3 text-warm-gray-600">{row.discipline}</td>
                     <td className="px-4 py-3 text-warm-gray-600">{row.round_label || '—'}</td>
                     <td className="px-4 py-3 font-medium text-brown-700">{row.finish_time}</td>
+                    <td className="px-4 py-3 text-xs text-warm-gray-500">
+                      {sourceUrl(row) ? (
+                        <a href={sourceUrl(row)} target="_blank" rel="noopener noreferrer" className="text-brown-600 hover:text-brown-800">
+                          {sourceLabel(row)}
+                        </a>
+                      ) : (
+                        row.source_locator || row.source_title || row.source_note || '—'
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -275,6 +308,7 @@ export default function EventResultsAdminPage() {
                   <th className="px-4 py-3 text-left">耐力赛</th>
                   <th className="px-4 py-3 text-left">冲刺赛</th>
                   <th className="px-4 py-3 text-left">总积分</th>
+                  <th className="px-4 py-3 text-left">来源索引</th>
                 </tr>
               </thead>
               <tbody>
@@ -287,6 +321,15 @@ export default function EventResultsAdminPage() {
                     <td className="px-4 py-3 text-warm-gray-600">{row.endurance_rank || '—'}{row.endurance_points != null ? ` / ${row.endurance_points}` : ''}</td>
                     <td className="px-4 py-3 text-warm-gray-600">{row.sprint_rank || '—'}{row.sprint_points != null ? ` / ${row.sprint_points}` : ''}</td>
                     <td className="px-4 py-3 font-medium text-brown-700">{row.total_points ?? '—'}</td>
+                    <td className="px-4 py-3 text-xs text-warm-gray-500">
+                      {row.source_file_url ? (
+                        <a href={row.source_file_url} target="_blank" rel="noopener noreferrer" className="text-brown-600 hover:text-brown-800">
+                          {sourceLabel(row)}
+                        </a>
+                      ) : (
+                        row.source_locator || row.source_file_name || '—'
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
