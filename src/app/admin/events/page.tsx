@@ -199,6 +199,23 @@ const columns = [
   { key: 'start_date', label: '开始日期', render: (v: unknown) => v ? new Date(String(v)).toLocaleDateString('zh-CN') : '—' },
   { key: 'event_status', label: '赛事状态', render: (v: unknown) => ({'upcoming':'即将','ongoing':'进行中','completed':'已结束','cancelled':'已取消'}[String(v)] || String(v)) },
   { key: 'result_status', label: '结果档案', render: (v: unknown) => getEventResultStatusLabel(String(v || 'none')) },
+  {
+    key: 'primary_source_url',
+    label: '成绩来源',
+    render: (v: unknown, row: Record<string, unknown>) => {
+      const sourceUrl = String(v || '');
+      const sourceName = String(row.primary_source_name || '成绩册');
+      const sourceCount = Number(row.source_count || 0);
+      if (!sourceCount) return <span className="text-warm-gray-400">—</span>;
+      const label = `${sourceName}${sourceCount > 1 ? ` · ${sourceCount}份` : ''}`;
+      if (!sourceUrl) return <span className="text-xs text-warm-gray-500">{label}</span>;
+      return (
+        <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-brown-500 hover:text-brown-700">
+          {label}
+        </a>
+      );
+    },
+  },
   { key: 'results_count', label: '成绩数', sortable: true, render: (v: unknown) => String(v || 0) },
   { key: 'linked_athletes_count', label: '关联运动员', sortable: true, render: (v: unknown) => String(v || 0) },
   {

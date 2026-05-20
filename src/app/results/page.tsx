@@ -316,7 +316,7 @@ function ResultsContent() {
 
         <div className="overflow-hidden rounded-lg border border-[#DED2C1] bg-[#FFFCF7] shadow-[0_18px_42px_rgba(93,72,48,0.08)]">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-sm">
+            <table className="w-full min-w-[980px] text-sm">
               <thead className="bg-[#E9DECD] text-left text-xs uppercase tracking-wide text-[#6E604E]">
                 <tr>
                   <th className="px-4 py-3">运动员</th>
@@ -326,7 +326,6 @@ function ResultsContent() {
                   <th className="px-4 py-3 text-center">名次</th>
                   <th className="px-4 py-3 text-right">成绩</th>
                   <th className="px-4 py-3">队伍</th>
-                  <th className="px-4 py-3">来源</th>
                 </tr>
               </thead>
               <tbody>
@@ -348,18 +347,11 @@ function ResultsContent() {
                     <td className="px-4 py-3 text-center font-semibold text-[#2E281F]">{row.rank_position >= 9000 ? '—' : row.rank_position}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#7A6145]"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></td>
                     <td className="px-4 py-3 text-stone-500">{row.team_name || '个人'}</td>
-                    <td className="px-4 py-3 text-xs">
-                      {(row.source_file_url || row.source_url) ? (
-                        <a className="text-[#7A6145] hover:text-[#4B3927]" href={row.source_file_url || row.source_url || '#'} target="_blank" rel="noopener noreferrer">
-                          {row.source_file_name || row.source_title || '成绩册'}{row.source_locator ? ` · ${row.source_locator}` : ''}
-                        </a>
-                      ) : (row.source_file_name || row.source_title || '—')}
-                    </td>
                   </tr>
                   );
                 })}
                 {!fetching && items.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-12 text-center text-stone-400">没有匹配的成绩</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-12 text-center text-stone-400">没有匹配的成绩</td></tr>
                 )}
               </tbody>
             </table>

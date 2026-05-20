@@ -35,6 +35,9 @@ interface EventRow extends RowDataPacket {
   result_last_verified_at: string | null;
   results_count: number;
   linked_athletes_count: number;
+  source_count: number;
+  primary_source_url: string | null;
+  primary_source_name: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -93,7 +96,10 @@ export const GET = withAdmin(async (request: NextRequest) => {
       `SELECT
          e.*,
          COALESCE(r.results_count, 0) AS results_count,
-         COALESCE(r.linked_athletes_count, 0) AS linked_athletes_count
+         COALESCE(r.linked_athletes_count, 0) AS linked_athletes_count,
+         COALESCE(src.source_count, 0) AS source_count,
+         SUBSTRING_INDEX(src.source_urls, CHAR(10), 1) AS primary_source_url,
+         SUBSTRING_INDEX(src.source_names, CHAR(10), 1) AS primary_source_name
        FROM sup_events e
        LEFT JOIN (
          SELECT
@@ -103,6 +109,16 @@ export const GET = withAdmin(async (request: NextRequest) => {
          FROM sup_event_results
          GROUP BY event_id
        ) r ON r.event_id = e.event_id
+       LEFT JOIN (
+         SELECT
+           event_id,
+           COUNT(*) AS source_count,
+           GROUP_CONCAT(NULLIF(source_url, '') ORDER BY CASE WHEN source_url IS NULL OR source_url = '' THEN 1 ELSE 0 END, source_id ASC SEPARATOR '\n') AS source_urls,
+           GROUP_CONCAT(COALESCE(NULLIF(file_name, ''), '成绩册') ORDER BY CASE WHEN source_url IS NULL OR source_url = '' THEN 1 ELSE 0 END, source_id ASC SEPARATOR '\n') AS source_names
+         FROM sup_event_result_sources
+         WHERE event_id IS NOT NULL
+         GROUP BY event_id
+       ) src ON src.event_id = e.event_id
        ${where}
        ORDER BY ${orderBy}
        LIMIT ${pageSize} OFFSET ${offset}`,
