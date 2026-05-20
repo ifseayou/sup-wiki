@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 interface Column {
   key: string;
   label: string;
+  sortable?: boolean;
   render?: (value: unknown, row: Record<string, unknown>) => React.ReactNode;
 }
 
@@ -22,6 +23,7 @@ interface EntityManagerProps {
     placeholder: string;
     options: { label: string; value: string }[];
   }[];
+  enableBulkActions?: boolean;
 }
 
 // ---- Status Badge ----
@@ -178,6 +180,7 @@ export default function EntityManager({
   token,
   searchPlaceholder = '搜索...',
   additionalFilters,
+  enableBulkActions = false,
 }: EntityManagerProps) {
   const filters = useMemo(() => additionalFilters ?? [], [additionalFilters]);
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
@@ -198,6 +201,10 @@ export default function EntityManager({
   const [msg, setMsg] = useState('');
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
+  const [sortBy, setSortBy] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const idKey = Object.keys(defaultFormData).find(k => k.endsWith('_id')) || 'id';
   const lastQueryKeyRef = useRef<string>('');
@@ -212,10 +219,12 @@ export default function EntityManager({
         search,
         statusFilter,
         extraFilterValues,
+        sortBy,
+        sortOrder,
         filters: filters.map((filter) => filter.key),
         refreshTick,
       }),
-    [apiPath, token, page, pageSize, search, statusFilter, extraFilterValues, filters, refreshTick]
+    [apiPath, token, page, pageSize, search, statusFilter, extraFilterValues, sortBy, sortOrder, filters, refreshTick]
   );
 
   useEffect(() => {
@@ -235,6 +244,10 @@ export default function EntityManager({
           const value = extraFilterValues[filter.key];
           if (value) params.set(filter.key, value);
         }
+        if (sortBy) {
+          params.set('sortBy', sortBy);
+          params.set('sortOrder', sortOrder);
+        }
         const res = await fetch(`${apiPath}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
         if (cancelled) return;
@@ -249,6 +262,7 @@ export default function EntityManager({
         }
         setItems(data.items || []);
         setTotal(data.total || 0);
+        setSelectedIds(new Set());
       } catch (error) {
         if (cancelled) return;
         setItems([]);
@@ -264,7 +278,7 @@ export default function EntityManager({
     return () => {
       cancelled = true;
     };
-  }, [queryKey, apiPath, token, page, pageSize, search, statusFilter, extraFilterValues, filters, entityName]);
+  }, [queryKey, apiPath, token, page, pageSize, search, statusFilter, extraFilterValues, sortBy, sortOrder, filters, entityName]);
 
   function refreshItems() {
     setRefreshTick((tick) => tick + 1);
@@ -351,6 +365,74 @@ export default function EntityManager({
     }
   }
 
+  function toggleSort(column: Column) {
+    if (!column.sortable) return;
+    setPage(1);
+    if (sortBy === column.key) {
+      setSortOrder((current) => (current === 'desc' ? 'asc' : 'desc'));
+      return;
+    }
+    setSortBy(column.key);
+    setSortOrder('desc');
+  }
+
+  function toggleSelect(id: string | number) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectPage() {
+    const pageIds = items.map((item) => item[idKey] as string | number);
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const id of pageIds) {
+        if (allSelected) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+      }
+      return next;
+    });
+  }
+
+  async function handleBulkAction(action: 'publish' | 'draft' | 'delete') {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (action === 'delete' && !window.confirm(`确定删除选中的 ${ids.length} 条${entityName}吗？删除后无法恢复。`)) {
+      return;
+    }
+    setBulkBusy(true);
+    setMsg('');
+    try {
+      const res = await fetch(apiPath, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action, ids }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || '批量操作失败');
+      }
+      setMsg(`已处理 ${data.affectedRows ?? ids.length} 条${entityName}`);
+      setSelectedIds(new Set());
+      refreshItems();
+      setTimeout(() => setMsg(''), 3000);
+    } catch (error) {
+      setMsg(error instanceof Error ? `失败: ${error.message}` : '失败: 批量操作失败');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   async function toggleStatus(item: Record<string, unknown>) {
     const id = item[idKey];
     const newStatus = item.status === 'published' ? 'draft' : 'published';
@@ -420,6 +502,34 @@ export default function EntityManager({
         <span className="text-sm text-warm-gray-400 self-center">共 {total} 条</span>
       </div>
 
+      {enableBulkActions && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-cream-200 bg-cream-50 px-4 py-3">
+          <span className="text-sm text-warm-gray-500">已选 {selectedIds.size} 条</span>
+          <button
+            onClick={() => handleBulkAction('publish')}
+            disabled={selectedIds.size === 0 || bulkBusy}
+            className="px-3 py-1.5 text-xs rounded-lg border border-cream-300 text-brown-600 hover:border-brown-500 disabled:opacity-40"
+          >
+            批量发布
+          </button>
+          <button
+            onClick={() => handleBulkAction('draft')}
+            disabled={selectedIds.size === 0 || bulkBusy}
+            className="px-3 py-1.5 text-xs rounded-lg border border-cream-300 text-brown-600 hover:border-brown-500 disabled:opacity-40"
+          >
+            批量收回
+          </button>
+          <button
+            onClick={() => handleBulkAction('delete')}
+            disabled={selectedIds.size === 0 || bulkBusy}
+            className="px-3 py-1.5 text-xs rounded-lg border border-red-200 text-red-500 hover:border-red-400 disabled:opacity-40"
+          >
+            批量删除
+          </button>
+          {bulkBusy && <span className="text-xs text-warm-gray-400">处理中...</span>}
+        </div>
+      )}
+
       {/* Feedback */}
       {msg && (
         <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm ${msg.startsWith('失败') || msg.startsWith('网络') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
@@ -444,9 +554,31 @@ export default function EntityManager({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-cream-200 bg-cream-100">
+                  {enableBulkActions && (
+                    <th className="w-10 px-4 py-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={items.length > 0 && items.every((item) => selectedIds.has(item[idKey] as string | number))}
+                        onChange={toggleSelectPage}
+                        className="h-4 w-4 rounded border-cream-300 text-brown-600 focus:ring-brown-500"
+                        aria-label="选择当前页"
+                      />
+                    </th>
+                  )}
                   {columns.map(col => (
                     <th key={col.key} className="px-4 py-3 text-left text-xs text-warm-gray-400 font-medium uppercase tracking-wide">
-                      {col.label}
+                      {col.sortable ? (
+                        <button
+                          onClick={() => toggleSort(col)}
+                          className="inline-flex items-center gap-1 hover:text-brown-600"
+                          title={`按${col.label}排序`}
+                        >
+                          <span>{col.label}</span>
+                          <span className="text-[10px]">{sortBy === col.key ? (sortOrder === 'desc' ? '↓' : '↑') : '↕'}</span>
+                        </button>
+                      ) : (
+                        col.label
+                      )}
                     </th>
                   ))}
                   <th className="px-4 py-3 text-left text-xs text-warm-gray-400 font-medium uppercase tracking-wide">状态</th>
@@ -456,6 +588,17 @@ export default function EntityManager({
               <tbody className="divide-y divide-cream-200">
                 {items.map(item => (
                   <tr key={String(item[idKey])} className="hover:bg-cream-100 transition-colors">
+                    {enableBulkActions && (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(item[idKey] as string | number)}
+                          onChange={() => toggleSelect(item[idKey] as string | number)}
+                          className="h-4 w-4 rounded border-cream-300 text-brown-600 focus:ring-brown-500"
+                          aria-label={`选择${entityName}`}
+                        />
+                      </td>
+                    )}
                     {columns.map(col => (
                       <td key={col.key} className="px-4 py-3 text-warm-gray-700">
                         {col.render ? col.render(item[col.key], item) : String(item[col.key] ?? '')}

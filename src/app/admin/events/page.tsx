@@ -199,8 +199,8 @@ const columns = [
   { key: 'start_date', label: '开始日期', render: (v: unknown) => v ? new Date(String(v)).toLocaleDateString('zh-CN') : '—' },
   { key: 'event_status', label: '赛事状态', render: (v: unknown) => ({'upcoming':'即将','ongoing':'进行中','completed':'已结束','cancelled':'已取消'}[String(v)] || String(v)) },
   { key: 'result_status', label: '结果档案', render: (v: unknown) => getEventResultStatusLabel(String(v || 'none')) },
-  { key: 'results_count', label: '成绩数', render: (v: unknown) => String(v || 0) },
-  { key: 'linked_athletes_count', label: '关联运动员', render: (v: unknown) => String(v || 0) },
+  { key: 'results_count', label: '成绩数', sortable: true, render: (v: unknown) => String(v || 0) },
+  { key: 'linked_athletes_count', label: '关联运动员', sortable: true, render: (v: unknown) => String(v || 0) },
   {
     key: 'results_manage',
     label: '成绩管理',
@@ -279,6 +279,7 @@ export default function EventsAdminPage() {
       token={token}
       searchPlaceholder="搜索赛事名称 / 城市 / 主办方..."
       additionalFilters={additionalFilters}
+      enableBulkActions
     />
   );
 }

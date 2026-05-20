@@ -49,8 +49,12 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const star_level = searchParams.get('star_level');
     const result_status = searchParams.get('result_status');
     const year = searchParams.get('year');
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '20');
+    const sortBy = searchParams.get('sortBy') || '';
+    const sortOrderInput = (searchParams.get('sortOrder') || 'desc').toLowerCase();
+    const rawPage = parseInt(searchParams.get('page') || '1');
+    const rawPageSize = parseInt(searchParams.get('pageSize') || '20');
+    const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+    const pageSize = Number.isInteger(rawPageSize) && rawPageSize > 0 ? Math.min(rawPageSize, 100) : 20;
     const offset = (page - 1) * pageSize;
 
     const conditions: string[] = [];
@@ -68,6 +72,17 @@ export const GET = withAdmin(async (request: NextRequest) => {
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const sortableColumns: Record<string, string> = {
+      results_count: 'results_count',
+      linked_athletes_count: 'linked_athletes_count',
+      start_date: 'e.start_date',
+      created_at: 'e.created_at',
+    };
+    const sortColumn = sortableColumns[sortBy] || 'e.start_date';
+    const sortOrder = sortOrderInput === 'asc' ? 'ASC' : 'DESC';
+    const orderBy = sortBy
+      ? `${sortColumn} ${sortOrder}, e.start_date DESC, e.created_at DESC`
+      : 'e.start_date DESC, e.created_at DESC';
 
     const [countRows] = await pool.execute<RowDataPacket[]>(
       `SELECT COUNT(*) as total FROM sup_events e ${where}`, params
@@ -89,7 +104,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
          GROUP BY event_id
        ) r ON r.event_id = e.event_id
        ${where}
-       ORDER BY e.start_date DESC, e.created_at DESC
+       ORDER BY ${orderBy}
        LIMIT ${pageSize} OFFSET ${offset}`,
       params
     );
@@ -98,6 +113,59 @@ export const GET = withAdmin(async (request: NextRequest) => {
   } catch (error) {
     console.error('获取赛事列表失败:', error);
     return NextResponse.json({ error: '获取赛事列表失败' }, { status: 500 });
+  }
+});
+
+export const PATCH = withAdmin(async (request: NextRequest) => {
+  try {
+    const body = await request.json();
+    const action = String(body.action || '');
+    const ids = Array.isArray(body.ids)
+      ? body.ids.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0)
+      : [];
+
+    if (!['publish', 'draft', 'delete'].includes(action)) {
+      return NextResponse.json({ error: '无效批量操作' }, { status: 400 });
+    }
+    if (ids.length === 0) {
+      return NextResponse.json({ error: '请选择要操作的赛事' }, { status: 400 });
+    }
+    if (ids.length > 200) {
+      return NextResponse.json({ error: '单次最多批量处理 200 条赛事' }, { status: 400 });
+    }
+
+    const placeholders = ids.map(() => '?').join(',');
+    if (action === 'publish' || action === 'draft') {
+      const nextStatus = action === 'publish' ? 'published' : 'draft';
+      const [result] = await pool.execute<ResultSetHeader>(
+        `UPDATE sup_events SET status = ? WHERE event_id IN (${placeholders})`,
+        [nextStatus, ...ids]
+      );
+      return NextResponse.json({ success: true, affectedRows: result.affectedRows });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      await connection.execute(
+        `UPDATE sup_event_result_sources SET event_id = NULL WHERE event_id IN (${placeholders})`,
+        ids
+      );
+      const [result] = await connection.execute<ResultSetHeader>(
+        `DELETE FROM sup_events WHERE event_id IN (${placeholders})`,
+        ids
+      );
+      await connection.commit();
+      return NextResponse.json({ success: true, affectedRows: result.affectedRows });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('批量操作赛事失败:', error);
+    return NextResponse.json({ error: '批量操作赛事失败' }, { status: 500 });
   }
 });
 
