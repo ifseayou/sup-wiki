@@ -25,19 +25,25 @@ interface ResultRow {
   start_date: string | null;
   city: string | null;
   province: string | null;
-  source_file_url: string | null;
-  source_file_name: string | null;
-  source_url: string | null;
-  source_title: string | null;
-  source_locator: string | null;
+}
+
+interface MemberLike {
+  name?: unknown;
+  member_name?: unknown;
 }
 
 function parseMembers(value: unknown) {
-  if (Array.isArray(value)) return value.map((item: any) => item?.name || item?.member_name || '').filter(Boolean);
+  if (Array.isArray(value)) {
+    return value
+      .map((item: MemberLike) => String(item?.name || item?.member_name || '').trim())
+      .filter(Boolean);
+  }
   if (!value) return [];
   try {
     const parsed = JSON.parse(String(value));
-    return Array.isArray(parsed) ? parsed.map((item) => item?.name || item?.member_name || '').filter(Boolean) : [];
+    return Array.isArray(parsed)
+      ? parsed.map((item: MemberLike) => String(item?.name || item?.member_name || '').trim()).filter(Boolean)
+      : [];
   } catch {
     return [];
   }
@@ -62,17 +68,29 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
 
   useEffect(() => {
     if (!token) return;
-    setFetching(true);
-    setError('');
-    fetch(`/api/results?${query}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '成绩加载失败');
-        setItems(data.items || []);
-        setTotal(Number(data.total || 0));
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : '成绩加载失败'))
-      .finally(() => setFetching(false));
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setFetching(true);
+      setError('');
+      fetch(`/api/results?${query}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || '成绩加载失败');
+          if (cancelled) return;
+          setItems(data.items || []);
+          setTotal(Number(data.total || 0));
+        })
+        .catch((err) => {
+          if (!cancelled) setError(err instanceof Error ? err.message : '成绩加载失败');
+        })
+        .finally(() => {
+          if (!cancelled) setFetching(false);
+        });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [query, token]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -120,7 +138,6 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
                   <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500 }}>组别</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 500 }}>名次</th>
                   <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 500 }}>成绩</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500 }}>来源</th>
                 </tr>
               </thead>
               <tbody>
@@ -139,18 +156,11 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
                     <td style={{ padding: '11px 12px', color: '#655D56' }}>{row.gender_group}{row.round_label ? ` · ${row.round_label}` : ''}</td>
                     <td style={{ padding: '11px 12px', textAlign: 'center', color: '#2E2118', fontWeight: 700 }}>{row.rank_position >= 9000 ? '—' : row.rank_position}</td>
                     <td style={{ padding: '11px 12px', textAlign: 'right', color: '#7A6145', fontWeight: 700 }}><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></td>
-                    <td style={{ padding: '11px 12px', fontSize: 12 }}>
-                      {(row.source_file_url || row.source_url) ? (
-                        <a href={row.source_file_url || row.source_url || '#'} target="_blank" rel="noopener noreferrer" style={{ color: '#7A6145', textDecoration: 'none' }}>
-                          {row.source_file_name || row.source_title || '成绩册'}{row.source_locator ? ` · ${row.source_locator}` : ''}
-                        </a>
-                      ) : (row.source_file_name || row.source_title || '—')}
-                    </td>
                   </tr>
                   );
                 })}
                 {!fetching && items.length === 0 && (
-                  <tr><td colSpan={6} style={{ padding: '28px 12px', textAlign: 'center', color: '#9A9086' }}>暂无已收录成绩</td></tr>
+                  <tr><td colSpan={5} style={{ padding: '28px 12px', textAlign: 'center', color: '#9A9086' }}>暂无已收录成绩</td></tr>
                 )}
               </tbody>
             </table>
