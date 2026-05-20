@@ -37,6 +37,22 @@ interface AdminEventResultRow {
   team_name?: string | null;
 }
 
+interface AdminPointStandingRow {
+  standing_id: number;
+  group_name: string;
+  rank_position?: number | null;
+  status_rank?: string | null;
+  bib_number?: string | null;
+  athlete_name?: string | null;
+  athlete_name_snapshot: string;
+  team_name?: string | null;
+  endurance_rank?: string | null;
+  endurance_points?: number | null;
+  sprint_rank?: string | null;
+  sprint_points?: number | null;
+  total_points?: number | null;
+}
+
 const emptyTemplate = [
   {
     athlete_name: '示例运动员',
@@ -60,6 +76,7 @@ export default function EventResultsAdminPage() {
   const { token } = useAdminAuth();
   const [event, setEvent] = useState<AdminEvent | null>(null);
   const [results, setResults] = useState<AdminEventResultRow[]>([]);
+  const [pointStandings, setPointStandings] = useState<AdminPointStandingRow[]>([]);
   const [jsonText, setJsonText] = useState(JSON.stringify(emptyTemplate, null, 2));
   const [resultStatus, setResultStatus] = useState('none');
   const [loading, setLoading] = useState(true);
@@ -84,6 +101,7 @@ export default function EventResultsAdminPage() {
 
       setEvent(eventData);
       setResults(resultsData.items || []);
+      setPointStandings(resultsData.point_standings || []);
       setJsonText(resultsData.items?.length ? formatResultsForTextarea(resultsData.items) : JSON.stringify(emptyTemplate, null, 2));
       setResultStatus(eventData.result_status || 'none');
     } catch (loadError) {
@@ -239,6 +257,43 @@ export default function EventResultsAdminPage() {
           </div>
         )}
       </div>
+
+      {pointStandings.length > 0 && (
+        <div className="rounded-xl border border-cream-200 bg-cream-50 p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-base font-medium text-brown-700">赛事积分榜</h2>
+            <span className="text-sm text-warm-gray-400">{pointStandings.length} 条</span>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-cream-100 text-warm-gray-500">
+                <tr>
+                  <th className="px-4 py-3 text-left">组别</th>
+                  <th className="px-4 py-3 text-left">名次</th>
+                  <th className="px-4 py-3 text-left">运动员</th>
+                  <th className="px-4 py-3 text-left">队伍</th>
+                  <th className="px-4 py-3 text-left">耐力赛</th>
+                  <th className="px-4 py-3 text-left">冲刺赛</th>
+                  <th className="px-4 py-3 text-left">总积分</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pointStandings.map((row) => (
+                  <tr key={row.standing_id} className="border-t border-cream-200">
+                    <td className="px-4 py-3 text-warm-gray-600">{row.group_name}</td>
+                    <td className="px-4 py-3 text-brown-700">{row.rank_position ?? row.status_rank ?? '—'}</td>
+                    <td className="px-4 py-3 text-brown-800">{row.athlete_name || row.athlete_name_snapshot}</td>
+                    <td className="px-4 py-3 text-warm-gray-600">{row.team_name || '个人'}</td>
+                    <td className="px-4 py-3 text-warm-gray-600">{row.endurance_rank || '—'}{row.endurance_points != null ? ` / ${row.endurance_points}` : ''}</td>
+                    <td className="px-4 py-3 text-warm-gray-600">{row.sprint_rank || '—'}{row.sprint_points != null ? ` / ${row.sprint_points}` : ''}</td>
+                    <td className="px-4 py-3 font-medium text-brown-700">{row.total_points ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

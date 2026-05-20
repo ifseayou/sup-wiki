@@ -11,6 +11,8 @@ interface AthleteRow extends RowDataPacket {
   name: string;
   name_en: string | null;
   nationality: string | null;
+  province: string | null;
+  city: string | null;
   photo: string | null;
   photos: string | null;
   bio: string | null;
@@ -172,6 +174,11 @@ export default async function AthleteDetailPage({
             {athlete.nationality && (
               <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
                 🌏 {athlete.nationality}
+              </span>
+            )}
+            {(athlete.province || athlete.city) && (
+              <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
+                {['籍贯', athlete.province, athlete.city].filter(Boolean).join(' · ')}
               </span>
             )}
             <span style={{ fontSize: 13, color: '#7A6145', background: '#F0EAE0', border: '1px solid #EDE5D8', padding: '3px 10px', borderRadius: 20 }}>

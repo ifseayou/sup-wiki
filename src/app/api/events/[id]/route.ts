@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import { extractToken, verifyUserToken } from '@/lib/auth';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
+import { resultDefaultOrderBy } from '@/lib/result-ordering';
 
 interface EventRow extends RowDataPacket {
   event_id: number;
@@ -98,7 +99,7 @@ export async function GET(
        WHERE er.event_id = ?
          AND er.review_status <> 'pending'
          AND ${localResultSourceCondition}
-       ORDER BY er.gender_group ASC, er.discipline ASC, er.round_label ASC, er.rank_position ASC`,
+       ORDER BY ${resultDefaultOrderBy()}`,
       [id]
     ) : [[] as EventResultRow[]];
 

@@ -1,0 +1,28 @@
+-- SUP Wiki — event point standings
+CREATE TABLE IF NOT EXISTS sup_event_point_standings (
+  standing_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  event_id BIGINT NOT NULL,
+  source_id BIGINT NULL,
+  group_name VARCHAR(100) NOT NULL,
+  rank_position INT NULL,
+  status_rank VARCHAR(20) NULL,
+  bib_number VARCHAR(50) NULL,
+  athlete_id BIGINT NULL,
+  athlete_name_snapshot VARCHAR(100) NOT NULL,
+  team_name VARCHAR(200) NULL,
+  endurance_rank VARCHAR(20) NULL,
+  endurance_points DECIMAL(10,2) NULL,
+  sprint_rank VARCHAR(20) NULL,
+  sprint_points DECIMAL(10,2) NULL,
+  total_points DECIMAL(10,2) NULL,
+  source_locator VARCHAR(100) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_event_points (event_id, group_name, athlete_name_snapshot, bib_number),
+  INDEX idx_event_points_event (event_id),
+  INDEX idx_event_points_athlete (athlete_id),
+  INDEX idx_event_points_group_rank (event_id, group_name, rank_position),
+  CONSTRAINT fk_point_standings_event FOREIGN KEY (event_id) REFERENCES sup_events(event_id) ON DELETE CASCADE,
+  CONSTRAINT fk_point_standings_source FOREIGN KEY (source_id) REFERENCES sup_event_result_sources(source_id) ON DELETE SET NULL,
+  CONSTRAINT fk_point_standings_athlete FOREIGN KEY (athlete_id) REFERENCES sup_athletes(athlete_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

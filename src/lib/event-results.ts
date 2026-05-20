@@ -1,5 +1,6 @@
 import type { PoolConnection } from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2';
+import { getResultStatusLabel, normalizeResultStatusCode } from '@/lib/result-status';
 
 export interface EventSourceLink {
   title: string;
@@ -18,8 +19,11 @@ export interface EventResultInput {
   rank_position: number;
   result_label?: string | null;
   finish_time: string;
+  result_status_code?: string | null;
+  result_status_note?: string | null;
   points?: number | null;
   team_name?: string | null;
+  team_members?: string[];
   nationality_snapshot?: string | null;
   source_type?: string | null;
   source_id?: number | null;
@@ -41,6 +45,8 @@ interface AthleteRaceTimeRow extends RowDataPacket {
   round_label: string | null;
   result_label: string | null;
   finish_time: string;
+  result_status_code: string | null;
+  result_status_note: string | null;
   start_date: string | null;
   event_id: number;
   event_name: string;
@@ -87,6 +93,30 @@ export function parseSourceLinksTextarea(text: string) {
     .filter((item) => item.title && item.url);
 }
 
+export function parseTeamMembersInput(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((item) => {
+      if (item && typeof item === 'object') {
+        const record = item as Record<string, unknown>;
+        return String(record.name || record.member_name || '').trim();
+      }
+      return String(item || '').trim();
+    }).filter(Boolean))];
+  }
+  const text = String(value || '').trim();
+  if (text.startsWith('[')) {
+    try {
+      return parseTeamMembersInput(JSON.parse(text));
+    } catch {
+      // Fall back to delimiter parsing below.
+    }
+  }
+  return [...new Set(text
+    .split(/[\n,，、;；/]+/)
+    .map((item) => item.trim())
+    .filter(Boolean))];
+}
+
 export function normalizeEventResultsInput(value: unknown): EventResultInput[] {
   const items = parseJsonArray<Record<string, unknown>>(value);
   return items
@@ -94,6 +124,7 @@ export function normalizeEventResultsInput(value: unknown): EventResultInput[] {
       const athleteName = String(item.athlete_name ?? item.athlete_name_snapshot ?? '').trim();
       const discipline = String(item.discipline ?? '').trim();
       const finishTime = String(item.finish_time ?? item.time ?? '').trim();
+      const statusCode = normalizeResultStatusCode(item.result_status_code || finishTime);
       const rankPosition = Number(item.rank_position);
       const reviewStatus: EventResultInput['review_status'] =
         item.review_status === 'pending' || item.review_status === 'needs_review' ? item.review_status : 'confirmed';
@@ -110,8 +141,11 @@ export function normalizeEventResultsInput(value: unknown): EventResultInput[] {
         rank_position: Number.isFinite(rankPosition) ? rankPosition : NaN,
         result_label: item.result_label ? String(item.result_label) : null,
         finish_time: finishTime,
+        result_status_code: statusCode,
+        result_status_note: item.result_status_note ? String(item.result_status_note) : (statusCode ? getResultStatusLabel(statusCode) : null),
         points: item.points === undefined || item.points === null || item.points === '' ? null : Number(item.points),
-        team_name: item.team_name ? String(item.team_name) : null,
+        team_name: item.team_name ? String(item.team_name) : '个人',
+        team_members: parseTeamMembersInput(item.team_members),
         nationality_snapshot: item.nationality_snapshot ? String(item.nationality_snapshot) : null,
         source_type: item.source_type ? String(item.source_type) : null,
         source_id: item.source_id ? Number(item.source_id) : null,
@@ -221,21 +255,84 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
   return athleteId;
 }
 
+async function resolveAthleteByName(connection: PoolConnection, name: string, result: EventResultInput) {
+  const cleanName = name.trim();
+  if (!cleanName) return null;
+  const [existingRows] = await connection.execute<AthleteRow[]>(
+    'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 1',
+    [cleanName]
+  );
+  if (existingRows.length > 0) return existingRows[0].athlete_id;
+
+  const [insertResult] = await connection.execute(
+    `INSERT INTO sup_athletes (name, nationality, discipline, bio, status)
+     VALUES (?, ?, 'race', ?, 'draft')`,
+    [
+      cleanName,
+      result.nationality_snapshot || '中国',
+      `由团队赛成绩录入自动生成的运动员草稿档案，待补充完整人物资料。`,
+    ]
+  );
+  const athleteId = Number((insertResult as { insertId: number }).insertId);
+  await connection.execute(
+    `INSERT IGNORE INTO sup_athlete_identity_links
+      (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
+     VALUES (?, ?, ?, ?, ?, ?, 0.820, 'confirmed', '团队赛成绩成员自动创建草稿运动员')`,
+    [
+      athleteId,
+      cleanName.replace(/\s+/g, '').toLowerCase(),
+      cleanName,
+      result.gender_group || null,
+      result.team_name || null,
+      result.nationality_snapshot || null,
+    ]
+  );
+  return athleteId;
+}
+
+async function replaceResultMembers(connection: PoolConnection, resultId: number, result: EventResultInput, primaryAthleteId: number | null) {
+  await connection.execute('DELETE FROM sup_event_result_members WHERE result_id = ?', [resultId]);
+  const members = parseTeamMembersInput(result.team_members);
+  if (!members.length) return [];
+  const touched = new Set<number>();
+  for (let index = 0; index < members.length; index += 1) {
+    const memberName = members[index];
+    const athleteId = normalizedSameName(memberName, result.athlete_name_snapshot) && primaryAthleteId
+      ? primaryAthleteId
+      : await resolveAthleteByName(connection, memberName, result);
+    if (athleteId) touched.add(athleteId);
+    await connection.execute(
+      `INSERT INTO sup_event_result_members (result_id, athlete_id, member_name, member_order)
+       VALUES (?, ?, ?, ?)`,
+      [resultId, athleteId, memberName, index]
+    );
+  }
+  return [...touched];
+}
+
+function normalizedSameName(a: string, b: string) {
+  return a.replace(/\s+/g, '').toLowerCase() === b.replace(/\s+/g, '').toLowerCase();
+}
+
 export async function syncAthleteRaceTimes(connection: PoolConnection, athleteId: number) {
   const [rows] = await connection.execute<AthleteRaceTimeRow[]>(
-    `SELECT
+    `SELECT DISTINCT
        er.discipline,
        er.round_label,
        er.result_label,
        er.finish_time,
+       er.result_status_code,
+       er.result_status_note,
+       er.rank_position,
        e.start_date,
        e.event_id,
        e.name AS event_name
      FROM sup_event_results er
      INNER JOIN sup_events e ON e.event_id = er.event_id
-     WHERE er.athlete_id = ?
+     LEFT JOIN sup_event_result_members erm ON erm.result_id = er.result_id
+     WHERE er.athlete_id = ? OR erm.athlete_id = ?
      ORDER BY e.start_date DESC, er.rank_position ASC`,
-    [athleteId]
+    [athleteId, athleteId]
   );
 
   const raceTimes = rows.map((row) => ({
@@ -246,6 +343,8 @@ export async function syncAthleteRaceTimes(connection: PoolConnection, athleteId
     round: row.round_label || undefined,
     result: row.result_label || undefined,
     time: row.finish_time,
+    status: row.result_status_code || undefined,
+    status_label: row.result_status_code ? getResultStatusLabel(row.result_status_code, row.result_status_note) : undefined,
   }));
 
   await connection.execute(
@@ -256,8 +355,13 @@ export async function syncAthleteRaceTimes(connection: PoolConnection, athleteId
 
 export async function replaceEventResults(connection: PoolConnection, eventId: number, inputResults: EventResultInput[]) {
   const [existingRows] = await connection.execute<RowDataPacket[]>(
-    'SELECT DISTINCT athlete_id FROM sup_event_results WHERE event_id = ? AND athlete_id IS NOT NULL',
-    [eventId]
+    `SELECT athlete_id FROM sup_event_results WHERE event_id = ? AND athlete_id IS NOT NULL
+     UNION
+     SELECT erm.athlete_id
+     FROM sup_event_result_members erm
+     INNER JOIN sup_event_results er ON er.result_id = erm.result_id
+     WHERE er.event_id = ? AND erm.athlete_id IS NOT NULL`,
+    [eventId, eventId]
   );
 
   const touchedAthleteIds = new Set<number>(
@@ -273,9 +377,9 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
     await connection.execute(
       `INSERT INTO sup_event_results (
         event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
-        rank_position, result_label, finish_time, time_seconds, points, team_name, nationality_snapshot,
+        rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, nationality_snapshot,
         source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
         athleteId,
@@ -288,9 +392,11 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
         result.rank_position,
         result.result_label || null,
         result.finish_time,
+        result.result_status_code || normalizeResultStatusCode(result.finish_time),
+        result.result_status_note || (result.result_status_code ? getResultStatusLabel(result.result_status_code) : null),
         parseFinishTimeToSeconds(result.finish_time),
         typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
-        result.team_name || null,
+        result.team_name || '个人',
         result.nationality_snapshot || null,
         result.source_type || 'official',
         result.source_id || null,
@@ -303,6 +409,13 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
         result.is_verified !== false ? 1 : 0,
       ]
     );
+    const [idRows] = await connection.execute<RowDataPacket[]>('SELECT LAST_INSERT_ID() AS result_id');
+    const resultId = Number(idRows[0]?.result_id || 0);
+    if (resultId) {
+      for (const memberAthleteId of await replaceResultMembers(connection, resultId, result, athleteId)) {
+        touchedAthleteIds.add(memberAthleteId);
+      }
+    }
   }
 
   for (const athleteId of touchedAthleteIds) {
@@ -320,15 +433,18 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
     await connection.execute(
       `INSERT INTO sup_event_results (
         event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
-        rank_position, result_label, finish_time, time_seconds, points, team_name, nationality_snapshot,
+        rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, nationality_snapshot,
         source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
+        result_id = LAST_INSERT_ID(result_id),
         athlete_id = VALUES(athlete_id),
         bib_number = VALUES(bib_number),
         board_class = VALUES(board_class),
         result_label = VALUES(result_label),
         finish_time = VALUES(finish_time),
+        result_status_code = VALUES(result_status_code),
+        result_status_note = VALUES(result_status_note),
         time_seconds = VALUES(time_seconds),
         points = VALUES(points),
         team_name = VALUES(team_name),
@@ -352,9 +468,11 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
         result.rank_position,
         result.result_label || null,
         result.finish_time,
+        result.result_status_code || normalizeResultStatusCode(result.finish_time),
+        result.result_status_note || (result.result_status_code ? getResultStatusLabel(result.result_status_code) : null),
         parseFinishTimeToSeconds(result.finish_time),
         typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
-        result.team_name || null,
+        result.team_name || '个人',
         result.nationality_snapshot || null,
         result.source_type || 'official',
         result.source_id || null,
@@ -367,6 +485,13 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
         result.is_verified !== false ? 1 : 0,
       ]
     );
+    const [idRows] = await connection.execute<RowDataPacket[]>('SELECT LAST_INSERT_ID() AS result_id');
+    const resultId = Number(idRows[0]?.result_id || 0);
+    if (resultId) {
+      for (const memberAthleteId of await replaceResultMembers(connection, resultId, result, athleteId)) {
+        touchedAthleteIds.add(memberAthleteId);
+      }
+    }
   }
 
   for (const athleteId of touchedAthleteIds) {

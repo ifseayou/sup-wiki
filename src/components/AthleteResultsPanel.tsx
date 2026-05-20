@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useUser } from '@/components/UserContext';
+import ResultStatusBadge from '@/components/ResultStatusBadge';
 
 interface ResultRow {
   result_id: number;
@@ -16,7 +17,10 @@ interface ResultRow {
   round_label: string | null;
   rank_position: number;
   finish_time: string;
+  result_status_code: string | null;
+  result_status_note: string | null;
   team_name: string | null;
+  team_members: unknown;
   event_name: string;
   start_date: string | null;
   city: string | null;
@@ -26,6 +30,17 @@ interface ResultRow {
   source_url: string | null;
   source_title: string | null;
   source_locator: string | null;
+}
+
+function parseMembers(value: unknown) {
+  if (Array.isArray(value)) return value.map((item: any) => item?.name || item?.member_name || '').filter(Boolean);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed.map((item) => item?.name || item?.member_name || '').filter(Boolean) : [];
+  } catch {
+    return [];
+  }
 }
 
 export default function AthleteResultsPanel({ athleteId }: { athleteId: number }) {
@@ -109,16 +124,21 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
                 </tr>
               </thead>
               <tbody>
-                {items.map((row) => (
+                {items.map((row) => {
+                  const members = parseMembers(row.team_members);
+                  return (
                   <tr key={row.result_id} style={{ borderTop: '1px solid #F0EAE0' }}>
                     <td style={{ padding: '11px 12px', color: '#3D3730', lineHeight: 1.55 }}>
                       <Link href={`/events/${row.event_id}`} style={{ color: '#6F563B', fontWeight: 600, textDecoration: 'none' }}>{row.event_name}</Link>
                       <div style={{ fontSize: 11, color: '#9A9086' }}>{[row.province, row.city].filter(Boolean).join(' · ')} {row.start_date?.slice(0, 10)}</div>
                     </td>
-                    <td style={{ padding: '11px 12px', color: '#655D56' }}>{row.discipline}{row.board_class ? ` / ${row.board_class}` : ''}</td>
+                    <td style={{ padding: '11px 12px', color: '#655D56' }}>
+                      {row.discipline}{row.board_class ? ` / ${row.board_class}` : ''}
+                      {members.length > 0 && <div style={{ fontSize: 11, color: '#9A9086', marginTop: 3 }}>成员：{members.join('、')}</div>}
+                    </td>
                     <td style={{ padding: '11px 12px', color: '#655D56' }}>{row.gender_group}{row.round_label ? ` · ${row.round_label}` : ''}</td>
-                    <td style={{ padding: '11px 12px', textAlign: 'center', color: '#2E2118', fontWeight: 700 }}>{row.rank_position}</td>
-                    <td style={{ padding: '11px 12px', textAlign: 'right', color: '#7A6145', fontWeight: 700 }}>{row.finish_time}</td>
+                    <td style={{ padding: '11px 12px', textAlign: 'center', color: '#2E2118', fontWeight: 700 }}>{row.rank_position >= 9000 ? '—' : row.rank_position}</td>
+                    <td style={{ padding: '11px 12px', textAlign: 'right', color: '#7A6145', fontWeight: 700 }}><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></td>
                     <td style={{ padding: '11px 12px', fontSize: 12 }}>
                       {(row.source_file_url || row.source_url) ? (
                         <a href={row.source_file_url || row.source_url || '#'} target="_blank" rel="noopener noreferrer" style={{ color: '#7A6145', textDecoration: 'none' }}>
@@ -127,7 +147,8 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
                       ) : (row.source_file_name || row.source_title || '—')}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {!fetching && items.length === 0 && (
                   <tr><td colSpan={6} style={{ padding: '28px 12px', textAlign: 'center', color: '#9A9086' }}>暂无已收录成绩</td></tr>
                 )}

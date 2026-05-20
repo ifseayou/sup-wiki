@@ -4,6 +4,16 @@ import { withAdmin } from '@/lib/admin';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { normalizeEventResultsInput, parseSourceLinksInput, replaceEventResults } from '@/lib/event-results';
 
+function dateValue(value: unknown) {
+  if (value === undefined || value === '') return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : trimmed;
+}
+
 interface EventRow extends RowDataPacket {
   event_id: number;
   name: string;
@@ -122,7 +132,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
         [
           name, name_en || null, slug, event_type || 'race',
           location || null, province || null, city || null, venue || null,
-          start_date || null, end_date || null, registration_deadline || null,
+          dateValue(start_date), dateValue(end_date), dateValue(registration_deadline),
           organizer || null, description || null, requirements || null,
           website || null, registration_url || null, contact_info || null,
           images ? JSON.stringify(images) : null,

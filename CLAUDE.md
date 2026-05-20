@@ -1,6 +1,6 @@
 # SUP Wiki
 
-桨板运动资讯百科网站，提供品牌、产品、运动员、博主、赛事信息。由管理员通过 AI 辅助维护，无用户 UGC。
+桨板运动资讯百科 + 运动员比赛成绩平台。提供品牌、产品、运动员、博主、赛事、**每场比赛成绩**信息。当前由管理员通过 AI 辅助维护，正在逐步从「管理员私人知识工具」演进为「面向所有桨板运动员与爱好者的公共平台」。
 
 **线上地址：** https://sup.iaddu.cn
 
@@ -33,6 +33,29 @@
 2. **工具性优先**：i_add_u 用这个网站是为了提升自己，所有功能要让"用起来变强"
 3. **可信度第一**：每一条数据、每一道题目、每一个解析都要经得起推敲，错误比空白更有害
 
+### 产品演进阶段（决定当前优先级）
+
+产品正在从「i_add_u 私人知识工具」演进为「面向所有桨板运动员与爱好者的公共平台」。**比赛成绩模块（`/results`、运动员战绩面板、赛事成绩面板）是这次转折的起点**——它把"自己跑过的比赛"变成用户进入平台的第一个钩子。
+
+- **当前阶段：管理员维护 + 公众浏览。** 所有内容仍由管理员（i_add_u）录入，但访问者已经包含运动员、爱好者、赛事关注者。任何已开放的页面（成绩、运动员、赛事、品牌、产品等）必须**按公开产品标准**设计，不能再当作"i_add_u 自用界面"。
+- **下一阶段：开放更多模块给公众。** 题库、个人主页、订阅、收藏、成绩认领（运动员证明"这是我"）、装备/赛事评价等会陆续向公众开放，需要预留账号体系、权限模型、UGC 审核流的位置。
+- **优先级反转规则**：原本排在第三的"公众用户体验"，在**已开放或即将开放的模块**上**升级为第一优先级**——这些模块是新用户进入平台的入口，体验差会直接劝退用户、伤害口碑；只有纯管理员使用、不对外暴露的模块（批量导入、草稿编辑、身份匹配后台等）仍以 i_add_u 录入效率为唯一目标。
+- **判断方法**：动手前先问 ——「这个功能在 `/admin` 之外能被普通访客触达吗？」 → 是 → 走下面的「公众产品设计原则」；否 → 走管理员效率优先。
+
+### 面向公众用户的产品设计原则（开放模块强制遵守）
+
+任何已开放或即将开放给公众的模块，除「三大目标 + 设计原则」外，必须满足：
+
+1. **零门槛进入**：未登录也能看到核心内容（成绩、运动员、品牌、产品），不强制注册或扫码才能浏览。
+2. **移动优先**：桨板用户大量在赛场、湖边、户外用手机查看；列表/详情/筛选必须在 375px 宽度下完整可用，禁止依赖 hover、长按等手机难触发的交互。
+3. **运动员"找自己"零摩擦**：成绩列表、运动员列表必须支持按**姓名 / 号码布 / 队伍 / 赛事**快速检索，让用户 5 秒内定位到本人/熟人——这是平台粘性的核心。
+4. **数据出处可追溯**：比赛成绩、运动员战绩等关键数据必须能点回原始来源（`source_url` / `source_title` / `source_type`），错一条比缺一条伤害大得多。前台展示要把"已核验/待核验"（`review_status`、`is_verified`）状态明确传达给用户。
+5. **可分享、可外链**：所有公开页有稳定 URL、合理的 `<title>` / 描述 / OG 图片，便于在微信、小红书、抖音渠道传播——这是冷启动的主要获客路径。
+6. **三态必备**：空状态（"暂无成绩"）、错误状态（网络/数据错误）、加载状态（骨架屏或 spinner）都不能省，不能让用户面对白屏或英文报错。
+7. **为账号体系预留接口**：当前没有公众用户登录，但**新组件、新数据模型必须为未来的"我的"、"认领成绩"、"订阅赛事"、"评价装备" 留好挂点**——不要写死成纯静态展示，例如成绩条目应预留"是否本人"、"已认领"等状态字段位置。
+8. **性能预算**：开放页面 LCP < 2.5s（4G 网络），列表分页 ≤ 50 条，禁止一次性渲染整个赛事的所有成绩；详情页核心信息（运动员姓名、名次、成绩）必须 SSR 直出，不能等待客户端 JS。
+9. **隐私与署名**：成绩页公开个人姓名/成绩是合理的（赛事本身就是公开的），但**禁止公开私人联系方式（手机号、微信号、住址）**；运动员个人主页要支持未来"是否公开"开关。
+
 ## 技术栈
 
 - **前端**: Next.js 16 + React 19 + Tailwind CSS v4
@@ -52,7 +75,8 @@ sup-wiki/
 │   │   ├── products/               # 产品列表 + 详情
 │   │   ├── athletes/               # 运动员列表 + 详情
 │   │   ├── creators/               # 博主列表 + 详情
-│   │   ├── events/                 # 赛事列表 + 详情
+│   │   ├── events/                 # 赛事列表 + 详情（含成绩面板）
+│   │   ├── results/                # 全站比赛成绩浏览页（跨赛事检索成绩）
 │   │   ├── admin/                  # 管理后台（独立布局，不含公共 Header/Footer）
 │   │   │   ├── layout.tsx          # 认证守卫 + 侧边栏
 │   │   │   ├── page.tsx            # 仪表板
@@ -60,31 +84,41 @@ sup-wiki/
 │   │   │   ├── products/           # 产品 CRUD
 │   │   │   ├── athletes/           # 运动员 CRUD
 │   │   │   ├── creators/           # 博主 CRUD
-│   │   │   ├── events/             # 赛事 CRUD
+│   │   │   ├── events/             # 赛事 CRUD（可在赛事下编辑成绩）
+│   │   │   ├── results/            # 成绩管理（审核、纠错、身份匹配）
 │   │   │   └── import/             # 批量 JSON 导入
 │   │   └── api/
 │   │       ├── brands/             # 公开 API
 │   │       ├── products/
 │   │       ├── athletes/
 │   │       ├── creators/
-│   │       ├── events/
+│   │       ├── events/             # 含 /api/events/[id]/results 嵌套接口
+│   │       ├── results/            # 公开成绩聚合查询接口
 │   │       └── admin/              # 管理员 API（JWT 鉴权）
 │   │           ├── login/          # 登录接口
 │   │           ├── brands/
 │   │           ├── products/
 │   │           ├── athletes/
 │   │           ├── creators/
-│   │           └── events/
+│   │           ├── events/         # 含 /api/admin/events/[id]/results
+│   │           └── results/        # 成绩审核 / 修改 / 身份匹配
 │   ├── components/
 │   │   ├── Header.tsx              # 公共导航（编辑风格，小型大写 Logo）
 │   │   ├── Footer.tsx              # 公共底部
 │   │   ├── PublicShell.tsx         # 按路径控制是否渲染 Header/Footer（admin 路径跳过）
+│   │   ├── AthleteResultsPanel.tsx # 运动员详情页：本人参赛战绩面板
+│   │   ├── EventResultsPanel.tsx   # 赛事详情页：该赛事所有项目成绩面板
+│   │   ├── AthleteResultName.tsx   # 成绩中的运动员名（已认领则链到运动员页）
+│   │   ├── ResultStatusBadge.tsx   # 成绩审核状态标签（已核验/待核验/有疑问）
 │   │   └── admin/
 │   │       └── EntityManager.tsx   # 通用 CRUD 表格组件（含 JSON 粘贴模式）
 │   ├── lib/
 │   │   ├── db.ts                   # MySQL 连接池
 │   │   ├── auth.ts                 # 管理员密码验证 + JWT
-│   │   └── admin.ts                # withAdmin 中间件
+│   │   ├── admin.ts                # withAdmin 中间件
+│   │   ├── event-results.ts        # 成绩查询/聚合/筛选共用逻辑
+│   │   ├── result-ordering.ts      # 名次排序规则（含 DNF/DSQ/DNS 排序）
+│   │   └── result-status.ts        # 成绩审核状态判断与展示映射
 │   └── types/
 │       └── index.ts                # 所有 TypeScript 类型定义
 ├── database/
@@ -107,8 +141,12 @@ sup-wiki/
 | `sup_athletes` | 运动员 | discipline, icf_ranking, achievements(JSON), social_links(JSON), status |
 | `sup_creators` | 博主 | platform, follower_tier, content_style, status |
 | `sup_events` | 赛事 | event_type, event_status, province, start_date, disciplines(JSON), status |
+| `sup_event_results` | 比赛成绩（每条 = 某运动员在某赛事某项目的一个名次） | event_id(FK), athlete_id(FK, 可空), athlete_name_snapshot, gender_group, discipline, round_label, rank_position, finish_time, time_seconds, points, team_name, source_type, review_status, is_verified |
+| `sup_event_result_members` | 团体赛成绩的参赛队员明细 | result_id(FK), athlete_id(FK, 可空), member_name, member_order |
+| `sup_event_result_sources` | 成绩来源（官方公告/媒体报道/直播 OCR 等） | event_id(FK), source_url, source_title, source_type |
+| `sup_athlete_identity_links` | 成绩中出现的姓名 → 运动员实体的待匹配/已确认关系 | normalized_name, athlete_id(FK, 可空), confidence, status('pending'/'confirmed'/'rejected') |
 
-所有实体表均有 `status ENUM('draft','published')` 字段，公开 API 只返回 `published` 数据。
+所有「内容实体」表（brands/products/athletes/creators/events）均有 `status ENUM('draft','published')` 字段，公开 API 只返回 `published` 数据。**比赛成绩表使用独立的审核维度**（`review_status` + `is_verified`）：公开 API 默认只返回 `is_verified=1` 的成绩，`needs_review` 的成绩仅在管理后台可见，待匹配的同名运动员通过 `sup_athlete_identity_links` 单独处理，避免错挂导致运动员战绩污染。
 
 ## 图片资源规范（强制）
 
@@ -204,6 +242,8 @@ mysql -h 8.217.233.65 -u root -p sport_hacker < database/seed-events.sql
 | GET | `/api/creators/[id]` | 博主详情 |
 | GET | `/api/events` | 赛事列表（支持 event_type/province/event_status 筛选） |
 | GET | `/api/events/[id]` | 赛事详情 |
+| GET | `/api/events/[id]/results` | 单场赛事所有项目成绩 |
+| GET | `/api/results` | 全站成绩聚合检索（支持 athlete/event/discipline/姓名 搜索） |
 
 ### 管理员 API（需 Bearer JWT）
 
@@ -220,6 +260,9 @@ mysql -h 8.217.233.65 -u root -p sport_hacker < database/seed-events.sql
 | PUT/DELETE | `/api/admin/creators/[id]` | 同上 |
 | GET/POST | `/api/admin/events` | 同上 |
 | PUT/DELETE | `/api/admin/events/[id]` | 同上 |
+| GET/POST | `/api/admin/events/[id]/results` | 单场赛事的成绩 列表/录入 |
+| GET/POST | `/api/admin/results` | 全量成绩列表 / 单条新增 |
+| PUT/DELETE | `/api/admin/results/[id]` | 单条成绩 编辑/删除（含审核状态、身份匹配） |
 
 ## 部署
 

@@ -33,6 +33,8 @@ SUP_KEYWORDS = ("桨板", "SUP", "sup")
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 EXCEL_EXTS = {".xlsx", ".xls"}
 TIME_PATTERN = r"(?:\d+:)?\d{1,2}[:.]\d{2}(?:[.:]\d{1,3})?|\d+'\d+(?:\.\d+)?\"?|\d{1,3}(?:\.\d{1,3})"
+STATUS_CODES = {"DNS", "DNF", "DQ", "DSQ", "DNQ", "OTL"}
+RESULT_VALUE_PATTERN = rf"(?:{TIME_PATTERN}|DNS|DNF|DQ|DSQ|DNQ|OTL)"
 
 
 class FileParseTimeout(Exception):
@@ -67,18 +69,23 @@ def is_probable_result_file(path: Path) -> bool:
     return path.suffix.lower() in IMAGE_EXTS and any(k in path.parent.name for k in SUP_KEYWORDS)
 
 
-def event_from_path(path: Path, root: Path) -> dict[str, Any]:
+def event_from_path(path: Path, root: Path, detected_name: str | None = None) -> dict[str, Any]:
     try:
         rel = path.relative_to(root)
         first = rel.parts[0] if len(rel.parts) > 1 else path.parent.name
     except ValueError:
         first = path.parent.name
-    date_match = re.search(r"(\d{4})(\d{2})(\d{2})", first)
+    date_match = re.search(r"(\d{4})[-_.年]?(\d{2})[-_.月]?(\d{2})", first)
     start_date = None
     if date_match:
         start_date = f"{date_match.group(1)}-{date_match.group(2)}-{date_match.group(3)}"
-    name = re.sub(r"^\d{8}\s*期?\s*", "", first).strip() or path.stem
+    fallback_name = re.sub(r"^\d{8}\s*期?\s*", "", path.stem).strip() or path.stem
+    if fallback_name in {"成绩册", "成绩", "成绩单", "成绩公告", "总成绩"} or fallback_name.startswith(("成绩册-", "成绩册_", "成绩册—")):
+        fallback_name = re.sub(r"^\d{8}\s*期?\s*", "", first).strip() or path.stem
+    name = (detected_name or fallback_name).strip()
     name = name.replace("2O026", "2026")
+    if start_date and not re.search(r"\d{4}\s*年", name) and name.startswith(("中国", "全国")):
+        name = f"{start_date[:4]}年{name}"
     return {
         "name": name,
         "start_date": start_date,
@@ -108,7 +115,7 @@ def infer_score(name: str) -> float | None:
 
 def normalize_result_row(row: dict[str, Any], context: dict[str, Any]) -> dict[str, Any] | None:
     row = normalize_keys(row)
-    name = clean_cell(row.get("姓名") or row.get("运动员姓名") or row.get("运动员") or row.get("name") or "")
+    name = clean_person_name(row.get("姓名") or row.get("运动员姓名") or row.get("运动员") or row.get("name") or "")
     rank_raw = clean_cell(row.get("名次") or row.get("排名") or row.get("rank") or "")
     finish = clean_cell(row.get("成绩") or row.get("赛会成绩") or row.get("finish_time") or row.get("用时") or "")
     if not name or not rank_raw or not finish:
@@ -132,7 +139,10 @@ def normalize_result_row(row: dict[str, Any], context: dict[str, Any]) -> dict[s
         "rank_position": rank,
         "result_label": clean_cell(row.get("备注") or row.get("备注1") or row.get("成绩说明") or "") or None,
         "finish_time": finish,
-        "team_name": clean_cell(row.get("代表队") or row.get("代表单位/地区") or row.get("单位") or row.get("队伍") or row.get("俱乐部") or "") or None,
+        "result_status_code": normalize_status_code(finish),
+        "result_status_note": status_label(normalize_status_code(finish)),
+        "team_name": clean_cell(row.get("代表队") or row.get("代表单位/地区") or row.get("单位") or row.get("队伍") or row.get("俱乐部") or "") or "个人",
+        "team_members": extract_team_members(row),
         "points": parse_number(row.get("积分") or row.get("总积分")),
         "source_locator": context.get("locator"),
         "parse_confidence": 0.86,
@@ -157,8 +167,46 @@ def clean_cell(value: Any) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+def clean_person_name(value: Any) -> str:
+    return clean_cell(value).replace(" ", "")
+
+
 def is_non_result(value: str) -> bool:
     return value.upper() in {"/", "·", "-", "DNS", "DNF", "DQ", "DNQ"}
+
+
+def normalize_status_code(value: Any) -> str | None:
+    code = clean_cell(value).upper()
+    if code in {"犯规", "违规"}:
+        return "DSQ"
+    return code if code in STATUS_CODES else None
+
+
+def status_label(code: str | None) -> str | None:
+    labels = {
+        "DNS": "未出发",
+        "DNF": "未完赛",
+        "DQ": "取消成绩",
+        "DSQ": "取消成绩",
+        "DNQ": "未晋级",
+        "OTL": "超过关门时间",
+    }
+    return labels.get(code or "")
+
+
+def extract_team_members(row: dict[str, Any]) -> list[str]:
+    raw = clean_cell(
+        row.get("队员")
+        or row.get("成员")
+        or row.get("参赛队员")
+        or row.get("运动员名单")
+        or row.get("团队成员")
+        or ""
+    )
+    if not raw:
+        return []
+    names = [item.strip() for item in re.split(r"[,，、;；/\s]+", raw) if item.strip()]
+    return list(dict.fromkeys(names))
 
 
 def is_non_sup_context(text: str) -> bool:
@@ -176,6 +224,8 @@ def infer_gender(text: str) -> str:
 
 
 def infer_discipline(text: str) -> str:
+    if looks_like_result_line(text):
+        return "未分项目"
     match = re.search(r"(\d+(?:\.\d+)?)\s*(米|m|M|公里|KM|km|K)", text)
     if match:
         unit = match.group(2).lower()
@@ -243,18 +293,335 @@ def parse_excel(path: Path) -> list[dict[str, Any]]:
     return results
 
 
+def detect_event_name(path: Path) -> str | None:
+    suffix = path.suffix.lower()
+    text = ""
+    try:
+        if suffix == ".pdf":
+            import pdfplumber
+            with pdfplumber.open(path) as pdf:
+                for page in pdf.pages[:3]:
+                    text += "\n" + (page.extract_text() or "")
+        elif suffix in EXCEL_EXTS:
+            import pandas as pd
+            df = pd.read_excel(path, sheet_name=0, header=None, nrows=8)
+            text = "\n".join(clean_cell(v) for v in df.astype(str).values.flatten().tolist())
+        elif suffix in IMAGE_EXTS:
+            text = ocr_image(path)
+        elif suffix == ".txt":
+            text = path.read_text(encoding="utf-8", errors="ignore")[:1000]
+    except Exception:
+        return None
+    return extract_event_name_from_text(text)
+
+
+def normalize_score_time(value: Any) -> str:
+    text = clean_cell(value).upper()
+    if text in {"犯规", "违规"}:
+        return "DSQ"
+    if text in STATUS_CODES:
+        return text
+    text = (
+        text.replace("：", ":")
+        .replace("′", "'")
+        .replace("’", "'")
+        .replace("‘", "'")
+        .replace("”", '"')
+        .replace("“", '"')
+        .replace("〞", '"')
+    )
+    text = re.sub(r"\s+", "", text)
+    match = re.fullmatch(r"(\d{1,2}):(\d{2})'(\d{2})\"?(\d{0,3})", text)
+    if match:
+        suffix = match.group(4)
+        if int(match.group(1)) > 3:
+            return f"{match.group(1)}:{match.group(2)}{'.' + match.group(3) if match.group(3) else ''}{suffix}"
+        return f"{match.group(1)}:{match.group(2)}:{match.group(3)}{'.' + suffix if suffix else ''}"
+    match = re.fullmatch(r"(\d{1,2})'(\d{2})\"?(\d{0,3})", text)
+    if match:
+        suffix = match.group(3)
+        return f"{match.group(1)}:{match.group(2)}{'.' + suffix if suffix else ''}"
+    return text
+
+
+def discipline_from_distance(raw: str) -> str:
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(KM|km|K|k|公里|M|m|米)", raw)
+    if not match:
+        return infer_discipline(raw)
+    value = match.group(1)
+    unit = match.group(2).lower()
+    return f"{value}公里" if unit in {"km", "k", "公里"} else f"{value}米"
+
+
+def parse_score_notice_text(text: str) -> list[dict[str, Any]]:
+    if not any(marker in text for marker in ("成绩公示", "成绩汇总公示", "温州三垟", "团体龙板", "龙板组")):
+        return []
+
+    raw_lines = text.split("\n")
+    out: list[dict[str, Any]] = []
+    context: dict[str, Any] = {}
+    status_sequence: dict[tuple[str, str], int] = {}
+    ranked_prefix = re.compile(r"^(\d{1,3})\s+(?:(\d{1,2})\s+)?([A-Z]\d{3,4})\s+(.+)$", re.IGNORECASE)
+    status_pattern = re.compile(r"^([A-Z]\d{3,4})\s+(.+?)\s+(DNS|DNF|DQ|DSQ|DNQ|OTL)$", re.IGNORECASE)
+    dragon_status_sequence = 0
+
+    current_page = 1
+    for raw_line in raw_lines:
+        if "\f" in raw_line:
+            current_page += raw_line.count("\f")
+            raw_line = raw_line.replace("\f", "")
+        line = " ".join(raw_line.split())
+        if not line:
+            continue
+
+        long_header = re.search(r"((?:男子|女子)(?:公开|大师|精英)组)\s*长距离\s*(\d+\s*(?:公里|KM|km|K|k|米|M|m))", line)
+        if long_header:
+            context["gender_group"] = clean_cell(long_header.group(1))
+            context["discipline"] = discipline_from_distance(long_header.group(2))
+            context.pop("round_label", None)
+            context["is_team"] = False
+            continue
+
+        dragon_header = re.search(r"(团体龙板|龙板组).*?(?:(\d+\s*(?:米|M|m))\s*)?(技巧绕标赛)?", line, re.IGNORECASE)
+        if dragon_header and ("成绩" in line or "龙板组" in line or "团体龙板" in line):
+            distance = discipline_from_distance(dragon_header.group(2) or "200米")
+            suffix = "技巧绕标赛" if dragon_header.group(3) else ""
+            context["discipline"] = f"龙板{distance}{suffix}"
+            context["gender_group"] = "龙板组"
+            context.pop("round_label", None)
+            context["is_team"] = True
+            continue
+        distance_header = re.search(r"(\d+\s*(?:KM|km|K|k|公里|M|m|米))成绩公示", line)
+        if distance_header:
+            context["discipline"] = discipline_from_distance(distance_header.group(1))
+            context.pop("round_label", None)
+            context["is_team"] = False
+            continue
+
+        group_header = re.search(r"组别[:：]\s*(.+?组)(?:\s+\d{4}|\s*$)", line)
+        if group_header:
+            context["gender_group"] = clean_cell(group_header.group(1))
+            context["is_team"] = False
+            continue
+
+        sprint_header = re.search(r"((?:男子|女子)(?:精英|大师)组)\s*200\s*M\s*决赛", line, re.IGNORECASE)
+        if sprint_header:
+            context["discipline"] = "200米"
+            context["gender_group"] = clean_cell(sprint_header.group(1))
+            context["round_label"] = "决赛"
+            context["is_team"] = False
+            continue
+
+        if not context.get("discipline") or not context.get("gender_group"):
+            continue
+
+        if context.get("is_team") or "龙板" in context.get("discipline", ""):
+            team_row = parse_dragon_team_line(line, context, current_page, dragon_status_sequence)
+            if team_row:
+                if team_row["rank_position"] >= 9000:
+                    dragon_status_sequence += 1
+                    team_row["rank_position"] = 9000 + dragon_status_sequence
+                out.append(team_row)
+            continue
+
+        match = ranked_prefix.match(line)
+        if match:
+            rank, _lane, bib, rest = match.groups()
+            split = split_result_name_finish(rest)
+            if not split:
+                continue
+            name, finish_raw = split
+            finish = normalize_score_time(finish_raw)
+            if not finish or (normalize_status_code(finish) is None and not re.search(r"\d", finish)):
+                continue
+            status = normalize_status_code(finish)
+            out.append({
+                "athlete_name_snapshot": clean_person_name(name),
+                "bib_number": bib,
+                "gender_group": context["gender_group"],
+                "discipline": context["discipline"],
+                "board_class": None,
+                "round_label": context.get("round_label"),
+                "rank_position": int(rank),
+                "result_label": None,
+                "finish_time": finish,
+                "result_status_code": status,
+                "result_status_note": status_label(status),
+                "team_name": "个人",
+                "team_members": [],
+                "points": None,
+                "source_locator": f"page:{current_page}",
+                "parse_confidence": 0.96,
+                "review_status": "confirmed",
+                "source_note": "pdfplumber structured score notice",
+            })
+            continue
+
+        match = status_pattern.match(line)
+        if match:
+            bib, name, finish_raw = match.groups()
+            finish = normalize_score_time(finish_raw)
+            status = normalize_status_code(finish)
+            key = (context["discipline"], context["gender_group"])
+            status_sequence[key] = status_sequence.get(key, 0) + 1
+            out.append({
+                "athlete_name_snapshot": clean_person_name(name),
+                "bib_number": bib,
+                "gender_group": context["gender_group"],
+                "discipline": context["discipline"],
+                "board_class": None,
+                "round_label": context.get("round_label"),
+                "rank_position": 9000 + status_sequence[key],
+                "result_label": None,
+                "finish_time": finish,
+                "result_status_code": status,
+                "result_status_note": status_label(status),
+                "team_name": "个人",
+                "team_members": [],
+                "points": None,
+                "source_locator": f"page:{current_page}",
+                "parse_confidence": 0.96,
+                "review_status": "confirmed",
+                "source_note": "pdfplumber structured score notice; unranked status row",
+            })
+
+    return out
+
+
+def parse_dragon_team_line(line: str, context: dict[str, Any], current_page: int, status_sequence: int) -> dict[str, Any] | None:
+    value = clean_cell(line)
+    round_label = None
+    round_match = re.search(r"\s+(预赛|决赛|半决赛|排名赛)$", value)
+    if round_match:
+        round_label = round_match.group(1)
+        value = value[:round_match.start()].strip()
+
+    finish = None
+    result_label = None
+    status_match = re.search(r"\s+(DNS|DNF|DQ|DSQ|DNQ|OTL|犯规|违规)$", value, re.IGNORECASE)
+    if status_match:
+        raw_status = status_match.group(1)
+        finish = normalize_score_time(raw_status)
+        result_label = raw_status
+        value = value[:status_match.start()].strip()
+    else:
+        time_match = re.search(r"\s+((?:\d{1,2}:)?\d{1,2}[:.]\d{2}(?:[.:]\d{1,3})?|\d{1,2}'\d{2}\"?\d{0,3})$", value)
+        if not time_match:
+            return None
+        finish = normalize_score_time(time_match.group(1))
+        value = value[:time_match.start()].strip()
+
+    prefix_match = re.match(r"^(?:(\d{1,3}|#VALUE!)\s+)?(?:(\d{1,2}-\d{1,2})\s+)?(.+)$", value)
+    if not prefix_match:
+        return None
+    rank_raw, lane, body = prefix_match.groups()
+    split = split_team_members(body)
+    if not split:
+        return None
+    team_name, members = split
+    if len(members) < 2:
+        return None
+    rank = int(rank_raw) if rank_raw and rank_raw.isdigit() else 9000 + status_sequence + 1
+    status = normalize_status_code(finish)
+    notes = []
+    if lane:
+        notes.append(f"出发顺序 {lane}")
+    if result_label and result_label not in STATUS_CODES:
+        notes.append(result_label)
+    return {
+        "athlete_name_snapshot": team_name,
+        "bib_number": lane,
+        "gender_group": context.get("gender_group") or "龙板组",
+        "discipline": context.get("discipline") or "龙板200米",
+        "board_class": "龙板",
+        "round_label": round_label or context.get("round_label"),
+        "rank_position": rank,
+        "result_label": "；".join(notes) or None,
+        "finish_time": finish,
+        "result_status_code": status,
+        "result_status_note": status_label(status),
+        "team_name": team_name,
+        "team_members": members,
+        "points": None,
+        "source_locator": f"page:{current_page}",
+        "parse_confidence": 0.96,
+        "review_status": "confirmed",
+        "source_note": "pdfplumber structured dragon team score notice",
+    }
+
+
+def split_team_members(text: str) -> tuple[str, list[str]] | None:
+    value = clean_cell(text)
+    if "/" not in value and "、" not in value:
+        return None
+    separator_index = min([idx for idx in (value.find("/"), value.find("、")) if idx >= 0], default=-1)
+    if separator_index <= 0:
+        return None
+    prefix = value[:separator_index].rstrip()
+    match = re.search(r"(.+)\s+([^\s]+)$", prefix)
+    if not match:
+        return None
+    team_name = clean_cell(match.group(1))
+    first_member = clean_cell(match.group(2))
+    members_raw = first_member + value[separator_index:]
+    members = [
+        clean_person_name(re.sub(r"[（(]\s*女\s*[）)]", "", item))
+        for item in re.split(r"[/、]", members_raw)
+        if clean_person_name(re.sub(r"[（(]\s*女\s*[）)]", "", item))
+    ]
+    return (team_name, list(dict.fromkeys(members))) if team_name and members else None
+
+
+def split_result_name_finish(text: str) -> tuple[str, str] | None:
+    value = clean_cell(text)
+    match = re.search(r"\s+(DNS|DNF|DQ|DSQ|DNQ|OTL)$", value, re.IGNORECASE)
+    if match:
+        return value[:match.start()].strip(), match.group(1).upper()
+    match = re.search(r"\s+((?:\d{1,2}:)?\d{1,2}[′']\d{2}[\"”]?\d{0,3})$", value)
+    if match:
+        return value[:match.start()].strip(), match.group(1)
+    match = re.search(r"\s+((?:\d{1,2}:)?\d{1,2}[:.]\d{2}(?:[.:]\d{1,3})?)$", value)
+    if match:
+        return value[:match.start()].strip(), match.group(1)
+    return None
+
+
+def extract_event_name_from_text(text: str) -> str | None:
+    lines = [clean_cell(line) for line in text.splitlines() if clean_cell(line)]
+    candidates = []
+    for line in lines[:16]:
+        if ("/" in line or "、" in line) and re.search(RESULT_VALUE_PATTERN, line, re.IGNORECASE):
+            continue
+        if any(skip in line for skip in ("主办", "承办", "裁判", "成绩", "名次", "姓名", "代表队")) and not any(k in line for k in EVENT_KEYWORDS):
+            continue
+        if any(k in line for k in EVENT_KEYWORDS) and 6 <= len(line) <= 80:
+            candidate = re.sub(r"(成绩册|成绩单|成绩公示|总成绩|排名表).*$", "", line).strip(" -_—")
+            if candidate:
+                candidates.append(candidate)
+    if candidates:
+        title_candidates = [item for item in candidates if re.search(r"\d{4}年", item) and ("赛" in item or "杯" in item)]
+        return max(title_candidates or candidates, key=len)
+    return None
+
+
 def parse_pdf(path: Path) -> list[dict[str, Any]]:
     import pdfplumber
 
     results: list[dict[str, Any]] = []
     text_chars = 0
+    previous_context: dict[str, Any] = {}
     with pdfplumber.open(path) as pdf:
+        full_text = "\n\f\n".join(page.extract_text(layout=True) or page.extract_text() or "" for page in pdf.pages)
+        structured_results = parse_score_notice_text(full_text)
+        if structured_results:
+            return structured_results
         for index, page in enumerate(pdf.pages, start=1):
             text = page.extract_text() or ""
             text_chars += len(text.strip())
             title = text.split("\n")[:8]
             page_title = " ".join(title)
             tables = page.extract_tables() or []
+            page_results: list[dict[str, Any]] = []
             for table in tables:
                 if not table or len(table) < 2:
                     continue
@@ -266,12 +633,24 @@ def parse_pdf(path: Path) -> list[dict[str, Any]]:
                     item = {header[i]: row[i] if i < len(row) else "" for i in range(len(header))}
                     parsed = normalize_result_row(item, {
                         "title": page_title,
+                        "discipline": previous_context.get("discipline") if looks_like_result_line(page_title) else None,
+                        "gender_group": previous_context.get("gender_group") if looks_like_result_line(page_title) else None,
                         "locator": f"page:{index}",
                         "round_label": infer_round(page_title),
                     })
                     if parsed:
-                        results.append(parsed)
-            results.extend(parse_pdf_text_page(text, index))
+                        page_results.append(parsed)
+            page_results.extend(parse_pdf_text_page(text, index, previous_context))
+            results.extend(page_results)
+            header_context = infer_page_context(text)
+            if header_context:
+                previous_context.update(header_context)
+            elif page_results:
+                first = page_results[0]
+                if first.get("discipline") and first.get("discipline") != "未分项目":
+                    previous_context["discipline"] = first.get("discipline")
+                if first.get("gender_group") and first.get("gender_group") != "公开组":
+                    previous_context["gender_group"] = first.get("gender_group")
     if not results:
         results = parse_scanned_pdf(path)
     return results
@@ -367,30 +746,57 @@ def find_header_index(table: list[list[Any]]) -> int | None:
     return None
 
 
-def parse_pdf_text_page(text: str, page_number: int) -> list[dict[str, Any]]:
+def infer_page_context(text: str) -> dict[str, Any]:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    header = " ".join(line for line in lines[:8] if not looks_like_result_line(line))
+    context: dict[str, Any] = {}
+    discipline = infer_discipline(header)
+    if discipline and discipline != "未分项目":
+        context["discipline"] = discipline
+    gender = infer_gender(header)
+    if gender != "公开组":
+        context["gender_group"] = gender
+    return context
+
+
+def parse_pdf_text_page(text: str, page_number: int, previous_context: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     title = " ".join(lines[:8])
-    pattern = re.compile(rf"^(\d+)\s+([A-Z]?\d{{1,4}})?\s*([\u4e00-\u9fa5A-Za-z·]{{2,30}})\s+(.+?)\s+({TIME_PATTERN})$")
-    lane_pattern = re.compile(rf"^(\d+)\s+\d+\s+([A-Z]?\d{{1,4}})\s+([\u4e00-\u9fa5A-Za-z·]{{2,30}})\s+(.+?)\s+({TIME_PATTERN})$")
-    compact_pattern = re.compile(rf"^(\d+)\s+([A-Z]?\d{{1,4}})?\s*([\u4e00-\u9fa5A-Za-z·]{{2,30}})\s+({TIME_PATTERN})$")
+    current_context = infer_page_context(text)
+    if not current_context and previous_context:
+        current_context = {
+            key: previous_context[key]
+            for key in ("discipline", "gender_group")
+            if key in previous_context
+        }
+    stage_pattern = re.compile(rf"^(\d+)\s+(预赛|半决赛|决赛)\s+([A-Z]?\d{{1,5}})\s+([\u4e00-\u9fa5A-Za-z·]{{2,30}})\s+(.+?)\s+({RESULT_VALUE_PATTERN})(?:\s+(.+))?$", re.IGNORECASE)
+    pattern = re.compile(rf"^(\d+)\s+([A-Z]?\d{{1,4}})?\s*([\u4e00-\u9fa5A-Za-z·]{{2,30}})\s+(.+?)\s+({RESULT_VALUE_PATTERN})(?:\s+(.+))?$", re.IGNORECASE)
+    lane_pattern = re.compile(rf"^(\d+)\s+\d+\s+([A-Z]?\d{{1,4}})\s+([\u4e00-\u9fa5A-Za-z·]{{2,30}})\s+(.+?)\s+({RESULT_VALUE_PATTERN})(?:\s+(.+))?$", re.IGNORECASE)
+    compact_pattern = re.compile(rf"^(\d+)\s+([A-Z]?\d{{1,4}})?\s*([\u4e00-\u9fa5A-Za-z·]{{2,30}})\s+({RESULT_VALUE_PATTERN})(?:\s+(.+))?$", re.IGNORECASE)
     for line in lines:
         if not looks_like_result_line(line):
             continue
-        match = lane_pattern.match(line) or pattern.match(line) or compact_pattern.match(line)
+        match = stage_pattern.match(line) or lane_pattern.match(line) or pattern.match(line) or compact_pattern.match(line)
         if not match:
             continue
         groups = match.groups()
-        if len(groups) == 5:
-            rank, bib, name, team, finish = groups
+        if match.re is stage_pattern:
+            rank, stage, bib, name, team, finish, note = groups
+        elif len(groups) == 6:
+            rank, bib, name, team, finish, note = groups
+            stage = None
         else:
-            rank, bib, name, finish = groups
+            rank, bib, name, finish, note = groups
             team = ""
+            stage = None
         parsed = normalize_result_row(
-            {"名次": rank, "号码": bib or "", "姓名": name, "代表队": team, "成绩": finish},
-            {"title": title, "locator": f"page:{page_number}", "round_label": infer_round(title)},
+            {"名次": rank, "号码": bib or "", "姓名": name, "代表队": team, "成绩": finish, "备注": note or ""},
+            {"title": title, **current_context, "locator": f"page:{page_number}", "round_label": infer_round(title)},
         )
         if parsed:
+            if stage:
+                parsed["result_label"] = f"{stage}{'；' + parsed['result_label'] if parsed.get('result_label') else ''}"
             parsed["parse_confidence"] = 0.72
             parsed["review_status"] = "needs_review"
             out.append(parsed)
@@ -427,7 +833,7 @@ def parse_columnar_ocr_page(lines: list[str], page_number: int) -> list[dict[str
     teams = people_block[1::2]
     finishes = [
         line for line in lines[score_idx + 1:]
-        if re.fullmatch(TIME_PATTERN, line) or line.upper() in {"DNS", "DNF", "DQ"}
+        if re.fullmatch(TIME_PATTERN, line) or line.upper() in STATUS_CODES
     ]
 
     count = min(len(ranks), len(names), len(finishes))
@@ -552,7 +958,7 @@ def is_probable_person_name(line: str) -> bool:
 
 def normalize_ocr_time(line: str) -> str | None:
     text = clean_cell(line)
-    if text.upper() in {"DNS", "DNF", "DQ"}:
+    if text.upper() in STATUS_CODES:
         return text.upper()
     text = (
         text.replace("’", "'")
@@ -600,7 +1006,7 @@ def is_ocr_noise(line: str) -> bool:
 def looks_like_result_line(line: str) -> bool:
     if not re.match(r"^\d{1,3}\s+", line):
         return False
-    return bool(re.search(TIME_PATTERN, line))
+    return bool(re.search(TIME_PATTERN, line)) or any(re.search(rf"\b{code}\b", line.upper()) for code in STATUS_CODES)
 
 
 def parse_one(path: Path, root: Path) -> dict[str, Any] | None:
@@ -610,6 +1016,7 @@ def parse_one(path: Path, root: Path) -> dict[str, Any] | None:
     if any(k in path.name for k in SKIP_DISCIPLINE_KEYWORDS) and "桨板" not in path.name:
         return None
     results: list[dict[str, Any]] = []
+    detected_event_name = detect_event_name(path)
     note = ""
     status = "pending_review"
     try:
@@ -631,7 +1038,7 @@ def parse_one(path: Path, root: Path) -> dict[str, Any] | None:
         results = dedupe_results(results)
         status = "parsed"
     return {
-        "event": event_from_path(path, root),
+        "event": event_from_path(path, root, detected_event_name),
         "source": {
             "original_path": str(path),
             "file_name": path.name,

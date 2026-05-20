@@ -12,6 +12,15 @@ const LOCAL_RESULT_SOURCE_FILTER = `(
          OR src.original_path LIKE '%/桨板比赛成绩/%'
        )`;
 
+const RESULT_STATUS_LABELS = {
+  DNS: '未出发',
+  DNF: '未完赛',
+  DQ: '取消成绩',
+  DSQ: '取消成绩',
+  DNQ: '未晋级',
+  OTL: '超过关门时间',
+};
+
 function usage() {
   console.log(`Usage:
   node scripts/import-local-race-results.js --input /path/results.json[|jsonl] [--dry-run] [--source-batch-size 10]
@@ -94,6 +103,7 @@ function eventKey(payload) {
 }
 
 function strictResultKey(result) {
+  const members = normalizeTeamMembers(result.team_members).map(normalizedName).sort().join(',');
   return [
     result.gender_group || '公开组',
     result.discipline || '',
@@ -101,13 +111,16 @@ function strictResultKey(result) {
     result.round_label || '',
     result.rank_position || '',
     normalizedName(result.athlete_name_snapshot || result.athlete_name || ''),
+    members,
     String(result.finish_time || '').trim(),
   ].join('|');
 }
 
 function relaxedResultKey(result) {
   return [
+    result.gender_group || '公开组',
     result.discipline || '',
+    result.round_label || '',
     normalizedName(result.athlete_name_snapshot || result.athlete_name || ''),
     String(result.finish_time || '').trim(),
   ].join('|');
@@ -226,6 +239,29 @@ function parseTimeToSeconds(input) {
   return null;
 }
 
+function normalizeResultStatusCode(value) {
+  const code = String(value || '').trim().toUpperCase();
+  return RESULT_STATUS_LABELS[code] ? code : null;
+}
+
+function normalizeTeamMembers(value) {
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((item) => {
+      if (item && typeof item === 'object') return String(item.name || item.member_name || '').trim();
+      return String(item || '').trim();
+    }).filter(Boolean))];
+  }
+  const text = String(value || '').trim();
+  if (text.startsWith('[')) {
+    try {
+      return normalizeTeamMembers(JSON.parse(text));
+    } catch {
+      // Fall back to delimiter parsing below.
+    }
+  }
+  return [...new Set(text.split(/[\n,，、;；/]+/).map((item) => item.trim()).filter(Boolean))];
+}
+
 function normalizedName(name) {
   return String(name || '').replace(/\s+/g, '').toLowerCase();
 }
@@ -298,19 +334,45 @@ async function resolveAthleteId(connection, result, athleteCache) {
   return athleteId;
 }
 
+async function replaceResultMembers(connection, resultId, result, primaryAthleteId, athleteCache) {
+  await connection.execute('DELETE FROM sup_event_result_members WHERE result_id = ?', [resultId]);
+  const members = normalizeTeamMembers(result.team_members);
+  if (!members.length) return [];
+  const touched = new Set();
+  const primaryName = normalizedName(result.athlete_name_snapshot || result.athlete_name || '');
+  for (let index = 0; index < members.length; index += 1) {
+    const memberName = members[index];
+    let athleteId = primaryAthleteId && normalizedName(memberName) === primaryName
+      ? primaryAthleteId
+      : await resolveAthleteId(connection, { ...result, athlete_id: null, athlete_name_snapshot: memberName, athlete_name: memberName }, athleteCache);
+    if (athleteId) touched.add(athleteId);
+    await connection.execute(
+      `INSERT INTO sup_event_result_members (result_id, athlete_id, member_name, member_order)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE athlete_id = VALUES(athlete_id), member_order = VALUES(member_order)`,
+      [resultId, athleteId || null, memberName, index]
+    );
+  }
+  return [...touched];
+}
+
 async function syncAthleteRaceTimesBatch(connection, athleteIds) {
   const ids = [...new Set(athleteIds.map(Number).filter(Number.isFinite))];
   if (!ids.length) return 0;
   const placeholders = ids.map(() => '?').join(',');
   const [rows] = await connection.execute(
-    `SELECT er.athlete_id, er.discipline, er.round_label, er.result_label, er.finish_time, e.start_date, e.event_id, e.name AS event_name
-     FROM sup_event_results er
+    `SELECT DISTINCT linked.athlete_id, er.discipline, er.round_label, er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.rank_position, e.start_date, e.event_id, e.name AS event_name
+     FROM (
+       SELECT result_id, athlete_id FROM sup_event_results WHERE athlete_id IN (${placeholders})
+       UNION
+       SELECT result_id, athlete_id FROM sup_event_result_members WHERE athlete_id IN (${placeholders})
+     ) linked
+     INNER JOIN sup_event_results er ON er.result_id = linked.result_id
      INNER JOIN sup_events e ON e.event_id = er.event_id
      INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
-     WHERE er.athlete_id IN (${placeholders})
-       AND ${LOCAL_RESULT_SOURCE_FILTER}
-     ORDER BY er.athlete_id ASC, e.start_date DESC, er.rank_position ASC`,
-    ids
+     WHERE ${LOCAL_RESULT_SOURCE_FILTER}
+     ORDER BY linked.athlete_id ASC, e.start_date DESC, er.rank_position ASC`,
+    [...ids, ...ids]
   );
   const grouped = new Map(ids.map((id) => [id, []]));
   for (const row of rows) {
@@ -324,6 +386,8 @@ async function syncAthleteRaceTimesBatch(connection, athleteIds) {
       round: row.round_label || undefined,
       result: row.result_label || undefined,
       time: row.finish_time,
+      status: row.result_status_code || undefined,
+      status_label: row.result_status_code ? (row.result_status_note || RESULT_STATUS_LABELS[row.result_status_code] || row.result_status_code) : undefined,
     });
   }
   for (const [athleteId, raceTimes] of grouped.entries()) {
@@ -424,18 +488,22 @@ async function upsertSource(connection, eventId, source, resultsLength) {
 async function insertResultRow(connection, eventId, sourceId, source, result, athleteCache) {
   const athleteId = await resolveAthleteId(connection, result, athleteCache);
   const athleteName = String(result.athlete_name_snapshot || result.athlete_name || '').trim();
-  await connection.execute(
+  const statusCode = normalizeResultStatusCode(result.result_status_code || result.finish_time);
+  const [inserted] = await connection.execute(
     `INSERT INTO sup_event_results (
       event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
-      rank_position, result_label, finish_time, time_seconds, points, team_name, nationality_snapshot,
+      rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, nationality_snapshot,
       source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'official', ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'official', ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
+      result_id = LAST_INSERT_ID(result_id),
       athlete_id = VALUES(athlete_id),
       bib_number = VALUES(bib_number),
       board_class = VALUES(board_class),
       result_label = VALUES(result_label),
       finish_time = VALUES(finish_time),
+      result_status_code = VALUES(result_status_code),
+      result_status_note = VALUES(result_status_note),
       time_seconds = VALUES(time_seconds),
       points = VALUES(points),
       team_name = VALUES(team_name),
@@ -459,9 +527,11 @@ async function insertResultRow(connection, eventId, sourceId, source, result, at
       Number(result.rank_position),
       result.result_label || null,
       String(result.finish_time || ''),
+      statusCode,
+      result.result_status_note || (statusCode ? RESULT_STATUS_LABELS[statusCode] : null),
       parseTimeToSeconds(result.finish_time),
       typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
-      result.team_name || null,
+      result.team_name || '个人',
       result.nationality_snapshot || null,
       sourceId,
       result.source_title || source.file_name || null,
@@ -473,12 +543,127 @@ async function insertResultRow(connection, eventId, sourceId, source, result, at
       result.is_verified === false ? 0 : 1,
     ]
   );
-  return athleteId;
+  const resultId = Number(inserted.insertId || 0);
+  const memberAthleteIds = resultId ? await replaceResultMembers(connection, resultId, result, athleteId, athleteCache) : [];
+  return { athleteId, memberAthleteIds };
 }
 
-async function importPayload(connection, payload, dryRun, athleteCache) {
+function normalizeResultForDb(result, eventId, sourceId, source, athleteId) {
+  const statusCode = normalizeResultStatusCode(result.result_status_code || result.finish_time);
+  const athleteName = String(result.athlete_name_snapshot || result.athlete_name || '').trim();
+  return {
+    eventId,
+    athleteId,
+    athleteName,
+    values: [
+      eventId,
+      athleteId,
+      athleteName,
+      result.bib_number || null,
+      result.gender_group || '公开组',
+      result.discipline,
+      result.board_class || null,
+      result.round_label || null,
+      Number(result.rank_position),
+      result.result_label || null,
+      String(result.finish_time || ''),
+      statusCode,
+      result.result_status_note || (statusCode ? RESULT_STATUS_LABELS[statusCode] : null),
+      parseTimeToSeconds(result.finish_time),
+      typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
+      result.team_name || '个人',
+      result.nationality_snapshot || null,
+      sourceId,
+      result.source_title || source.file_name || null,
+      result.source_locator || null,
+      result.source_url || source.source_url || null,
+      result.source_note || null,
+      typeof result.parse_confidence === 'number' ? result.parse_confidence : 1,
+      result.review_status || 'confirmed',
+      result.is_verified === false ? 0 : 1,
+    ],
+    result,
+  };
+}
+
+async function findResultId(connection, item) {
+  const [rows] = await connection.execute(
+    `SELECT result_id
+     FROM sup_event_results
+     WHERE event_id = ?
+       AND gender_group = ?
+       AND discipline = ?
+       AND (round_label <=> ?)
+       AND rank_position = ?
+       AND athlete_name_snapshot = ?
+     ORDER BY result_id ASC
+     LIMIT 1`,
+    [
+      item.eventId,
+      item.result.gender_group || '公开组',
+      item.result.discipline,
+      item.result.round_label || null,
+      Number(item.result.rank_position),
+      item.athleteName,
+    ]
+  );
+  return rows.length ? Number(rows[0].result_id) : null;
+}
+
+async function insertResultRowsBatch(connection, eventId, sourceId, source, results, athleteCache, resultBatchSize) {
+  const touchedAthletes = new Set();
+  const normalized = [];
+  for (const result of results) {
+    const athleteId = await resolveAthleteId(connection, result, athleteCache);
+    if (athleteId) touchedAthletes.add(athleteId);
+    normalized.push(normalizeResultForDb(result, eventId, sourceId, source, athleteId));
+  }
+
+  const sqlPrefix = `INSERT INTO sup_event_results (
+    event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
+    rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, nationality_snapshot,
+    source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
+  ) VALUES `;
+  const valuePlaceholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "official", ?, ?, ?, ?, ?, ?, ?, ?)';
+  const updateSql = ` ON DUPLICATE KEY UPDATE
+    athlete_id = VALUES(athlete_id),
+    bib_number = VALUES(bib_number),
+    board_class = VALUES(board_class),
+    result_label = VALUES(result_label),
+    finish_time = VALUES(finish_time),
+    result_status_code = VALUES(result_status_code),
+    result_status_note = VALUES(result_status_note),
+    time_seconds = VALUES(time_seconds),
+    points = VALUES(points),
+    team_name = VALUES(team_name),
+    source_id = VALUES(source_id),
+    source_title = VALUES(source_title),
+    source_locator = VALUES(source_locator),
+    source_url = VALUES(source_url),
+    source_note = VALUES(source_note),
+    parse_confidence = VALUES(parse_confidence),
+    review_status = VALUES(review_status),
+    is_verified = VALUES(is_verified)`;
+
+  for (const group of chunk(normalized, resultBatchSize)) {
+    const params = group.flatMap((item) => item.values);
+    await connection.execute(`${sqlPrefix}${group.map(() => valuePlaceholder).join(',')}${updateSql}`, params);
+  }
+
+  const memberItems = normalized.filter((item) => normalizeTeamMembers(item.result.team_members).length > 0);
+  for (const item of memberItems) {
+    const resultId = await findResultId(connection, item);
+    if (!resultId) continue;
+    const memberAthleteIds = await replaceResultMembers(connection, resultId, item.result, item.athleteId, athleteCache);
+    memberAthleteIds.forEach((id) => touchedAthletes.add(id));
+  }
+
+  return [...touchedAthletes];
+}
+
+async function importPayload(connection, payload, args, athleteCache) {
   const results = Array.isArray(payload.results) ? payload.results.filter((row) => row.athlete_name_snapshot && row.discipline && row.finish_time) : [];
-  if (!dryRun && results.length && isDistinctiveFileName(payload.source?.file_name)) {
+  if (!args.dryRun && results.length && isDistinctiveFileName(payload.source?.file_name)) {
     const [existingSources] = await connection.execute(
       `SELECT source_id FROM sup_event_result_sources
        WHERE file_name = ? AND imported_rows > 0 AND COALESCE(original_path, '') <> COALESCE(?, '')
@@ -489,18 +674,16 @@ async function importPayload(connection, payload, dryRun, athleteCache) {
       return { eventId: null, sourceId: Number(existingSources[0].source_id), results: 0, athletes: 0, athleteIds: [] };
     }
   }
-  if (dryRun) {
+  if (args.dryRun) {
     return { eventId: null, sourceId: null, results: results.length, athletes: 0 };
   }
   await connection.beginTransaction();
   try {
     const eventId = await upsertEvent(connection, payload.event || {});
     const sourceId = await upsertSource(connection, eventId, payload.source || {}, results.length);
-    const touchedAthletes = new Set();
-    for (const result of results) {
-      const athleteId = await insertResultRow(connection, eventId, sourceId, payload.source || {}, result, athleteCache);
-      if (athleteId) touchedAthletes.add(athleteId);
-    }
+    const touchedAthletes = new Set(
+      await insertResultRowsBatch(connection, eventId, sourceId, payload.source || {}, results, athleteCache, args.resultBatchSize)
+    );
     await connection.execute(
       `UPDATE sup_events
        SET result_status = CASE WHEN ? > 0 THEN 'extended_complete' ELSE result_status END,
@@ -527,7 +710,7 @@ async function importPayloadBatch(connection, payloads, args, summary, athleteCa
   const touchedAthletes = new Set();
   console.log(`batch ${batchIndex}/${totalBatches} sources=${payloads.length} start`);
   for (const payload of payloads) {
-    const result = await importPayload(connection, payload, args.dryRun, athleteCache);
+    const result = await importPayload(connection, payload, args, athleteCache);
     summary.sources += 1;
     summary.results += result.results;
     summary.athletes += result.athletes;
@@ -536,10 +719,8 @@ async function importPayloadBatch(connection, payloads, args, summary, athleteCa
   }
   if (!args.dryRun) {
     const ids = [...touchedAthletes];
-    for (const group of chunk(ids, args.resultBatchSize)) {
-      await syncAthleteRaceTimesBatch(connection, group);
-    }
-    console.log(`batch ${batchIndex}/${totalBatches} syncedAthletes=${ids.length}`);
+    ids.forEach((id) => summary.touchedAthleteIds.add(id));
+    console.log(`batch ${batchIndex}/${totalBatches} touchedAthletes=${ids.length}`);
   }
 }
 
@@ -571,12 +752,20 @@ async function main() {
     password: env.MYSQL_PASSWORD || '',
     database: env.MYSQL_DATABASE || 'sport_hacker',
   });
-  const summary = { sources: 0, results: 0, athletes: 0 };
+  const summary = { sources: 0, results: 0, athletes: 0, touchedAthleteIds: new Set() };
   const athleteCache = new Map();
   try {
     const batches = chunk(payloads, args.sourceBatchSize);
     for (let index = 0; index < batches.length; index += 1) {
       await importPayloadBatch(connection, batches[index], args, summary, athleteCache, index + 1, batches.length);
+    }
+    if (!args.dryRun) {
+      const ids = [...summary.touchedAthleteIds];
+      console.log(`sync athletes start count=${ids.length}`);
+      for (const group of chunk(ids, args.resultBatchSize)) {
+        await syncAthleteRaceTimesBatch(connection, group);
+      }
+      console.log(`sync athletes done count=${ids.length}`);
     }
   } finally {
     await connection.end();

@@ -65,10 +65,10 @@ async function getGuideArticles() {
   }
 }
 
-async function getEvents(event_type?: string, event_status?: string, province?: string) {
+async function getEvents(event_type?: string, event_status?: string, province?: string, year?: string, search?: string) {
   try {
     const conditions: string[] = ["status = 'published'"];
-    const params: string[] = [];
+    const params: (string | number)[] = [];
 
     if (event_type) {
       conditions.push('event_type = ?');
@@ -81,6 +81,14 @@ async function getEvents(event_type?: string, event_status?: string, province?: 
     if (province) {
       conditions.push('province = ?');
       params.push(province);
+    }
+    if (year) {
+      conditions.push('YEAR(start_date) = ?');
+      params.push(Number(year));
+    }
+    if (search) {
+      conditions.push('name LIKE ?');
+      params.push(`%${search}%`);
     }
 
     const where = `WHERE ${conditions.join(' AND ')}`;
@@ -109,6 +117,34 @@ async function getEvents(event_type?: string, event_status?: string, province?: 
     }));
   } catch (error) {
     console.error('获取赛事列表失败:', error);
+    return [];
+  }
+}
+
+async function getEventYears(): Promise<string[]> {
+  try {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT DISTINCT YEAR(start_date) AS year
+       FROM sup_events
+       WHERE status = 'published' AND start_date IS NOT NULL
+       ORDER BY year DESC`
+    );
+    return rows.map((row) => String(row.year)).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function getEventProvinces(): Promise<string[]> {
+  try {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT DISTINCT province
+       FROM sup_events
+       WHERE status = 'published' AND province IS NOT NULL AND province <> ''
+       ORDER BY province ASC`
+    );
+    return rows.map((row) => row.province as string).filter(Boolean);
+  } catch {
     return [];
   }
 }
@@ -150,54 +186,51 @@ async function getGuideTimelineEvents() {
   }
 }
 
-const filters = [
-  {
-    key: 'event_type',
-    placeholder: '全部类型',
-    options: [
-      { label: '竞速赛', value: 'race' },
-      { label: '嘉年华', value: 'festival' },
-      { label: '训练营', value: 'training' },
-      { label: '展览赛', value: 'exhibition' },
-    ],
-  },
-  {
-    key: 'event_status',
-    placeholder: '全部状态',
-    options: [
-      { label: '即将开始', value: 'upcoming' },
-      { label: '进行中', value: 'ongoing' },
-      { label: '已结束', value: 'completed' },
-    ],
-  },
-  {
-    key: 'province',
-    placeholder: '全部省份',
-    options: [
-      { label: '北京', value: '北京' },
-      { label: '浙江', value: '浙江' },
-      { label: '海南', value: '海南' },
-      { label: '云南', value: '云南' },
-      { label: '山东', value: '山东' },
-      { label: '江苏', value: '江苏' },
-      { label: '河南', value: '河南' },
-      { label: '宁夏', value: '宁夏' },
-      { label: '湖南', value: '湖南' },
-    ],
-  },
-];
-
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ event_type?: string; event_status?: string; province?: string }>;
+  searchParams: Promise<{ event_type?: string; event_status?: string; province?: string; year?: string; search?: string }>;
 }) {
-  const { event_type, event_status, province } = await searchParams;
-  const [events, guideArticles, timelineEvents] = await Promise.all([
-    getEvents(event_type, event_status, province),
+  const { event_type, event_status, province, year, search } = await searchParams;
+  const [events, guideArticles, timelineEvents, years, provinces] = await Promise.all([
+    getEvents(event_type, event_status, province, year, search?.trim()),
     getGuideArticles(),
     getGuideTimelineEvents(),
+    getEventYears(),
+    getEventProvinces(),
   ]);
+
+  const filters = [
+    {
+      key: 'event_type',
+      placeholder: '全部类型',
+      options: [
+        { label: '竞速赛', value: 'race' },
+        { label: '嘉年华', value: 'festival' },
+        { label: '训练营', value: 'training' },
+        { label: '展览赛', value: 'exhibition' },
+      ],
+    },
+    {
+      key: 'event_status',
+      placeholder: '全部状态',
+      options: [
+        { label: '即将开始', value: 'upcoming' },
+        { label: '进行中', value: 'ongoing' },
+        { label: '已结束', value: 'completed' },
+      ],
+    },
+    {
+      key: 'year',
+      placeholder: '全部年份',
+      options: years.map((item) => ({ label: `${item} 年`, value: item })),
+    },
+    {
+      key: 'province',
+      placeholder: '全部省份',
+      options: provinces.map((item) => ({ label: item, value: item })),
+    },
+  ];
 
   const upcomingOrOngoing = events.filter((e) => e.event_status === 'upcoming' || e.event_status === 'ongoing');
   const completed = events
@@ -214,7 +247,10 @@ export default async function EventsPage({
       <ArticleGuideTabs articles={guideArticles} />
 
       <Suspense>
-        <FilterBar filters={filters} />
+        <FilterBar
+          filters={filters}
+          searches={[{ key: 'search', placeholder: '搜索赛事名称' }]}
+        />
       </Suspense>
 
       {upcomingOrOngoing.length > 0 && (

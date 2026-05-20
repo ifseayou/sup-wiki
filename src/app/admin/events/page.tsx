@@ -2,6 +2,7 @@
 
 import EntityManager from '@/components/admin/EntityManager';
 import Link from 'next/link';
+import RegionSelect from '@/components/admin/RegionSelect';
 import { useAdminAuth } from '../layout';
 import {
   EVENT_RESULT_STATUS_OPTIONS,
@@ -15,6 +16,13 @@ import {
   formatSourceLinksForTextarea,
   parseSourceLinksTextarea,
 } from '@/lib/event-results';
+
+function formatDateInput(value: unknown) {
+  if (!value) return '';
+  const text = String(value);
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : '';
+}
 
 function EventForm({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
@@ -53,14 +61,12 @@ function EventForm({ data, onChange }: { data: Record<string, unknown>; onChange
         </div>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs text-warm-gray-400 mb-1">省份</label>
-          <input className={inp} value={String(data.province || '')} onChange={e => set('province', e.target.value)} placeholder="浙江" />
-        </div>
-        <div>
-          <label className="block text-xs text-warm-gray-400 mb-1">城市</label>
-          <input className={inp} value={String(data.city || '')} onChange={e => set('city', e.target.value)} placeholder="杭州" />
-        </div>
+        <RegionSelect
+          idPrefix="event-region"
+          province={String(data.province || '')}
+          city={String(data.city || '')}
+          onChange={(value) => onChange({ ...data, province: value.province, city: value.city })}
+        />
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">报名费</label>
           <input className={inp} value={String(data.price_range || '')} onChange={e => set('price_range', e.target.value)} placeholder="¥200-¥500" />
@@ -69,15 +75,15 @@ function EventForm({ data, onChange }: { data: Record<string, unknown>; onChange
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">开始日期</label>
-          <input className={inp} type="date" value={String(data.start_date || '')} onChange={e => set('start_date', e.target.value)} />
+          <input className={inp} type="date" value={formatDateInput(data.start_date)} onChange={e => set('start_date', e.target.value)} />
         </div>
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">结束日期</label>
-          <input className={inp} type="date" value={String(data.end_date || '')} onChange={e => set('end_date', e.target.value)} />
+          <input className={inp} type="date" value={formatDateInput(data.end_date)} onChange={e => set('end_date', e.target.value)} />
         </div>
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">报名截止</label>
-          <input className={inp} type="date" value={String(data.registration_deadline || '')} onChange={e => set('registration_deadline', e.target.value)} />
+          <input className={inp} type="date" value={formatDateInput(data.registration_deadline)} onChange={e => set('registration_deadline', e.target.value)} />
         </div>
       </div>
       <div>

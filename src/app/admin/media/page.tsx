@@ -13,6 +13,7 @@ export default function MediaAdminPage() {
   const [folder, setFolder] = useState('');
   const [refresh, setRefresh] = useState(0);
   const [externalUrl, setExternalUrl] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +41,7 @@ export default function MediaAdminPage() {
 
   async function addExternal() {
     if (!externalUrl.trim()) return;
+    setMessage('');
     const res = await fetch('/api/admin/media', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -52,11 +54,31 @@ export default function MediaAdminPage() {
   }
 
   async function hide(id: number) {
+    setMessage('');
     const res = await fetch(`/api/admin/media/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) setRefresh((tick) => tick + 1);
+  }
+
+  async function remove(id: number) {
+    if (!window.confirm('确认永久删除这张图片？系统会先检查是否仍被内容引用，删除后也会尝试清理 OSS 文件。')) return;
+    setMessage('');
+    const res = await fetch(`/api/admin/media/${id}?permanent=1`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setMessage('图片已从图片库删除。');
+      setRefresh((tick) => tick + 1);
+      return;
+    }
+    const refs = Array.isArray(data.references)
+      ? `：${data.references.map((item: { label: string; count: number }) => `${item.label}${item.count}处`).join('、')}`
+      : '';
+    setMessage(`${data.error || '删除失败'}${refs}`);
   }
 
   return (
@@ -105,6 +127,12 @@ export default function MediaAdminPage() {
         </div>
       </div>
 
+      {message && (
+        <div className="mb-4 rounded-lg border border-cream-200 bg-white px-4 py-3 text-sm text-brown-700">
+          {message}
+        </div>
+      )}
+
       <div className="rounded-xl border border-cream-200 bg-cream-50 p-5">
         {loading ? (
           <div className="py-16 text-center text-sm text-warm-gray-400">加载中...</div>
@@ -120,9 +148,14 @@ export default function MediaAdminPage() {
                 <div className="p-3">
                   <div className="truncate text-xs font-medium text-brown-800">{item.filename || item.url}</div>
                   <div className="mt-1 truncate text-[11px] text-warm-gray-400">{item.folder || 'misc'}</div>
-                  <button onClick={() => hide(item.asset_id)} className="mt-2 text-xs text-red-400 hover:text-red-600">
-                    隐藏
-                  </button>
+                  <div className="mt-2 flex items-center gap-3">
+                    <button onClick={() => hide(item.asset_id)} className="text-xs text-red-400 hover:text-red-600">
+                      隐藏
+                    </button>
+                    <button onClick={() => remove(item.asset_id)} className="text-xs text-red-500 hover:text-red-700">
+                      删除 OSS
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

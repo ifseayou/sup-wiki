@@ -22,7 +22,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const total = (countRows[0] as { total: number }).total;
 
     const [athletes] = await pool.execute<RowDataPacket[]>(
-      `SELECT athlete_id, name, name_en, nationality, photo, bio, discipline, icf_ranking, achievements, social_links, status, updated_at FROM sup_athletes ${where} ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, updated_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
+      `SELECT athlete_id, name, name_en, nationality, province, city, photo, photos, bio, discipline, icf_ranking, achievements, social_links, status, updated_at FROM sup_athletes ${where} ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, updated_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
       params
     );
     return NextResponse.json({ items: athletes, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
@@ -35,13 +35,13 @@ export const GET = withAdmin(async (request: NextRequest) => {
 export const POST = withAdmin(async (request: NextRequest) => {
   try {
     const body = await request.json();
-    const { name, name_en, nationality, photo, photos, bio, discipline, achievements, icf_ranking, social_links, status = 'draft' } = body;
+    const { name, name_en, nationality, province, city, photo, photos, bio, discipline, achievements, icf_ranking, social_links, status = 'draft' } = body;
     if (!name) return NextResponse.json({ error: '缺少必填字段: name' }, { status: 400 });
 
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO sup_athletes (name, name_en, nationality, photo, photos, bio, discipline, achievements, icf_ranking, social_links, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, name_en || null, nationality || null, photo || null, photos ? JSON.stringify(photos) : null, bio || null, discipline || 'race', achievements ? JSON.stringify(achievements) : null, icf_ranking || null, social_links ? JSON.stringify(social_links) : null, status]
+      `INSERT INTO sup_athletes (name, name_en, nationality, province, city, photo, photos, bio, discipline, achievements, icf_ranking, social_links, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, name_en || null, nationality || null, province || null, city || null, photo || null, photos ? JSON.stringify(photos) : null, bio || null, discipline || 'race', achievements ? JSON.stringify(achievements) : null, icf_ranking || null, social_links ? JSON.stringify(social_links) : null, status]
     );
     return NextResponse.json({ success: true, athlete_id: result.insertId }, { status: 201 });
   } catch (error) {

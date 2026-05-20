@@ -2,6 +2,7 @@
 
 import EntityManager from '@/components/admin/EntityManager';
 import ImageUpload, { MultiImageUpload } from '@/components/admin/ImageUpload';
+import RegionSelect from '@/components/admin/RegionSelect';
 import { useAdminAuth } from '../layout';
 
 function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
@@ -41,6 +42,16 @@ function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>;
           </select>
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-4">
+        <RegionSelect
+          idPrefix="athlete-origin"
+          province={String(data.province || '')}
+          city={String(data.city || '')}
+          provinceLabel="籍贯省份"
+          cityLabel="籍贯城市"
+          onChange={(value) => onChange({ ...data, province: value.province, city: value.city })}
+        />
+      </div>
       <div>
         <label className="block text-xs text-warm-gray-400 mb-1">ICF 排名</label>
         <input className={inp} type="number" value={String(data.icf_ranking || '')} onChange={e => set('icf_ranking', e.target.value ? Number(e.target.value) : null)} style={{ maxWidth: 160 }} />
@@ -57,10 +68,11 @@ const columns = [
   { key: 'name', label: '姓名' },
   { key: 'name_en', label: '英文名' },
   { key: 'nationality', label: '国籍' },
+  { key: 'province', label: '籍贯', render: (_v: unknown, row: Record<string, unknown>) => [row.province, row.city].filter(Boolean).join(' / ') || '—' },
   { key: 'discipline', label: '项目', render: (v: unknown) => ({'race':'竞速','surf':'冲浪','distance':'长距离','technical':'技巧'}[String(v)] || String(v)) },
   { key: 'icf_ranking', label: 'ICF排名', render: (v: unknown) => v ? `#${v}` : '—' },
 ];
-const defaultFormData = { athlete_id: undefined, name: '', name_en: '', nationality: '', photo: '', photos: [], bio: '', discipline: 'race', icf_ranking: '', achievements: [], social_links: {} };
+const defaultFormData = { athlete_id: undefined, name: '', name_en: '', nationality: '', province: '', city: '', photo: '', photos: [], bio: '', discipline: 'race', icf_ranking: '', achievements: [], social_links: {} };
 
 export default function AthletesAdminPage() {
   const { token } = useAdminAuth();

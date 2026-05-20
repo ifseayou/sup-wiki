@@ -8,7 +8,7 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
     const url = new URL(request.url);
     const id = url.pathname.split('/').at(-1);
     const body = await request.json();
-    const allowed = ['name','name_en','nationality','photo','bio','discipline','icf_ranking','status'];
+    const allowed = ['name','name_en','nationality','province','city','photo','bio','discipline','icf_ranking','status'];
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
     for (const f of allowed) {

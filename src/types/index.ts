@@ -168,6 +168,8 @@ export interface Athlete {
   name: string;
   name_en?: string;
   nationality?: string;
+  province?: string;
+  city?: string;
   photo?: string;
   bio?: string;
   discipline: Discipline;
@@ -220,9 +222,12 @@ export interface EventResult {
   rank_position: number;
   result_label?: string | null;
   finish_time: string;
+  result_status_code?: string | null;
+  result_status_note?: string | null;
   time_seconds?: number | null;
   points?: number | null;
   team_name?: string | null;
+  team_members?: Array<{ athlete_id?: number | null; name: string; member_order?: number }>;
   nationality_snapshot?: string | null;
   source_type?: EventResultSourceType | null;
   source_id?: number | null;

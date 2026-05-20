@@ -3,6 +3,7 @@ import type { RowDataPacket } from 'mysql2';
 import pool from '@/lib/db';
 import { withAdmin } from '@/lib/admin';
 import { normalizeEventResultsInput, replaceEventResults } from '@/lib/event-results';
+import { resultDefaultOrderBy } from '@/lib/result-ordering';
 
 interface EventResultRow extends RowDataPacket {
   result_id: number;
@@ -15,6 +16,8 @@ interface EventResultRow extends RowDataPacket {
   rank_position: number;
   result_label: string | null;
   finish_time: string;
+  result_status_code: string | null;
+  result_status_note: string | null;
   time_seconds: number | null;
   team_name: string | null;
   nationality_snapshot: string | null;
@@ -37,11 +40,31 @@ export const GET = withAdmin(async (request: NextRequest, _ctx) => {
     const [results] = await pool.execute<EventResultRow[]>(
       `SELECT
          er.*,
-         a.name AS athlete_name
+         a.name AS athlete_name,
+         (
+           SELECT JSON_ARRAYAGG(JSON_OBJECT('athlete_id', erm.athlete_id, 'name', erm.member_name, 'member_order', erm.member_order))
+           FROM sup_event_result_members erm
+           WHERE erm.result_id = er.result_id
+         ) AS team_members
        FROM sup_event_results er
        LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
        WHERE er.event_id = ?
-       ORDER BY er.gender_group ASC, er.discipline ASC, er.round_label ASC, er.rank_position ASC`,
+       ORDER BY ${resultDefaultOrderBy()}`,
+      [id]
+    );
+
+    const [pointStandings] = await pool.execute<RowDataPacket[]>(
+      `SELECT
+         ps.*,
+         a.name AS athlete_name
+       FROM sup_event_point_standings ps
+       LEFT JOIN sup_athletes a ON a.athlete_id = ps.athlete_id
+       WHERE ps.event_id = ?
+       ORDER BY
+         FIELD(ps.group_name, '公开男子组', '公开女子组', '大师男子组', '大师女子组', '卡胡纳男子组', '卡胡纳女子组', '高校男子组', '高校女子组', 'U15男子组', 'U15女子组', 'U12男子组', 'U12女子组', 'U9男子组', 'U9女子组'),
+         CASE WHEN ps.rank_position IS NULL THEN 1 ELSE 0 END,
+         ps.rank_position ASC,
+         ps.standing_id ASC`,
       [id]
     );
 
@@ -50,6 +73,7 @@ export const GET = withAdmin(async (request: NextRequest, _ctx) => {
         ...row,
         is_verified: Boolean(row.is_verified),
       })),
+      point_standings: pointStandings,
     });
   } catch (error) {
     console.error('获取赛事成绩失败:', error);

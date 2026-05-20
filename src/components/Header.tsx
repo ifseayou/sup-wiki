@@ -6,11 +6,11 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
 
 const navLinks = [
-  { href: '/brands', label: '品牌' },
-  { href: '/athletes', label: '运动员' },
-  { href: '/creators', label: '博主' },
-  { href: '/events', label: '赛事' },
   { href: '/results', label: '成绩查询' },
+  { href: '/athletes', label: '运动员' },
+  { href: '/events', label: '赛事' },
+  { href: '/brands', label: '品牌' },
+  { href: '/creators', label: '博主' },
   { href: '/shop', label: '商城' },
   { href: '/learn', label: '学习' },
   { href: '/courses', label: '课程' },
@@ -28,7 +28,7 @@ export default function Header() {
         <div style={{ display: 'flex', alignItems: 'center', height: 56 }}>
 
           <Link
-            href="/"
+            href="/results"
             style={{
               fontFamily: 'var(--font-display)',
               fontSize: 16,

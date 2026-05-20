@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS sup_athletes (
     name VARCHAR(100) NOT NULL,
     name_en VARCHAR(100),
     nationality VARCHAR(50),
+    province VARCHAR(50),
+    city VARCHAR(50),
     photo VARCHAR(500),
     bio TEXT,
     discipline ENUM('race', 'surf', 'distance', 'technical') DEFAULT 'race',
@@ -66,6 +68,7 @@ CREATE TABLE IF NOT EXISTS sup_athletes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_athletes_discipline (discipline),
+    INDEX idx_athletes_region (province, city),
     INDEX idx_athletes_ranking (icf_ranking),
     INDEX idx_athletes_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -177,6 +180,8 @@ CREATE TABLE IF NOT EXISTS sup_event_results (
     rank_position INT NOT NULL,
     result_label VARCHAR(100) NULL,
     finish_time VARCHAR(50) NOT NULL,
+    result_status_code VARCHAR(20) NULL,
+    result_status_note VARCHAR(255) NULL,
     time_seconds DECIMAL(10,3) NULL,
     points DECIMAL(10,2) NULL,
     team_name VARCHAR(200) NULL,
@@ -202,6 +207,51 @@ CREATE TABLE IF NOT EXISTS sup_event_results (
     INDEX idx_event_results_source (source_id),
     CONSTRAINT fk_event_results_event FOREIGN KEY (event_id) REFERENCES sup_events(event_id) ON DELETE CASCADE,
     CONSTRAINT fk_event_results_athlete FOREIGN KEY (athlete_id) REFERENCES sup_athletes(athlete_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sup_event_result_members (
+    member_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    result_id BIGINT NOT NULL,
+    athlete_id BIGINT NULL,
+    member_name VARCHAR(100) NOT NULL,
+    member_order INT DEFAULT 0,
+    role_label VARCHAR(50) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_result_member_name (result_id, member_name),
+    INDEX idx_result_members_result (result_id),
+    INDEX idx_result_members_athlete (athlete_id),
+    INDEX idx_result_members_name (member_name),
+    CONSTRAINT fk_result_members_result FOREIGN KEY (result_id) REFERENCES sup_event_results(result_id) ON DELETE CASCADE,
+    CONSTRAINT fk_result_members_athlete FOREIGN KEY (athlete_id) REFERENCES sup_athletes(athlete_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sup_event_point_standings (
+    standing_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    event_id BIGINT NOT NULL,
+    source_id BIGINT NULL,
+    group_name VARCHAR(100) NOT NULL,
+    rank_position INT NULL,
+    status_rank VARCHAR(20) NULL,
+    bib_number VARCHAR(50) NULL,
+    athlete_id BIGINT NULL,
+    athlete_name_snapshot VARCHAR(100) NOT NULL,
+    team_name VARCHAR(200) NULL,
+    endurance_rank VARCHAR(20) NULL,
+    endurance_points DECIMAL(10,2) NULL,
+    sprint_rank VARCHAR(20) NULL,
+    sprint_points DECIMAL(10,2) NULL,
+    total_points DECIMAL(10,2) NULL,
+    source_locator VARCHAR(100) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_event_points (event_id, group_name, athlete_name_snapshot, bib_number),
+    INDEX idx_event_points_event (event_id),
+    INDEX idx_event_points_athlete (athlete_id),
+    INDEX idx_event_points_group_rank (event_id, group_name, rank_position),
+    CONSTRAINT fk_point_standings_event FOREIGN KEY (event_id) REFERENCES sup_events(event_id) ON DELETE CASCADE,
+    CONSTRAINT fk_point_standings_source FOREIGN KEY (source_id) REFERENCES sup_event_result_sources(source_id) ON DELETE SET NULL,
+    CONSTRAINT fk_point_standings_athlete FOREIGN KEY (athlete_id) REFERENCES sup_athletes(athlete_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS sup_athlete_identity_links (

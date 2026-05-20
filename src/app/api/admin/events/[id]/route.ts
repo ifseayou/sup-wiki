@@ -4,6 +4,33 @@ import { withAdmin } from '@/lib/admin';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { normalizeEventResultsInput, parseSourceLinksInput, replaceEventResults } from '@/lib/event-results';
 
+function optionalValue(value: unknown) {
+  return value === undefined || value === '' ? null : value;
+}
+
+function dateValue(value: unknown) {
+  if (value === undefined || value === '') return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : trimmed;
+}
+
+function jsonValue(value: unknown) {
+  return value === undefined ? null : JSON.stringify(value);
+}
+
+function getMysqlErrorMessage(error: unknown) {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = String((error as { code?: unknown }).code || '');
+    if (code === 'ER_DUP_ENTRY') return 'slug 已存在，请换一个 slug';
+    if (code === 'WARN_DATA_TRUNCATED') return '字段值不符合数据库枚举或格式要求';
+  }
+  return '更新赛事失败';
+}
+
 export const GET = withAdmin(async (request: NextRequest, _ctx) => {
   try {
     const url = new URL(request.url);
@@ -46,84 +73,67 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
     }
     const body = await request.json();
 
-    const {
-      name, name_en, slug, event_type, location, province, city, venue,
-      start_date, end_date, registration_deadline, organizer, description, requirements,
-      website, registration_url, contact_info, images, schedule, disciplines,
-      price_range, max_participants, status, event_status, star_level, score_coefficient,
-      source_scope, result_status, result_source_note, result_source_links, results
-    } = body;
+    const { results } = body;
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
-      const [result] = await connection.execute<ResultSetHeader>(
-        `UPDATE sup_events SET
-          name = COALESCE(?, name),
-          name_en = ?,
-          slug = COALESCE(?, slug),
-          event_type = COALESCE(?, event_type),
-          location = ?,
-          province = ?,
-          city = ?,
-          venue = ?,
-          start_date = ?,
-          end_date = ?,
-          registration_deadline = ?,
-          organizer = ?,
-          description = ?,
-          requirements = ?,
-          website = ?,
-          registration_url = ?,
-          contact_info = ?,
-          images = ?,
-          schedule = ?,
-          disciplines = ?,
-          price_range = ?,
-          max_participants = ?,
-          star_level = ?,
-          score_coefficient = ?,
-          source_scope = ?,
-          result_status = COALESCE(?, result_status),
-          result_source_note = ?,
-          result_source_links = ?,
-          result_last_verified_at = CASE WHEN ? IS NULL OR ? = 'none' THEN result_last_verified_at ELSE CURRENT_TIMESTAMP END,
-          status = COALESCE(?, status),
-          event_status = COALESCE(?, event_status)
-         WHERE event_id = ?`,
-        [
-          name || null, name_en !== undefined ? name_en : undefined,
-          slug || null, event_type || null,
-          location !== undefined ? location : undefined,
-          province !== undefined ? province : undefined,
-          city !== undefined ? city : undefined,
-          venue !== undefined ? venue : undefined,
-          start_date !== undefined ? start_date : undefined,
-          end_date !== undefined ? end_date : undefined,
-          registration_deadline !== undefined ? registration_deadline : undefined,
-          organizer !== undefined ? organizer : undefined,
-          description !== undefined ? description : undefined,
-          requirements !== undefined ? requirements : undefined,
-          website !== undefined ? website : undefined,
-          registration_url !== undefined ? registration_url : undefined,
-          contact_info !== undefined ? contact_info : undefined,
-          images !== undefined ? JSON.stringify(images) : undefined,
-          schedule !== undefined ? JSON.stringify(schedule) : undefined,
-          disciplines !== undefined ? JSON.stringify(disciplines) : undefined,
-          price_range !== undefined ? price_range : undefined,
-          max_participants !== undefined ? max_participants : undefined,
-          star_level !== undefined ? star_level || null : undefined,
-          score_coefficient !== undefined ? score_coefficient || null : undefined,
-          source_scope !== undefined ? source_scope || null : undefined,
-          result_status || null,
-          result_source_note !== undefined ? result_source_note : undefined,
-          result_source_links !== undefined ? JSON.stringify(parseSourceLinksInput(result_source_links)) : undefined,
-          result_status || null,
-          result_status || null,
-          status || null, event_status || null,
-          id,
-        ]
-      );
+      const fieldSetters: Record<string, (value: unknown) => unknown> = {
+        name: (value) => optionalValue(value),
+        name_en: (value) => optionalValue(value),
+        slug: (value) => optionalValue(value),
+        event_type: (value) => optionalValue(value),
+        location: (value) => optionalValue(value),
+        province: (value) => optionalValue(value),
+        city: (value) => optionalValue(value),
+        venue: (value) => optionalValue(value),
+        start_date: (value) => dateValue(value),
+        end_date: (value) => dateValue(value),
+        registration_deadline: (value) => dateValue(value),
+        organizer: (value) => optionalValue(value),
+        description: (value) => optionalValue(value),
+        requirements: (value) => optionalValue(value),
+        website: (value) => optionalValue(value),
+        registration_url: (value) => optionalValue(value),
+        contact_info: (value) => optionalValue(value),
+        images: (value) => jsonValue(value),
+        schedule: (value) => jsonValue(value),
+        disciplines: (value) => jsonValue(value),
+        price_range: (value) => optionalValue(value),
+        max_participants: (value) => optionalValue(value),
+        star_level: (value) => optionalValue(value),
+        score_coefficient: (value) => optionalValue(value),
+        source_scope: (value) => optionalValue(value),
+        result_status: (value) => optionalValue(value),
+        result_source_note: (value) => optionalValue(value),
+        result_source_links: (value) => JSON.stringify(parseSourceLinksInput(value)),
+        status: (value) => optionalValue(value),
+        event_status: (value) => optionalValue(value),
+      };
+
+      const updates: string[] = [];
+      const values: (string | number | Date | null)[] = [];
+      for (const [field, normalize] of Object.entries(fieldSetters)) {
+        if (Object.prototype.hasOwnProperty.call(body, field)) {
+          updates.push(`${field} = ?`);
+          values.push(normalize(body[field]) as string | number | Date | null);
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'result_status') && body.result_status && body.result_status !== 'none') {
+        updates.push('result_last_verified_at = CURRENT_TIMESTAMP');
+      }
+
+      let result: ResultSetHeader = { affectedRows: 0 } as ResultSetHeader;
+      if (updates.length > 0) {
+        const [updateResult] = await connection.execute<ResultSetHeader>(
+          `UPDATE sup_events SET ${updates.join(', ')} WHERE event_id = ?`,
+          [...values, id]
+        );
+        result = updateResult;
+      } else {
+        const [existingRows] = await connection.execute<RowDataPacket[]>('SELECT event_id FROM sup_events WHERE event_id = ? LIMIT 1', [id]);
+        result = { affectedRows: existingRows.length } as ResultSetHeader;
+      }
 
       if (result.affectedRows === 0) {
         await connection.rollback();
@@ -144,7 +154,7 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
     }
   } catch (error) {
     console.error('更新赛事失败:', error);
-    return NextResponse.json({ error: '更新赛事失败' }, { status: 500 });
+    return NextResponse.json({ error: getMysqlErrorMessage(error) }, { status: 500 });
   }
 });
 

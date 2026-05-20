@@ -9,6 +9,8 @@ interface AthleteRow extends RowDataPacket {
   name: string;
   name_en: string | null;
   nationality: string | null;
+  province: string | null;
+  city: string | null;
   photo: string | null;
   discipline: string;
   icf_ranking: number | null;
@@ -21,13 +23,18 @@ const disciplineLabels: Record<string, string> = {
   technical: '技巧',
 };
 
-async function getAthletes(discipline?: string, nationality?: string) {
+async function getAthletes(discipline?: string, nationality?: string, search?: string) {
   try {
     const conditions: string[] = ["status = 'published'"];
     const params: string[] = [];
 
     if (discipline) { conditions.push('discipline = ?'); params.push(discipline); }
     if (nationality) { conditions.push('nationality = ?'); params.push(nationality); }
+    if (search) {
+      conditions.push('(name LIKE ? OR name_en LIKE ?)');
+      const keyword = `%${search}%`;
+      params.push(keyword, keyword);
+    }
 
     const where = `WHERE ${conditions.join(' AND ')}`;
 
@@ -57,15 +64,15 @@ async function getNationalities(): Promise<string[]> {
 export default async function AthletesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ discipline?: string; nationality?: string }>;
+  searchParams: Promise<{ discipline?: string; nationality?: string; search?: string }>;
 }) {
-  const { discipline, nationality: rawNationality } = await searchParams;
+  const { discipline, nationality: rawNationality, search } = await searchParams;
   // 'all' 表示用户显式选择全部国籍；undefined 且无其他筛选时默认中国
   const nationality = rawNationality === 'all'
     ? undefined
-    : (rawNationality ?? (discipline ? undefined : '中国'));
+    : (rawNationality ?? (discipline || search ? undefined : '中国'));
   const [athletes, nationalities] = await Promise.all([
-    getAthletes(discipline, nationality),
+    getAthletes(discipline, nationality, search?.trim()),
     getNationalities(),
   ]);
 
@@ -98,7 +105,11 @@ export default async function AthletesPage({
       </div>
 
       <Suspense>
-        <FilterBar filters={filters} defaultValues={{ nationality: '中国' }} />
+        <FilterBar
+          filters={filters}
+          searches={[{ key: 'search', placeholder: '搜索运动员姓名' }]}
+          defaultValues={{ nationality: '中国' }}
+        />
       </Suspense>
 
       {athletes.length > 0 ? (
@@ -133,8 +144,10 @@ export default async function AthletesPage({
                     <span className="text-sm font-medium text-brown-500">ICF #{athlete.icf_ranking}</span>
                   )}
                 </div>
-                {athlete.nationality && (
-                  <div className="mt-2 text-sm text-warm-gray-400">{athlete.nationality}</div>
+                {(athlete.nationality || athlete.province || athlete.city) && (
+                  <div className="mt-2 text-sm text-warm-gray-400">
+                    {[athlete.nationality, athlete.province, athlete.city].filter(Boolean).join(' · ')}
+                  </div>
                 )}
               </div>
             </Link>

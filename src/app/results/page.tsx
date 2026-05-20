@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
+import ResultStatusBadge from '@/components/ResultStatusBadge';
+import AthleteResultName from '@/components/AthleteResultName';
 
 interface ResultRow {
   result_id: number;
@@ -18,7 +20,10 @@ interface ResultRow {
   rank_position: number;
   result_label: string | null;
   finish_time: string;
+  result_status_code: string | null;
+  result_status_note: string | null;
   team_name: string | null;
+  team_members: unknown;
   source_title: string | null;
   source_url: string | null;
   source_locator: string | null;
@@ -28,6 +33,7 @@ interface ResultRow {
   province: string | null;
   star_level: string | null;
   athlete_name: string | null;
+  athlete_photo: string | null;
   source_file_url: string | null;
   source_file_name: string | null;
 }
@@ -46,6 +52,17 @@ const rankOptions: FilterOption[] = [
 ];
 
 const pageSize = 30;
+
+function parseMembers(value: unknown) {
+  if (Array.isArray(value)) return value.map((item: any) => item?.name || item?.member_name || '').filter(Boolean);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed.map((item) => item?.name || item?.member_name || '').filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
 
 function SearchSelect({
   label,
@@ -136,6 +153,7 @@ function ResultsContent() {
   const { token, loading } = useUser();
   const [items, setItems] = useState<ResultRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState({ resultCount: 0, athleteCount: 0, eventCount: 0 });
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [jumpPage, setJumpPage] = useState('1');
@@ -196,6 +214,11 @@ function ResultsContent() {
         if (!res.ok) throw new Error(data.error || '成绩查询失败');
         setItems(data.items || []);
         setTotal(Number(data.total || 0));
+        setStats({
+          resultCount: Number(data.stats?.resultCount || data.total || 0),
+          athleteCount: Number(data.stats?.athleteCount || 0),
+          eventCount: Number(data.stats?.eventCount || 0),
+        });
         setTotalPages(Math.max(1, Number(data.totalPages || 1)));
       })
       .catch((err) => setError(err instanceof Error ? err.message : '成绩查询失败'))
@@ -252,16 +275,16 @@ function ResultsContent() {
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
               <div className="rounded-md border border-[#7D6B52] px-4 py-3">
-                <div className="text-xs text-[#BCA98B]">总记录数</div>
-                <div className="mt-1 text-2xl font-semibold text-white">{total}</div>
+                <div className="text-xs text-[#BCA98B]">成绩数</div>
+                <div className="mt-1 text-2xl font-semibold text-white">{stats.resultCount}</div>
               </div>
               <div className="rounded-md border border-[#7D6B52] px-4 py-3">
-                <div className="text-xs text-[#BCA98B]">当前页</div>
-                <div className="mt-1 text-2xl font-semibold text-white">{page}</div>
+                <div className="text-xs text-[#BCA98B]">参赛运动员数</div>
+                <div className="mt-1 text-2xl font-semibold text-white">{stats.athleteCount}</div>
               </div>
               <div className="rounded-md border border-[#7D6B52] px-4 py-3">
-                <div className="text-xs text-[#BCA98B]">总页数</div>
-                <div className="mt-1 text-2xl font-semibold text-white">{totalPages}</div>
+                <div className="text-xs text-[#BCA98B]">比赛数</div>
+                <div className="mt-1 text-2xl font-semibold text-white">{stats.eventCount}</div>
               </div>
             </div>
           </div>
@@ -307,11 +330,14 @@ function ResultsContent() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((row) => (
+                {items.map((row) => {
+                  const members = parseMembers(row.team_members);
+                  return (
                   <tr key={row.result_id} className="border-t border-[#EEE4D8] hover:bg-[#F8F0E5]">
                     <td className="px-4 py-3 font-medium text-[#34291F]">
-                      {row.athlete_id ? <Link href={`/athletes/${row.athlete_id}`} className="hover:text-[#7A6145]">{row.athlete_name || row.athlete_name_snapshot}</Link> : row.athlete_name_snapshot}
+                      <AthleteResultName athleteId={row.athlete_id} name={row.athlete_name || row.athlete_name_snapshot} photo={row.athlete_photo} bibNumber={row.bib_number} />
                       {row.bib_number && <div className="text-xs font-normal text-stone-400">#{row.bib_number}</div>}
+                      {members.length > 0 && <div className="mt-1 text-xs font-normal text-stone-400">成员：{members.join('、')}</div>}
                     </td>
                     <td className="px-4 py-3">
                       <Link href={`/events/${row.event_id}`} className="font-medium text-[#6F563B] hover:text-[#4B3927]">{row.event_name}</Link>
@@ -319,9 +345,9 @@ function ResultsContent() {
                     </td>
                     <td className="px-4 py-3 text-stone-700">{row.discipline}{row.board_class ? ` / ${row.board_class}` : ''}</td>
                     <td className="px-4 py-3 text-stone-600">{row.gender_group}{row.round_label ? ` · ${row.round_label}` : ''}</td>
-                    <td className="px-4 py-3 text-center font-semibold text-[#2E281F]">{row.rank_position}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#7A6145]">{row.finish_time}</td>
-                    <td className="px-4 py-3 text-stone-500">{row.team_name || '—'}</td>
+                    <td className="px-4 py-3 text-center font-semibold text-[#2E281F]">{row.rank_position >= 9000 ? '—' : row.rank_position}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-[#7A6145]"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></td>
+                    <td className="px-4 py-3 text-stone-500">{row.team_name || '个人'}</td>
                     <td className="px-4 py-3 text-xs">
                       {(row.source_file_url || row.source_url) ? (
                         <a className="text-[#7A6145] hover:text-[#4B3927]" href={row.source_file_url || row.source_url || '#'} target="_blank" rel="noopener noreferrer">
@@ -330,7 +356,8 @@ function ResultsContent() {
                       ) : (row.source_file_name || row.source_title || '—')}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {!fetching && items.length === 0 && (
                   <tr><td colSpan={8} className="px-4 py-12 text-center text-stone-400">没有匹配的成绩</td></tr>
                 )}
