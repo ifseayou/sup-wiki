@@ -5,7 +5,6 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
 import ResultStatusBadge from '@/components/ResultStatusBadge';
-import AthleteResultName from '@/components/AthleteResultName';
 import type { ReactNode } from 'react';
 
 interface ResultRow {
@@ -188,13 +187,45 @@ function RankBadge({ rank }: { rank: number }) {
   if (!rank || rank >= 9000) return <span className="text-[#9B9187]">-</span>;
   if (rank <= 3) {
     const style = rank === 1
-      ? 'border-[#F1B73B] bg-[#FFF4CC] text-[#7D5200]'
+      ? 'border-[#F5B82E] bg-[radial-gradient(circle_at_38%_28%,#FFF8D7,#FFD45C_54%,#B97312)] text-[#5D3700] shadow-[0_0_0_5px_rgba(245,184,46,0.16),0_8px_18px_rgba(185,115,18,0.22)]'
       : rank === 2
-        ? 'border-[#C9CED4] bg-[#F2F4F6] text-[#4D5964]'
-        : 'border-[#D69B57] bg-[#FFE8D1] text-[#7D4210]';
-    return <span className={`inline-flex h-9 w-9 items-center justify-center rounded-full border text-base font-bold ${style}`}>{rank}</span>;
+        ? 'border-[#BFC7D0] bg-[radial-gradient(circle_at_38%_28%,#FFFFFF,#DCE3EA_58%,#9BA8B5)] text-[#33404C] shadow-[0_0_0_5px_rgba(160,174,189,0.16),0_8px_18px_rgba(92,107,121,0.18)]'
+        : 'border-[#DE9351] bg-[radial-gradient(circle_at_38%_28%,#FFF1DF,#E9A45F_56%,#A85D26)] text-[#5D2E07] shadow-[0_0_0_5px_rgba(222,147,81,0.16),0_8px_18px_rgba(168,93,38,0.18)]';
+    return (
+      <span className="relative inline-flex h-12 w-12 items-center justify-center">
+        <span className="absolute inset-x-1 bottom-0 h-2 rounded-full bg-black/10 blur-sm" />
+        <span className={`relative inline-flex h-11 w-11 items-center justify-center rounded-full border-2 text-lg font-black ${style}`}>
+          <span className="absolute inset-1 rounded-full border border-white/65" />
+          <span className="relative">{rank}</span>
+        </span>
+      </span>
+    );
   }
   return <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#E6D9C9] bg-white px-2 font-semibold text-[#5B4A38]">{rank}</span>;
+}
+
+function AthleteCell({ row, members }: { row: ResultRow; members: string[] }) {
+  const name = row.athlete_name || row.athlete_name_snapshot || '未命名运动员';
+  const avatar = row.athlete_photo ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={row.athlete_photo} alt={name} className="h-full w-full object-cover" />
+  ) : (
+    <span className="text-sm font-black text-[#7A4B22]">{name.slice(0, 1)}</span>
+  );
+  const body = (
+    <span className="flex min-w-0 items-center gap-3">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E1D2BF] bg-[#F6EBDD] shadow-[0_5px_12px_rgba(86,63,38,0.14)]">
+        {avatar}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-base font-bold text-[#3A2B20]">{name}</span>
+        <span className="mt-0.5 block text-xs font-normal text-[#AAA096]">{row.bib_number ? `#${row.bib_number}` : '未登记参赛号'}</span>
+        {members.length > 0 && <span className="mt-0.5 block max-w-[220px] truncate text-xs font-normal text-[#9B8A76]">成员：{members.join('、')}</span>}
+      </span>
+    </span>
+  );
+  if (!row.athlete_id) return body;
+  return <Link href={`/athletes/${row.athlete_id}`} className="block no-underline">{body}</Link>;
 }
 
 function pageItems(current: number, total: number) {
@@ -417,9 +448,7 @@ function ResultsContent() {
                     <tr key={row.result_id} className="border-b border-[#EFE5D8] transition hover:bg-[#FFF8EE]">
                       <td className="px-4 py-3 text-center"><RankBadge rank={row.rank_position} /></td>
                       <td className="px-4 py-3 font-semibold text-[#3A2B20]">
-                        <AthleteResultName athleteId={row.athlete_id} name={row.athlete_name || row.athlete_name_snapshot} photo={row.athlete_photo} bibNumber={row.bib_number} />
-                        {row.bib_number && <div className="mt-1 text-xs font-normal text-[#AAA096]">#{row.bib_number}</div>}
-                        {members.length > 0 && <div className="mt-1 max-w-[220px] truncate text-xs font-normal text-[#9B8A76]">成员：{members.join('、')}</div>}
+                        <AthleteCell row={row} members={members} />
                       </td>
                       <td className="px-4 py-3 text-[#5B5148]">{row.gender_group || '-'}</td>
                       <td className="px-4 py-3 text-[#5B5148]">
