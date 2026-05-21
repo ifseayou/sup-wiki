@@ -5,6 +5,142 @@ import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import type { RowDataPacket } from 'mysql2';
 
+type ResultItemRow = RowDataPacket & {
+  result_id: number;
+  event_id: number;
+  discipline: string | null;
+  gender_group: string | null;
+  round_label: string | null;
+  rank_position: number | null;
+  time_seconds: number | string | null;
+  finish_time: string | null;
+  result_status_code: string | null;
+};
+
+type PreviousCandidateRow = RowDataPacket & {
+  result_id: number;
+  event_id: number;
+  discipline: string | null;
+  gender_group: string | null;
+  round_label: string | null;
+  rank_position: number | null;
+  time_seconds: number | string | null;
+};
+
+function groupKey(row: Pick<ResultItemRow, 'event_id' | 'discipline' | 'gender_group' | 'round_label'>) {
+  return [
+    row.event_id,
+    row.discipline || '',
+    row.gender_group || '',
+    row.round_label || '',
+  ].join('\u0001');
+}
+
+function toNumber(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isNormalFinish(row: Pick<ResultItemRow, 'result_status_code' | 'finish_time'>) {
+  const code = String(row.result_status_code || '').trim().toUpperCase();
+  if (code) return false;
+  const finish = String(row.finish_time || '').trim().toUpperCase();
+  return !['DNS', 'DNF', 'DSQ', 'DNQ', 'DQ'].includes(finish);
+}
+
+function parseDistanceKm(discipline: string | null) {
+  const text = String(discipline || '').toLowerCase().replace(/\s+/g, '');
+  const kmMatch = text.match(/(\d+(?:\.\d+)?)(?:公里|千米|km|k)/i);
+  if (kmMatch) return Number(kmMatch[1]);
+  const meterMatch = text.match(/(\d+(?:\.\d+)?)(?:米|m)/i);
+  if (meterMatch) return Number(meterMatch[1]) / 1000;
+  return null;
+}
+
+function isYouthGroup(genderGroup: string | null) {
+  const text = String(genderGroup || '').toUpperCase();
+  if (/(U\s*)?(18|15|12|10|9|8)\b/.test(text)) return true;
+  return /青少年|少年|儿童|少儿|小学|中学/.test(text);
+}
+
+function isLongDistance(row: Pick<ResultItemRow, 'discipline' | 'gender_group'>, distanceKm: number | null) {
+  if (!distanceKm) return false;
+  if (isYouthGroup(row.gender_group)) return distanceKm >= 3;
+  return distanceKm >= 6;
+}
+
+function trimDecimals(value: string) {
+  return value.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+}
+
+function formatDuration(seconds: number, includeSign = false) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '-';
+  const sign = includeSign ? '+' : '';
+  const totalMs = Math.round(seconds * 1000);
+  const hours = Math.floor(totalMs / 3600000);
+  const minutes = Math.floor((totalMs % 3600000) / 60000);
+  const secs = Math.floor((totalMs % 60000) / 1000);
+  const ms = totalMs % 1000;
+  const secondText = trimDecimals(`${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`);
+  if (hours > 0) return `${sign}${hours}:${String(minutes).padStart(2, '0')}:${secondText}`;
+  return `${sign}${String(minutes).padStart(2, '0')}:${secondText}`;
+}
+
+function formatPace(secondsPerKm: number) {
+  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0) return '-';
+  const rounded = Math.round(secondsPerKm);
+  const minutes = Math.floor(rounded / 60);
+  const seconds = rounded % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}/km`;
+}
+
+async function loadPreviousTimes(items: ResultItemRow[]) {
+  const normalItems = items.filter((item) => (
+    item.result_id &&
+    item.event_id &&
+    Number(item.rank_position || 0) < 9000 &&
+    toNumber(item.time_seconds) !== null &&
+    isNormalFinish(item)
+  ));
+  if (normalItems.length === 0) return new Map<number, number>();
+
+  const keyRows = Array.from(new Map(normalItems.map((item) => [groupKey(item), item])).values());
+  const groupConditions = keyRows.map(() => '(er.event_id = ? AND er.discipline <=> ? AND er.gender_group <=> ? AND er.round_label <=> ?)');
+  const groupParams = keyRows.flatMap((item) => [
+    Number(item.event_id),
+    item.discipline,
+    item.gender_group,
+    item.round_label,
+  ]);
+
+  const [rows] = await pool.execute<PreviousCandidateRow[]>(
+    `SELECT er.result_id, er.event_id, er.discipline, er.gender_group, er.round_label, er.rank_position, er.time_seconds
+     FROM sup_event_results er
+     INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
+     WHERE er.source_id IS NOT NULL
+       AND ${localResultSourceCondition}
+       AND er.review_status <> 'pending'
+       AND er.rank_position < 9000
+       AND er.time_seconds IS NOT NULL
+       AND (er.result_status_code IS NULL OR er.result_status_code = '')
+       AND (${groupConditions.join(' OR ')})
+     ORDER BY er.event_id ASC, er.discipline ASC, er.gender_group ASC, er.round_label ASC, er.rank_position ASC, er.result_id ASC`,
+    groupParams
+  );
+
+  const previousByGroup = new Map<string, number>();
+  const previousByResult = new Map<number, number>();
+  for (const row of rows) {
+    const key = groupKey(row);
+    const currentTime = toNumber(row.time_seconds);
+    const previousTime = previousByGroup.get(key);
+    if (previousTime !== undefined) previousByResult.set(Number(row.result_id), previousTime);
+    if (currentTime !== null) previousByGroup.set(key, currentTime);
+  }
+  return previousByResult;
+}
+
 export async function GET(request: NextRequest) {
   const auth = requireUser(request);
   if (auth instanceof NextResponse) return auth;
@@ -67,7 +203,7 @@ export async function GET(request: NextRequest) {
       params
     );
 
-    const [items] = await pool.execute<RowDataPacket[]>(
+    const [items] = await pool.execute<ResultItemRow[]>(
       `SELECT
          er.result_id, er.event_id, er.athlete_id, er.athlete_name_snapshot, er.bib_number,
          er.gender_group, er.discipline, er.board_class, er.round_label, er.rank_position,
@@ -91,6 +227,30 @@ export async function GET(request: NextRequest) {
        LIMIT ${pageSize} OFFSET ${offset}`,
       params
     );
+
+    const previousTimes = await loadPreviousTimes(items);
+    const enrichedItems = items.map((item) => {
+      const timeSeconds = toNumber(item.time_seconds);
+      const previousTime = previousTimes.get(Number(item.result_id));
+      const gapSeconds = timeSeconds !== null && previousTime !== undefined
+        ? Math.max(0, timeSeconds - previousTime)
+        : null;
+      const distanceKm = parseDistanceKm(item.discipline);
+      const longDistance = isLongDistance(item, distanceKm);
+      const paceSeconds = longDistance && isNormalFinish(item) && timeSeconds !== null && distanceKm
+        ? timeSeconds / distanceKm
+        : null;
+
+      return {
+        ...item,
+        distance_km: distanceKm,
+        is_long_distance: longDistance,
+        gap_seconds: gapSeconds,
+        gap_display: gapSeconds === null ? '-' : formatDuration(gapSeconds, true),
+        pace_seconds_per_km: paceSeconds,
+        pace_display: paceSeconds === null ? '-' : formatPace(paceSeconds),
+      };
+    });
 
     const [facets] = await pool.execute<RowDataPacket[]>(
       `SELECT
@@ -123,7 +283,7 @@ export async function GET(request: NextRequest) {
 
     const total = Number(countRows[0]?.total || 0);
     return NextResponse.json({
-      items,
+      items: enrichedItems,
       total,
       stats: {
         resultCount: total,
