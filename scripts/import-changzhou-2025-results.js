@@ -17,14 +17,15 @@ const STATUS_LABELS = {
 };
 
 function usage() {
-  console.log('Usage: node scripts/import-changzhou-2025-results.js --input .cache/changzhou-2025-results.json [--dry-run]');
+  console.log('Usage: node scripts/import-changzhou-2025-results.js --input .cache/changzhou-2025-results.json [--dry-run] [--results-only]');
 }
 
 function parseArgs(argv) {
-  const args = { input: '', dryRun: false };
+  const args = { input: '', dryRun: false, resultsOnly: false };
   for (let i = 2; i < argv.length; i += 1) {
     if (argv[i] === '--input') args.input = argv[++i] || '';
     else if (argv[i] === '--dry-run') args.dryRun = true;
+    else if (argv[i] === '--results-only') args.resultsOnly = true;
     else if (argv[i] === '--help' || argv[i] === '-h') args.help = true;
   }
   return args;
@@ -420,9 +421,9 @@ async function main() {
       ]
     );
     await connection.execute('DELETE FROM sup_event_results WHERE event_id = ?', [EVENT_ID]);
-    await connection.execute('DELETE FROM sup_event_point_standings WHERE event_id = ?', [EVENT_ID]);
+    if (!args.resultsOnly) await connection.execute('DELETE FROM sup_event_point_standings WHERE event_id = ?', [EVENT_ID]);
     await insertResults(connection, payload, sourceId, athleteCache, touchedAthletes);
-    await insertPointStandings(connection, payload, sourceId, athleteCache, touchedAthletes);
+    if (!args.resultsOnly) await insertPointStandings(connection, payload, sourceId, athleteCache, touchedAthletes);
     await connection.execute(
       'UPDATE sup_event_result_sources SET imported_rows = ?, extracted_rows = ?, parser_status = "imported" WHERE source_id = ?',
       [payload.results.length, payload.results.length, sourceId]
@@ -433,7 +434,7 @@ async function main() {
     for (const group of chunk(ids, RESULT_BATCH_SIZE)) {
       await syncAthleteRaceTimesBatch(connection, group);
     }
-    console.log(`done event_id=${EVENT_ID} results=${payload.results.length} point_standings=${payload.point_standings.length} touchedAthletes=${ids.length}`);
+    console.log(`done event_id=${EVENT_ID} results=${payload.results.length} point_standings=${args.resultsOnly ? 'unchanged' : payload.point_standings.length} touchedAthletes=${ids.length}`);
   } catch (error) {
     try {
       await connection.rollback();

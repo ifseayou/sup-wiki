@@ -128,6 +128,33 @@ def split_name_team_finish(rest: str) -> tuple[str, str, str, str | None] | None
     return parts[0], parts[1] or "个人", finish, note or None
 
 
+def split_sprint_row(line: str, status_sequence: int) -> tuple[int, str, str, str, int] | None:
+    match = re.match(r"^(\d{1,3})\s+(预赛|半决赛)\s+([A-Z]?\d{3,5})\s+(.+)$", line)
+    if match:
+        rank_raw, round_label, bib, rest = match.groups()
+        return int(rank_raw), round_label, bib, rest, status_sequence
+
+    match = re.match(r"^(\d{1,3})\s+([A-Z]?\d{3,5})\s+(.+)$", line)
+    if match:
+        rank_raw, bib, rest = match.groups()
+        return int(rank_raw), "决赛", bib, rest, status_sequence
+
+    status_match = re.match(r"^/\s+(?:(预赛|半决赛|/)\s+)?([A-Z]?\d{3,5})\s+(.+)$", line)
+    if status_match:
+        round_raw, bib, rest = status_match.groups()
+        status_sequence += 1
+        round_label = round_raw if round_raw and round_raw != "/" else "预赛"
+        return 9000 + status_sequence, round_label, bib, rest, status_sequence
+
+    status_without_slash = re.match(r"^([A-Z]?\d{3,5})\s+(.+\s(?:DNS|DNF|DQ|DSQ|DNQ|OTL)(?:\s+.*)?)$", line, re.I)
+    if status_without_slash:
+        bib, rest = status_without_slash.groups()
+        status_sequence += 1
+        return 9000 + status_sequence, "预赛", bib, rest, status_sequence
+
+    return None
+
+
 def parse_score_rows(text: str, page_number: int) -> list[dict[str, Any]]:
     group = RESULT_PAGE_GROUPS.get(page_number)
     if not group:
@@ -140,25 +167,25 @@ def parse_score_rows(text: str, page_number: int) -> list[dict[str, Any]]:
         if not line or line.startswith("名次 ") or line.startswith("NO.") or "成绩单" in line:
             continue
 
-        # Sprint pages only keep final rows: ranked rows without 预赛/半决赛 labels.
         if discipline == "200米":
-            if re.match(r"^\d+\s+(预赛|半决赛)\s+", line) or line.startswith("/"):
+            sprint_row = split_sprint_row(line, status_sequence)
+            if not sprint_row:
                 continue
-            match = re.match(r"^(\d{1,3})\s+([A-Z]?\d{3,5})\s+(.+)$", line)
-            if not match:
-                continue
-            rank_raw, bib, rest = match.groups()
+            rank, round_label, bib, rest, status_sequence = sprint_row
         else:
             match = re.match(r"^(\d{1,3})\s+([A-Z]?\d{3,5})\s+(.+)$", line)
             if match:
                 rank_raw, bib, rest = match.groups()
+                rank = int(rank_raw)
+                round_label = "决赛"
             else:
                 status_match = re.match(r"^/\s+/\s+([A-Z]?\d{3,5})\s+(.+)$", line)
                 if not status_match:
                     continue
                 bib, rest = status_match.groups()
                 status_sequence += 1
-                rank_raw = str(9000 + status_sequence)
+                rank = 9000 + status_sequence
+                round_label = "决赛"
 
         split = split_name_team_finish(rest)
         if not split:
@@ -171,8 +198,8 @@ def parse_score_rows(text: str, page_number: int) -> list[dict[str, Any]]:
             "gender_group": group,
             "discipline": discipline,
             "board_class": board_class(group, discipline),
-            "round_label": "决赛",
-            "rank_position": int(rank_raw),
+            "round_label": round_label,
+            "rank_position": rank,
             "result_label": note,
             "finish_time": finish,
             "result_status_code": code,
@@ -333,7 +360,7 @@ def parse_pdf(path: Path) -> dict[str, Any]:
             "source_url": SOURCE_URL,
             "parser_name": "parse-changzhou-2025-results.py",
             "parser_status": "parsed",
-            "parser_note": "常州站 PDF 定向分段解析，200米仅保留决赛成绩。",
+            "parser_note": "常州站 PDF 定向分段解析，200米纳入决赛、预赛、半决赛及状态行。",
             "extracted_rows": len(results),
             "imported_rows": len(results),
             "metadata": {
