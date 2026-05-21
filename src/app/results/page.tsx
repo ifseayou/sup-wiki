@@ -86,6 +86,7 @@ function SearchSelect({
   display,
   onChange,
   staticOptions,
+  optionParams,
   icon = 'search',
 }: {
   label: string;
@@ -94,6 +95,7 @@ function SearchSelect({
   display: string;
   onChange: (value: string, display: string) => void;
   staticOptions?: FilterOption[];
+  optionParams?: Record<string, string>;
   icon?: 'search' | 'user' | 'trophy' | 'calendar' | 'star';
 }) {
   const { token } = useUser();
@@ -101,6 +103,7 @@ function SearchSelect({
   const [text, setText] = useState(display);
   const [options, setOptions] = useState<FilterOption[]>(staticOptions || []);
   const boxRef = useRef<HTMLDivElement>(null);
+  const optionParamKey = JSON.stringify(optionParams || {});
 
   useEffect(() => setText(display), [display]);
 
@@ -108,6 +111,10 @@ function SearchSelect({
     if (staticOptions || !token || !type || !open) return;
     const controller = new AbortController();
     const params = new URLSearchParams({ type, q: text });
+    const optionEntries = Object.entries(JSON.parse(optionParamKey) as Record<string, string>);
+    for (const [key, paramValue] of optionEntries) {
+      if (paramValue) params.set(key, paramValue);
+    }
     fetch(`/api/results/options?${params}`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
@@ -116,7 +123,7 @@ function SearchSelect({
       .then((data) => setOptions(data.items || []))
       .catch(() => undefined);
     return () => controller.abort();
-  }, [open, staticOptions, text, token, type]);
+  }, [open, optionParamKey, staticOptions, text, token, type]);
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -324,6 +331,19 @@ function ResultsContent() {
     setPage(1);
   }
 
+  function updateEventFilter(value: string, label: string) {
+    setFilters((prev) => ({
+      ...prev,
+      event_id: value,
+      event_label: label,
+      discipline: '',
+      discipline_label: '',
+      gender: '',
+      gender_label: '',
+    }));
+    setPage(1);
+  }
+
   function applyQuick(type: 'discipline' | 'gender' | 'rank', value: string, label: string) {
     if (type === 'discipline') updateFilter('discipline', 'discipline_label', value, label);
     if (type === 'gender') updateFilter('gender', 'gender_label', value, label);
@@ -391,9 +411,23 @@ function ResultsContent() {
         <div className="mb-5 border border-[#E2D4C0] bg-white/88 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <SearchSelect label="运动员" type="athlete" value={filters.athlete_id} display={filters.athlete_label} icon="user" onChange={(v, l) => updateFilter('athlete_id', 'athlete_label', v, l)} />
-            <SearchSelect label="赛事" type="event" value={filters.event_id} display={filters.event_label} icon="trophy" onChange={(v, l) => updateFilter('event_id', 'event_label', v, l)} />
-            <SearchSelect label="项目" type="discipline" value={filters.discipline} display={filters.discipline_label} onChange={(v, l) => updateFilter('discipline', 'discipline_label', v, l)} />
-            <SearchSelect label="性别组" type="gender" value={filters.gender} display={filters.gender_label} onChange={(v, l) => updateFilter('gender', 'gender_label', v, l)} />
+            <SearchSelect label="赛事" type="event" value={filters.event_id} display={filters.event_label} icon="trophy" onChange={updateEventFilter} />
+            <SearchSelect
+              label="项目"
+              type="discipline"
+              value={filters.discipline}
+              display={filters.discipline_label}
+              optionParams={{ event_id: filters.event_id, gender: filters.gender }}
+              onChange={(v, l) => updateFilter('discipline', 'discipline_label', v, l)}
+            />
+            <SearchSelect
+              label="性别组"
+              type="gender"
+              value={filters.gender}
+              display={filters.gender_label}
+              optionParams={{ event_id: filters.event_id, discipline: filters.discipline }}
+              onChange={(v, l) => updateFilter('gender', 'gender_label', v, l)}
+            />
             <SearchSelect label="年份" type="year" value={filters.year} display={filters.year_label} icon="calendar" onChange={(v, l) => updateFilter('year', 'year_label', v, l)} />
             <SearchSelect label="名次" value={filters.rank_max} display={filters.rank_label} staticOptions={rankOptions} onChange={(v, l) => updateFilter('rank_max', 'rank_label', v, l)} />
             <SearchSelect label="星级" type="star_level" value={filters.star_level} display={filters.star_label} icon="star" onChange={(v, l) => updateFilter('star_level', 'star_label', v, l)} />
