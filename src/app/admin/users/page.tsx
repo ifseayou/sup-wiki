@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAdminAuth } from '@/app/admin/layout';
+import { DEFAULT_RESULT_QUERY_LIMITS, USER_LEVEL_LABELS, normalizeUserLevel } from '@/lib/user-levels';
 
 interface UserRow {
   user_id: number;
@@ -19,11 +20,18 @@ interface UserRow {
 }
 
 const levelOptions = [
-  ['free', '普通用户'],
-  ['verified_athlete', '认证运动员'],
-  ['trusted', '可信用户'],
-  ['blocked', '已限制'],
-];
+  ['free', `${USER_LEVEL_LABELS.free}（默认 ${DEFAULT_RESULT_QUERY_LIMITS.free} 次/天）`],
+  ['vip', `${USER_LEVEL_LABELS.vip}（默认 ${DEFAULT_RESULT_QUERY_LIMITS.vip} 次/天）`],
+  ['svip', `${USER_LEVEL_LABELS.svip}（默认 ${DEFAULT_RESULT_QUERY_LIMITS.svip} 次/天）`],
+  ['admin', `${USER_LEVEL_LABELS.admin}（不限次数）`],
+  ['blocked', `${USER_LEVEL_LABELS.blocked}（0 次/天）`],
+] as const;
+
+function defaultLimitText(level: string) {
+  const normalized = normalizeUserLevel(level);
+  const limit = DEFAULT_RESULT_QUERY_LIMITS[normalized];
+  return limit === null ? '不限次数' : `默认 ${limit} 次/天`;
+}
 
 export default function AdminUsersPage() {
   const { token } = useAdminAuth();
@@ -56,6 +64,12 @@ export default function AdminUsersPage() {
     setItems((prev) => prev.map((item) => item.user_id === userId ? { ...item, [key]: value } : item));
   }
 
+  function updateLevel(userId: number, level: string) {
+    setItems((prev) => prev.map((item) => item.user_id === userId
+      ? { ...item, user_level: level, daily_result_query_limit: level === 'admin' ? null : item.daily_result_query_limit }
+      : item));
+  }
+
   async function save(user: UserRow) {
     const res = await fetch(`/api/admin/users/${user.user_id}`, {
       method: 'PATCH',
@@ -80,7 +94,9 @@ export default function AdminUsersPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', marginBottom: 18 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 24, color: '#2A2118' }}>用户管理</h1>
-          <p style={{ margin: '6px 0 0', color: '#8B8580', fontSize: 13 }}>按用户等级限制每日成绩查询次数，用于控制异常查询和低成本反爬。</p>
+          <p style={{ margin: '6px 0 0', color: '#8B8580', fontSize: 13 }}>
+            普通 5 次/天，VIP 20 次/天，SVIP 200 次/天，管理员与 i_add_u 不限次数。
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') load(); }} placeholder="搜索昵称 / 邮箱" style={{ height: 36, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 10px' }} />
@@ -114,7 +130,7 @@ export default function AdminUsersPage() {
                   <div style={{ color: '#B0A090', marginTop: 3 }}>注册 {user.created_at?.slice(0, 10)}</div>
                 </td>
                 <td style={{ padding: 12 }}>
-                  <select value={user.user_level || 'free'} onChange={(e) => updateLocal(user.user_id, 'user_level', e.target.value)} style={{ height: 34, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 8px' }}>
+                  <select value={normalizeUserLevel(user.user_level)} onChange={(e) => updateLevel(user.user_id, e.target.value)} style={{ height: 34, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 8px' }}>
                     {levelOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                   </select>
                 </td>
@@ -125,7 +141,20 @@ export default function AdminUsersPage() {
                   </select>
                 </td>
                 <td style={{ padding: 12 }}>
-                  <input value={user.daily_result_query_limit ?? ''} onChange={(e) => updateLocal(user.user_id, 'daily_result_query_limit', e.target.value)} placeholder="默认等级额度" style={{ width: 120, height: 34, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 8px' }} />
+                  <input
+                    value={normalizeUserLevel(user.user_level) === 'admin' ? '不限次数' : (user.daily_result_query_limit ?? '')}
+                    onChange={(e) => updateLocal(user.user_id, 'daily_result_query_limit', e.target.value)}
+                    disabled={normalizeUserLevel(user.user_level) === 'admin'}
+                    placeholder={defaultLimitText(user.user_level)}
+                    style={{
+                      width: 140,
+                      height: 34,
+                      border: '1px solid #D8CDBE',
+                      borderRadius: 8,
+                      padding: '0 8px',
+                      background: normalizeUserLevel(user.user_level) === 'admin' ? '#F4EFE8' : '#fff',
+                    }}
+                  />
                 </td>
                 <td style={{ padding: 12, color: '#6F5B42', fontWeight: 700 }}>{user.today_result_queries || 0}</td>
                 <td style={{ padding: 12, color: '#6F5B42' }}>{user.owned_athlete_count || 0} / {user.claim_count || 0}</td>

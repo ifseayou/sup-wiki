@@ -111,7 +111,12 @@ export async function PATCH(
 
     await conn.execute(
       `UPDATE sup_users
-       SET user_level = CASE WHEN user_level = 'trusted' THEN user_level ELSE 'verified_athlete' END
+       SET user_level = CASE
+         WHEN user_level = 'admin' THEN 'admin'
+         WHEN user_level IN ('svip', 'trusted') THEN 'svip'
+         WHEN user_level = 'blocked' THEN 'blocked'
+         ELSE 'vip'
+       END
        WHERE user_id = ? AND status <> 'blocked'`,
       [claim.user_id]
     );

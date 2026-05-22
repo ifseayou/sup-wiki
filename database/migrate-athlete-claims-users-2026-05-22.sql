@@ -22,11 +22,29 @@ END $$
 
 DELIMITER ;
 
-CALL add_col_if_missing('sup_users', 'user_level', "ALTER TABLE sup_users ADD COLUMN user_level ENUM('free','verified_athlete','trusted','blocked') NOT NULL DEFAULT 'free' AFTER password_hash");
+CALL add_col_if_missing('sup_users', 'user_level', "ALTER TABLE sup_users ADD COLUMN user_level ENUM('free','vip','svip','admin','verified_athlete','trusted','blocked') NOT NULL DEFAULT 'free' AFTER password_hash");
 CALL add_col_if_missing('sup_users', 'status', "ALTER TABLE sup_users ADD COLUMN status ENUM('active','blocked') NOT NULL DEFAULT 'active' AFTER user_level");
 CALL add_col_if_missing('sup_users', 'daily_result_query_limit', "ALTER TABLE sup_users ADD COLUMN daily_result_query_limit INT NULL AFTER status");
 CALL add_col_if_missing('sup_users', 'admin_note', "ALTER TABLE sup_users ADD COLUMN admin_note TEXT NULL AFTER daily_result_query_limit");
 CALL add_col_if_missing('sup_users', 'last_login_at', "ALTER TABLE sup_users ADD COLUMN last_login_at DATETIME NULL AFTER admin_note");
+
+ALTER TABLE sup_users
+  MODIFY COLUMN user_level ENUM('free','vip','svip','admin','verified_athlete','trusted','blocked') NOT NULL DEFAULT 'free';
+
+UPDATE sup_users
+SET user_level = CASE
+  WHEN nickname = 'i_add_u' OR email = 'xiehl9527@gmail.com' OR openid = 'sh_1' THEN 'admin'
+  WHEN user_level = 'verified_athlete' THEN 'vip'
+  WHEN user_level = 'trusted' THEN 'svip'
+  ELSE user_level
+END,
+daily_result_query_limit = CASE
+  WHEN nickname = 'i_add_u' OR email = 'xiehl9527@gmail.com' OR openid = 'sh_1' THEN NULL
+  ELSE daily_result_query_limit
+END;
+
+ALTER TABLE sup_users
+  MODIFY COLUMN user_level ENUM('free','vip','svip','admin','blocked') NOT NULL DEFAULT 'free';
 
 CREATE TABLE IF NOT EXISTS sup_user_result_query_usage (
   user_id INT NOT NULL,

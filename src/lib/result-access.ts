@@ -1,17 +1,19 @@
 import { NextRequest } from 'next/server';
 import pool from '@/lib/db';
 import { getUserFromRequest } from '@/lib/user-auth';
+import { resolveResultQueryLimit, type UserLevel } from '@/lib/user-levels';
 import type { RowDataPacket } from 'mysql2';
 
 export const PUBLIC_RESULT_PREVIEW_LIMIT = 3;
 
-type UserLevel = 'free' | 'verified_athlete' | 'trusted' | 'blocked';
-
 type UserAccessRow = RowDataPacket & {
   user_id: number;
-  user_level: UserLevel | null;
+  user_level: string | null;
   status: string | null;
   daily_result_query_limit: number | null;
+  nickname: string | null;
+  email: string | null;
+  openid: string | null;
 };
 
 export interface ResultAccess {
@@ -23,13 +25,6 @@ export interface ResultAccess {
   remaining: number | null;
   previewLimit: number | null;
 }
-
-const DEFAULT_LIMITS: Record<UserLevel, number> = {
-  free: 30,
-  verified_athlete: 100,
-  trusted: 500,
-  blocked: 0,
-};
 
 export async function resolveResultAccess(request: NextRequest): Promise<ResultAccess> {
   const user = getUserFromRequest(request);
@@ -46,7 +41,7 @@ export async function resolveResultAccess(request: NextRequest): Promise<ResultA
   }
 
   const [rows] = await pool.execute<UserAccessRow[]>(
-    `SELECT user_id, user_level, status, daily_result_query_limit
+    `SELECT user_id, nickname, email, openid, user_level, status, daily_result_query_limit
      FROM sup_users
      WHERE user_id = ?
      LIMIT 1`,
@@ -54,11 +49,26 @@ export async function resolveResultAccess(request: NextRequest): Promise<ResultA
   );
 
   const row = rows[0];
-  const level = row?.user_level || 'free';
-  const explicitLimit = row?.daily_result_query_limit;
-  const limit = row?.status === 'blocked' || level === 'blocked'
-    ? 0
-    : (explicitLimit ?? DEFAULT_LIMITS[level]);
+  const { level, limit } = resolveResultQueryLimit({
+    level: row?.user_level,
+    status: row?.status,
+    dailyLimit: row?.daily_result_query_limit,
+    nickname: row?.nickname,
+    email: row?.email,
+    openid: row?.openid,
+  });
+
+  if (limit === null) {
+    return {
+      authenticated: true,
+      userId: user.user_id,
+      level,
+      limit: null,
+      used: null,
+      remaining: null,
+      previewLimit: null,
+    };
+  }
 
   const [usageRows] = await pool.execute<RowDataPacket[]>(
     `SELECT query_count

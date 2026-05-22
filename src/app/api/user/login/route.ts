@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { hashPassword, generateUserToken } from '@/lib/auth';
+import { normalizeUserLevel } from '@/lib/user-levels';
 import type { RowDataPacket } from 'mysql2';
 
 export async function POST(request: NextRequest) {
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
         user_id: user.user_id,
         nickname: user.nickname,
         email: user.email,
-        user_level: user.user_level || 'free',
+        user_level: normalizeUserLevel(user.user_level),
         daily_result_query_limit: user.daily_result_query_limit ?? null,
       },
     });

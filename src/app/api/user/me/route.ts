@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractToken, verifyUserToken } from '@/lib/auth';
 import pool from '@/lib/db';
+import { normalizeUserLevel } from '@/lib/user-levels';
 import type { RowDataPacket } from 'mysql2';
 
 export async function GET(request: NextRequest) {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
       nickname: u.nickname,
       email: u.email,
       has_sport_hacker: !!u.openid,  // 是否已关联运动骇客
-      user_level: u.user_level || 'free',
+      user_level: normalizeUserLevel(u.user_level),
       daily_result_query_limit: u.daily_result_query_limit ?? null,
     }
   });

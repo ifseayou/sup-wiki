@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { extractToken, isAdmin, verifyToken } from '@/lib/auth';
+import { normalizeUserLevel } from '@/lib/user-levels';
 
-const LEVELS = new Set(['free', 'verified_athlete', 'trusted', 'blocked']);
+const LEVELS = new Set(['free', 'vip', 'svip', 'admin', 'blocked']);
 const STATUSES = new Set(['active', 'blocked']);
 
 function ensureAdmin(request: NextRequest) {
@@ -25,14 +26,14 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const level = String(body.user_level || 'free');
+    const level = normalizeUserLevel(String(body.user_level || 'free'));
     const status = String(body.status || 'active');
     if (!LEVELS.has(level) || !STATUSES.has(status)) {
       return NextResponse.json({ error: '用户等级或状态不合法' }, { status: 400 });
     }
 
     const rawLimit = body.daily_result_query_limit;
-    const limit = rawLimit === '' || rawLimit === null || rawLimit === undefined
+    const limit = level === 'admin' || rawLimit === '' || rawLimit === null || rawLimit === undefined
       ? null
       : Math.max(0, Math.min(10000, Number(rawLimit) || 0));
     const adminNote = String(body.admin_note || '').trim() || null;
