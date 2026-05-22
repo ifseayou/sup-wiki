@@ -155,121 +155,118 @@ export default async function AthleteDetailPage({
     const ob = distanceLabels[b]?.order ?? 99;
     return oa - ob;
   });
+  const profileCompleteness = Math.round(([
+    athlete.photo,
+    livingLocation,
+    birthYear,
+    startedSupYear,
+    introShort,
+    athlete.bio,
+  ].filter(Boolean).length / 6) * 100);
+  const profileLevel = achievements.length >= 5 || athlete.icf_ranking ? '精英选手' : achievements.length >= 2 ? '进阶选手' : '基础档案';
+  const displayDiscipline = disciplineLabels[athlete.discipline] || athlete.discipline || '桨板';
+  const heroFacts = [
+    birthYear ? `${birthYear}年出生` : '',
+    startedSupYear ? `从${startedSupYear}年开始玩桨板` : '',
+  ].filter(Boolean).join(' · ');
 
   return (
-    <div style={{ maxWidth: 880, margin: '0 auto', padding: '40px 24px' }}>
-      {/* Breadcrumb */}
-      <nav style={{ marginBottom: 28, fontSize: 13, color: '#8A8078' }}>
-        <Link href="/" style={{ color: '#8A8078', textDecoration: 'none' }}>首页</Link>
-        {' / '}
-        <Link href="/athletes" style={{ color: '#8A8078', textDecoration: 'none' }}>运动员</Link>
-        {' / '}
-        <span style={{ color: '#2E2118' }}>{athlete.name}</span>
+    <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6 lg:py-10">
+      <nav className="mb-7 flex items-center gap-2 text-sm text-warm-gray-400">
+        <Link href="/" className="text-warm-gray-400 no-underline hover:text-brown-600">首页</Link>
+        <span>/</span>
+        <Link href="/athletes" className="text-warm-gray-400 no-underline hover:text-brown-600">运动员</Link>
+        <span>/</span>
+        <span className="font-medium text-brown-800">{athlete.name}</span>
       </nav>
 
       {claim === 'submitted' && (
-        <div style={{ marginBottom: 18, border: '1px solid #BFE3CB', background: '#F0FBF4', color: '#2F7D52', borderRadius: 10, padding: '12px 14px', fontSize: 14 }}>
+        <div className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           资料已提交，管理员审核通过后会更新到运动员主页。
         </div>
       )}
 
-      {/* ── 运动员头部卡片 ─────────────────────────────────────── */}
-      <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 16, overflow: 'hidden', marginBottom: 32, display: 'flex', flexWrap: 'wrap' }}>
-        {/* 照片 */}
-        <div style={{ width: 260, minHeight: 260, background: '#F5EDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {athlete.photo ? (
-            <img src={athlete.photo} alt={athlete.name} style={{ width: '100%', height: '100%', objectFit: 'cover', minHeight: 260 }} />
-          ) : (
-            <span style={{ fontSize: 72 }}>🏆</span>
-          )}
-        </div>
+      <section className="mb-8 overflow-hidden rounded-xl border border-cream-200 bg-[radial-gradient(circle_at_top_right,#F5E7D4,transparent_34%),#FEFCF9] shadow-[0_20px_60px_rgba(68,51,35,0.08)]">
+        <div className="grid gap-7 p-4 sm:p-5 lg:grid-cols-[280px_1fr_240px] lg:p-7">
+          <div className="relative overflow-hidden rounded-lg bg-cream-100 shadow-inner">
+            {athlete.photo ? (
+              <img src={athlete.photo} alt={athlete.name} className="aspect-[4/5] h-full min-h-[320px] w-full object-cover" />
+            ) : (
+              <div className="flex aspect-[4/5] min-h-[320px] w-full items-center justify-center bg-cream-100 font-[var(--font-display)] text-7xl text-cream-300">
+                {athlete.name.slice(0, 1)}
+              </div>
+            )}
+            <div className="absolute bottom-3 right-3 rounded-full bg-brown-800/75 px-3 py-1 text-xs font-semibold text-white">公开头像</div>
+          </div>
 
-        {/* 基本信息 */}
-        <div style={{ flex: 1, padding: '28px 32px', minWidth: 260 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 4, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 400, color: '#2E2118', margin: 0 }}>
+          <div className="flex min-w-0 flex-col justify-center py-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="font-[var(--font-display)] text-5xl font-medium leading-tight text-brown-800 sm:text-6xl">
                 {athlete.name}
               </h1>
               {athlete.icf_ranking && (
-                <span style={{ fontSize: 12, background: '#EBF5FB', color: '#1A5276', border: '1px solid #AED6F1', borderRadius: 12, padding: '2px 10px' }}>
+                <span className="rounded-full border border-[#AED6F1] bg-[#EBF5FB] px-3 py-1 text-xs font-semibold text-[#1A5276]">
                   <Tooltip tip="国际皮划艇联合会 (International Canoe Federation) 世界排名">ICF #{athlete.icf_ranking}</Tooltip>
                 </span>
               )}
             </div>
-            <AthleteClaimEntry athleteId={athleteId} />
+            {athlete.name_en && <div className="mt-1 font-[var(--font-display)] text-2xl italic text-warm-gray-400">{athlete.name_en}</div>}
+
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              {athlete.nationality && <span className="rounded-full bg-cream-100 px-3 py-1 text-sm text-warm-gray-600">{displayNationality(athlete.nationality)}</span>}
+              {livingLocation && <span className="rounded-full bg-cream-100 px-3 py-1 text-sm text-warm-gray-600">现居 · {livingLocation}</span>}
+              <span className="rounded-full border border-cream-200 bg-cream-100 px-3 py-1 text-sm text-brown-600">{displayDiscipline}</span>
+            </div>
+
+            {heroFacts && <p className="mt-5 text-base text-warm-gray-500">{heroFacts}</p>}
+
+            <div className="mt-6">
+              <div className="mb-2 text-sm font-semibold text-brown-800">一句话介绍自己</div>
+              <div className="relative pl-6 text-lg font-medium leading-8 text-brown-800">
+                <span className="absolute left-0 top-0 font-[var(--font-display)] text-4xl text-cream-300">“</span>
+                {introShort || '这位运动员还没有补充个人介绍'}
+                <span className="ml-2 font-[var(--font-display)] text-4xl text-cream-300">”</span>
+              </div>
+            </div>
           </div>
 
-          {athlete.name_en && (
-            <div style={{ fontSize: 16, color: '#8A8078', marginBottom: 16, fontStyle: 'italic' }}>{athlete.name_en}</div>
-          )}
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-            {athlete.nationality && (
-              <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
-                {displayNationality(athlete.nationality)}
-              </span>
-            )}
-            {(athlete.province || athlete.city) && (
-              <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
-                {['籍贯', athlete.province, athlete.city].filter(Boolean).join(' · ')}
-              </span>
-            )}
-            {livingLocation && (
-              <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
-                {['现居', livingLocation].filter(Boolean).join(' · ')}
-              </span>
-            )}
-            {birthYear && (
-              <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
-                {birthYear}年出生
-              </span>
-            )}
-            {startedSupYear && (
-              <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
-                从{startedSupYear}年开始玩桨板
-              </span>
-            )}
-            <span style={{ fontSize: 13, color: '#7A6145', background: '#F0EAE0', border: '1px solid #EDE5D8', padding: '3px 10px', borderRadius: 20 }}>
-              {disciplineLabels[athlete.discipline] || athlete.discipline}
-            </span>
-            {achievements.length > 0 && (
-              <span style={{ fontSize: 13, color: '#B7470A', background: '#FDF2E9', padding: '3px 10px', borderRadius: 20 }}>
-                🏅 {achievements.length} 项荣誉记录
-              </span>
-            )}
-          </div>
-
-          {introShort && (
-            <div style={{ marginBottom: 16, color: '#3D3730', fontSize: 15, lineHeight: 1.75 }}>
-              <div style={{ color: '#8A8078', fontSize: 13, marginBottom: 4 }}>一句话介绍自己</div>
-              {introShort}
+          <aside className="flex flex-col gap-5">
+            <div className="flex justify-start lg:justify-end">
+              <AthleteClaimEntry athleteId={athleteId} />
             </div>
-          )}
-
-          {/* 社交链接 */}
-          {(Object.keys(socialLinks).length > 0) && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {(socialLinks as Record<string, string>).instagram && (
-                <a href={(socialLinks as Record<string, string>).instagram} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: '#fff', background: '#C13584', padding: '4px 12px', borderRadius: 6, textDecoration: 'none' }}>Instagram</a>
-              )}
-              {(socialLinks as Record<string, string>).youtube && (
-                <a href={(socialLinks as Record<string, string>).youtube} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: '#fff', background: '#FF0000', padding: '4px 12px', borderRadius: 6, textDecoration: 'none' }}>YouTube</a>
-              )}
-              {(socialLinks as Record<string, string>).weibo && (
-                <a href={(socialLinks as Record<string, string>).weibo} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: '#fff', background: '#E6162D', padding: '4px 12px', borderRadius: 6, textDecoration: 'none' }}>微博</a>
-              )}
-              {(socialLinks as Record<string, string>).website && (
-                <a href={(socialLinks as Record<string, string>).website} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: '#7A6145', background: '#F0EAE0', border: '1px solid #EDE5D8', padding: '4px 12px', borderRadius: 6, textDecoration: 'none' }}>官网 ↗</a>
-              )}
+            <div className="rounded-xl border border-cream-200 bg-white/72 p-5 shadow-[0_14px_34px_rgba(68,51,35,0.05)]">
+              <div className="text-sm text-warm-gray-500">运动员等级</div>
+              <div className="mt-5 flex items-center gap-4">
+                <span className="grid size-14 place-items-center rounded-full bg-[#F4D986] text-2xl text-brown-700">奖</span>
+                <div>
+                  <div className="text-xl font-bold text-brown-800">{profileLevel}</div>
+                  <div className="mt-1 text-sm text-brown-400">{profileCompleteness} 分</div>
+                </div>
+              </div>
+              <div className="mt-4 text-xs text-warm-gray-400">资料完整度 {profileCompleteness}%</div>
+              <div className="mt-2 h-2 rounded-full bg-cream-200">
+                <div className="h-full rounded-full bg-brown-500" style={{ width: `${profileCompleteness}%` }} />
+              </div>
             </div>
-          )}
+          </aside>
         </div>
-      </div>
+
+        <div className="grid gap-4 border-t border-cream-200 bg-white/45 p-4 sm:grid-cols-2 lg:grid-cols-5 lg:p-7">
+          {[
+            ['ICF 排名', athlete.icf_ranking ? `#${athlete.icf_ranking}` : '待补充', '排名记录'],
+            ['参赛次数', achievements.length ? `${achievements.length} 项` : '待补充', '荣誉记录'],
+            ['主项', displayDiscipline, '公开档案'],
+            ['现居城市', livingLocation || '待补充', '训练城市'],
+            ['资料完整度', `${profileCompleteness}%`, '审核资料'],
+          ].map(([label, value, note]) => (
+            <div key={label} className="rounded-lg border border-cream-200 bg-white/78 p-5">
+              <div className="text-xs font-medium text-warm-gray-400">{label}</div>
+              <div className="mt-3 text-2xl font-bold text-brown-800">{value}</div>
+              <div className="mt-1 text-xs text-warm-gray-400">{note}</div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* ── 更多照片 ─────────────────────────────────────────── */}
       {extraPhotos.length > 0 && (

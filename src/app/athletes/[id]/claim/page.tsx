@@ -48,6 +48,17 @@ export default function AthleteClaimPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const completeness = useMemo(() => {
+    const checks = [
+      form.submitted_avatar_url,
+      form.submitted_name,
+      form.submitted_age,
+      form.submitted_living_province && form.submitted_living_city,
+      form.result_id,
+      form.submitted_bib_number,
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }, [form]);
 
   useEffect(() => {
     if (loading) return;
@@ -141,101 +152,197 @@ export default function AthleteClaimPage() {
   }
 
   if (loading || !token) {
-    return <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-stone-500">正在检查登录状态...</div>;
+    return <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-warm-gray-400">正在检查登录状态...</div>;
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-      <nav className="mb-6 text-sm text-stone-500">
-        <Link href="/athletes" className="text-stone-500 no-underline">运动员</Link>
-        <span> / </span>
-        <Link href={`/athletes/${athleteId}`} className="text-stone-500 no-underline">{athlete?.name || '详情'}</Link>
-        <span> / 更新资料</span>
+    <main className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6 lg:py-10">
+      <nav className="mb-7 flex items-center gap-2 text-sm text-warm-gray-400">
+        <Link href="/" className="text-warm-gray-400 no-underline hover:text-brown-600">首页</Link>
+        <span>/</span>
+        <Link href="/athletes" className="text-warm-gray-400 no-underline hover:text-brown-600">运动员</Link>
+        <span>/</span>
+        <Link href={`/athletes/${athleteId}`} className="text-warm-gray-400 no-underline hover:text-brown-600">{athlete?.name || '详情'}</Link>
+        <span>/ 更新资料</span>
       </nav>
 
-      <section className="mb-6 rounded-lg border border-[#E3D8C9] bg-[#FEFCF9] p-5">
-        <div className="text-xs uppercase tracking-[0.22em] text-[#B39A78]">Athlete Claim</div>
-        <h1 className="mt-2 text-2xl font-semibold text-[#2E2118]">这是我，更新资料</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-500">
-          请选择最近三场比赛中的一场，并补全号码牌。号码牌只用于后台校验，不会在公开成绩页展示。
+      <div className="mx-auto mb-8 flex max-w-3xl items-center justify-between gap-3 text-xs font-semibold text-warm-gray-300 sm:text-sm">
+        {['选择比赛校验', '填写个人资料', '提交审核'].map((label, index) => (
+          <div key={label} className="flex flex-1 items-center gap-3 last:flex-none">
+            <span className={`grid size-7 shrink-0 place-items-center rounded-full ${index === 0 ? 'bg-brown-600 text-white' : 'bg-warm-gray-300/60 text-white'}`}>
+              {index + 1}
+            </span>
+            <span className={index === 0 ? 'text-brown-800' : ''}>{label}</span>
+            {index < 2 && <span className="hidden h-px flex-1 border-t border-dashed border-cream-300 sm:block" />}
+          </div>
+        ))}
+      </div>
+
+      <section className="mb-6 rounded-xl border border-cream-300 bg-[radial-gradient(circle_at_top_right,#F5E7D4,transparent_34%),#FEFCF9] p-6 shadow-[0_18px_55px_rgba(68,51,35,0.07)] sm:p-8">
+        <div className="text-xs uppercase tracking-[0.22em] text-brown-400">Athlete Claim</div>
+        <h1 className="mt-3 font-[var(--font-display)] text-4xl font-medium leading-tight text-brown-800 sm:text-5xl">这是我，更新资料</h1>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-warm-gray-500">
+          请用最近比赛成绩完成身份校验，并提交本人头像、姓名、年龄和现居训练城市。号码牌只用于后台审核，不会在公开成绩页展示。
         </p>
+        <div className="mt-5 inline-flex items-center gap-2 rounded-lg border border-cream-300 bg-cream-50 px-4 py-2 text-xs font-medium text-brown-600">
+          <span className="grid size-6 place-items-center rounded-full bg-[#F0E7D8]">盾</span>
+          我们重视隐私，校验信息仅管理员可见。
+        </div>
       </section>
 
-      {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-      {message && <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{message}</div>}
+      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {message && <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{message}</div>}
 
-      <form onSubmit={submit} className="space-y-5 rounded-lg border border-[#E3D8C9] bg-white p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm font-medium text-stone-700">
-            姓名 <span className="text-red-500">*</span>
-            <input required value={form.submitted_name} onChange={(e) => update('submitted_name', e.target.value)} className="mt-1 h-11 w-full rounded-md border border-[#D8CDBE] px-3 outline-none focus:border-[#8B7355]" />
-          </label>
-          <label className="block text-sm font-medium text-stone-700">
-            年龄 <span className="text-red-500">*</span>
-            <input required inputMode="numeric" value={form.submitted_age} onChange={(e) => update('submitted_age', e.target.value.replace(/[^\d]/g, '').slice(0, 2))} placeholder="例如 28" className="mt-1 h-11 w-full rounded-md border border-[#D8CDBE] px-3 outline-none focus:border-[#8B7355]" />
-          </label>
-        </div>
-
-        <div>
-          <div className="mb-1 text-sm font-medium text-stone-700">现居城市 <span className="text-red-500">*</span></div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <RegionSelect
-              idPrefix="athlete-claim-living"
-              province={form.submitted_living_province}
-              city={form.submitted_living_city}
-              provinceLabel="现居省份"
-              cityLabel="现居城市"
-              onChange={(value) => setForm((prev) => ({
-                ...prev,
-                submitted_living_province: value.province,
-                submitted_living_city: value.city,
-              }))}
-            />
+      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+        <form onSubmit={submit} className="rounded-xl border border-cream-300 bg-white/90 shadow-[0_16px_46px_rgba(68,51,35,0.06)]">
+          <div className="border-b border-cream-200 px-5 py-4 sm:px-7">
+            <div className="flex items-center gap-3">
+              <span className="grid size-8 place-items-center rounded-full bg-cream-100 text-brown-500">人</span>
+              <div>
+                <h2 className="font-semibold text-brown-800">A. 基本信息 <span className="text-xs font-normal text-red-500">* 为必填项</span></h2>
+                <p className="mt-1 text-xs text-warm-gray-400">只填写你现在生活和训练的城市。</p>
+              </div>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-stone-400">请选择你平时玩水、训练或生活的城市。</p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-[160px_1fr]">
-          <div className="rounded-lg border border-[#E3D8C9] bg-[#FAF6EF] p-3">
-            {form.submitted_avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={form.submitted_avatar_url} alt="头像预览" className="aspect-square w-full rounded-md object-cover" />
-            ) : (
-              <div className="flex aspect-square w-full items-center justify-center rounded-md bg-[#EFE4D6] text-sm text-stone-400">头像预览</div>
-            )}
+          <div className="grid gap-5 px-5 py-5 sm:grid-cols-2 sm:px-7">
+            <label className="block text-sm font-medium text-warm-gray-700">
+              姓名 <span className="text-red-500">*</span>
+              <input required value={form.submitted_name} onChange={(e) => update('submitted_name', e.target.value)} className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
+            </label>
+            <label className="block text-sm font-medium text-warm-gray-700">
+              年龄 <span className="text-red-500">*</span>
+              <input required inputMode="numeric" value={form.submitted_age} onChange={(e) => update('submitted_age', e.target.value.replace(/[^\d]/g, '').slice(0, 2))} placeholder="例如 28" className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
+            </label>
+            <div className="sm:col-span-2">
+              <div className="mb-2 text-sm font-medium text-warm-gray-700">现居城市 <span className="text-red-500">*</span></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <RegionSelect
+                  idPrefix="athlete-claim-living"
+                  province={form.submitted_living_province}
+                  city={form.submitted_living_city}
+                  provinceLabel="现居省份"
+                  cityLabel="现居城市"
+                  onChange={(value) => setForm((prev) => ({
+                    ...prev,
+                    submitted_living_province: value.province,
+                    submitted_living_city: value.city,
+                  }))}
+                />
+              </div>
+              <p className="mt-2 text-xs text-warm-gray-400">请选择你平时玩水、训练或生活的城市。</p>
+            </div>
           </div>
-          <label className="block text-sm font-medium text-stone-700">
-            上传本人头像 <span className="text-red-500">*</span>
-            <input required={!form.submitted_avatar_url} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadAvatar(file); }} className="mt-1 block w-full rounded-md border border-[#D8CDBE] px-3 py-2 text-sm" />
-            <span className="mt-2 block text-xs text-stone-400">{uploading ? '上传中...' : '请上传本人清晰人脸头像。支持 JPG、PNG、WebP，审核通过后作为公开头像。'}</span>
-          </label>
-        </div>
 
-        <label className="block text-sm font-medium text-stone-700">
-          最近比赛校验
-          <select required value={form.result_id} onChange={(e) => {
-            const next = results.find((item) => String(item.result_id) === e.target.value);
-            setForm((prev) => ({ ...prev, result_id: e.target.value, submitted_bib_number: next?.bib_prefix || '' }));
-          }} className="mt-1 h-11 w-full rounded-md border border-[#D8CDBE] px-3 outline-none focus:border-[#8B7355]">
-            {results.map((item) => (
-              <option key={item.result_id} value={item.result_id}>
-                {item.event_name} / {item.discipline || '项目'} / {item.finish_time || '成绩'}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block text-sm font-medium text-stone-700">
-          补全该场号码牌 <span className="text-red-500">*</span>
-          <input required value={form.submitted_bib_number} onChange={(e) => update('submitted_bib_number', e.target.value.toUpperCase())} placeholder={selectedResult?.bib_prefix ? `已填前两位：${selectedResult.bib_prefix}` : '请输入号码牌'} className="mt-1 h-11 w-full rounded-md border border-[#D8CDBE] px-3 outline-none focus:border-[#8B7355]" />
-        </label>
+          <div className="border-y border-cream-200 px-5 py-4 sm:px-7">
+            <div className="flex items-center gap-3">
+              <span className="grid size-8 place-items-center rounded-full bg-cream-100 text-brown-500">图</span>
+              <div>
+                <h2 className="font-semibold text-brown-800">B. 头像上传 <span className="text-xs font-normal text-red-500">*</span></h2>
+                <p className="mt-1 text-xs text-warm-gray-400">请上传本人清晰人脸头像，审核通过后作为公开头像。</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-5 px-5 py-5 sm:grid-cols-[160px_1fr] sm:px-7">
+            <div className="rounded-xl border border-cream-300 bg-cream-100 p-2 shadow-inner">
+              {form.submitted_avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.submitted_avatar_url} alt="头像预览" className="aspect-square w-full rounded-lg object-cover" />
+              ) : (
+                <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-[#EFE4D6] text-sm text-warm-gray-400">头像预览</div>
+              )}
+            </div>
+            <label className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-cream-300 bg-cream-50 px-5 py-6 text-center text-sm font-medium text-brown-600 transition hover:border-brown-400">
+              <span className="mb-2 grid size-10 place-items-center rounded-full bg-white text-xl shadow-sm">+</span>
+              <span>点击上传或拖拽本人头像到此处</span>
+              <span className="mt-2 text-xs font-normal text-warm-gray-400">{uploading ? '上传中...' : '建议使用正面清晰照片，支持 JPG、PNG、WebP。'}</span>
+              <input required={!form.submitted_avatar_url} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadAvatar(file); }} className="sr-only" />
+            </label>
+          </div>
 
-        <div className="flex justify-end gap-3">
-          <Link href={`/athletes/${athleteId}`} className="inline-flex h-11 items-center rounded-md border border-[#D8CDBE] px-4 text-sm font-medium text-stone-600 no-underline">返回</Link>
-          <button disabled={submitting || results.length === 0} className="h-11 rounded-md bg-[#6B3E1E] px-5 text-sm font-semibold text-white disabled:opacity-50">
-            {submitting ? '提交中...' : '提交审核'}
-          </button>
-        </div>
-      </form>
+          <div className="border-y border-cream-200 px-5 py-4 sm:px-7">
+            <div className="flex items-center gap-3">
+              <span className="grid size-8 place-items-center rounded-full bg-cream-100 text-brown-500">盾</span>
+              <div>
+                <h2 className="font-semibold text-brown-800">C. 赛事校验</h2>
+                <p className="mt-1 text-xs text-warm-gray-400">从最近成绩中选一场，补全该场号码牌。</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-5 px-5 py-5 sm:px-7">
+            <label className="block text-sm font-medium text-warm-gray-700">
+              最近比赛校验 <span className="text-red-500">*</span>
+              <select required value={form.result_id} onChange={(e) => {
+                const next = results.find((item) => String(item.result_id) === e.target.value);
+                setForm((prev) => ({ ...prev, result_id: e.target.value, submitted_bib_number: next?.bib_prefix || '' }));
+              }} className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15">
+                {results.map((item) => (
+                  <option key={item.result_id} value={item.result_id}>
+                    {item.event_name} / {item.discipline || '项目'} / {item.finish_time || '成绩'}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-sm font-medium text-warm-gray-700">
+              补全该场号码牌 <span className="text-red-500">*</span>
+              <input required value={form.submitted_bib_number} onChange={(e) => update('submitted_bib_number', e.target.value.toUpperCase())} placeholder={selectedResult?.bib_prefix ? `已填前两位：${selectedResult.bib_prefix}` : '请输入号码牌'} className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
+              <span className="mt-2 block text-xs text-warm-gray-400">请输入你在该场比赛中的号码牌。</span>
+            </label>
+          </div>
+
+          <div className="flex flex-col-reverse gap-3 border-t border-cream-200 bg-cream-50/70 px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
+            <Link href={`/athletes/${athleteId}`} className="inline-flex h-11 items-center justify-center rounded-lg border border-cream-300 bg-white px-8 text-sm font-medium text-warm-gray-600 no-underline">返回</Link>
+            <button disabled={submitting || results.length === 0} className="inline-flex h-11 items-center justify-center rounded-lg bg-brown-700 px-8 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(94,74,51,0.22)] transition hover:bg-brown-800 disabled:opacity-50">
+              {submitting ? '提交中...' : '提交审核'}
+            </button>
+          </div>
+        </form>
+
+        <aside className="space-y-5">
+          <div className="rounded-xl border border-cream-300 bg-cream-50 p-5 shadow-[0_14px_40px_rgba(68,51,35,0.05)]">
+            <div className="text-xs font-semibold text-warm-gray-400">当前认领对象</div>
+            <div className="mt-4 flex items-center gap-3">
+              <span className="grid size-9 place-items-center rounded-full border border-cream-300 bg-white text-brown-500">人</span>
+              <div className="text-xl font-semibold text-brown-800">{athlete?.name || '运动员'}</div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-cream-300 bg-cream-50 p-5">
+            <h3 className="text-sm font-semibold text-brown-800">字段说明</h3>
+            <div className="mt-4 space-y-4 text-sm">
+              <div>
+                <div className="font-medium text-green-700">公开展示字段</div>
+                <p className="mt-1 text-xs leading-5 text-warm-gray-400">头像、姓名、年龄和现居训练城市会在审核后进入运动员主页。</p>
+              </div>
+              <div>
+                <div className="font-medium text-brown-600">不公开校验字段</div>
+                <p className="mt-1 text-xs leading-5 text-warm-gray-400">号码牌仅用于确认身份，管理员审核可见。</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-cream-300 bg-cream-50 p-5">
+            <h3 className="text-sm font-semibold text-brown-800">审核流程</h3>
+            <div className="mt-5 flex items-center justify-between text-center text-xs text-brown-700">
+              <span>提交</span>
+              <span className="h-px flex-1 bg-cream-300 mx-3" />
+              <span>审核中</span>
+              <span className="h-px flex-1 bg-cream-300 mx-3" />
+              <span>发布</span>
+            </div>
+            <div className="mt-6">
+              <div className="flex items-center justify-between text-xs text-warm-gray-400">
+                <span>资料完整度</span>
+                <span className="font-semibold text-brown-600">{completeness}%</span>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-cream-200">
+                <div className="h-full rounded-full bg-brown-500 transition-all" style={{ width: `${completeness}%` }} />
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-cream-300 bg-[linear-gradient(135deg,#FEFCF9,#F5EDE4)] p-5 text-xs leading-6 text-warm-gray-500">
+            <div className="mb-2 font-semibold text-brown-800">小贴士</div>
+            信息越准确，管理员越容易通过审核。头像建议使用近期正面照。
+          </div>
+        </aside>
+      </div>
     </main>
   );
 }

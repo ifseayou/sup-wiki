@@ -30,19 +30,7 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
   return (
     <Link
       href={`/athletes/${athleteId}/claim`}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        minHeight: 34,
-        border: '1px solid #CDBA9F',
-        borderRadius: 8,
-        padding: '7px 12px',
-        color: '#6B3E1E',
-        background: '#FFF8EA',
-        fontSize: 13,
-        fontWeight: 600,
-        textDecoration: 'none',
-      }}
+      className="inline-flex h-11 items-center justify-center rounded-lg bg-brown-600 px-5 text-sm font-semibold text-white no-underline shadow-[0_12px_26px_rgba(94,74,51,0.22)] transition hover:bg-brown-700"
     >
       这是我，更新资料
     </Link>

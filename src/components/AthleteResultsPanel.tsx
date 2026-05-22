@@ -25,6 +25,7 @@ interface ResultRow {
   start_date: string | null;
   city: string | null;
   province: string | null;
+  pace_display: string | null;
 }
 
 interface MemberLike {
@@ -98,80 +99,91 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '24px 28px', marginBottom: 32 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 3, height: 20, background: '#7A6145', borderRadius: 2 }} />
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', margin: 0 }}>成绩档案</h2>
+    <section className="mb-10 overflow-hidden rounded-xl border border-cream-200 bg-white shadow-[0_18px_50px_rgba(68,51,35,0.06)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cream-200 bg-cream-50 px-5 py-4 sm:px-7">
+        <div className="flex flex-wrap items-center gap-6 text-sm font-medium">
+          {['成绩档案', '参赛记录', '个人数据', '成长轨迹', '证书荣誉'].map((tab, index) => (
+            <span key={tab} className={index === 0 ? 'border-b-2 border-brown-500 pb-3 text-brown-600' : 'pb-3 text-warm-gray-400'}>
+              {tab}
+            </span>
+          ))}
         </div>
-        <Link href={`/results?athlete_id=${athleteId}`} style={{ color: '#7A6145', fontSize: 13, textDecoration: 'none' }}>
-          进入成绩查询
+        <Link href={`/results?athlete_id=${athleteId}`} className="inline-flex h-9 items-center rounded-lg border border-cream-300 bg-white px-4 text-xs font-semibold text-brown-600 no-underline hover:border-brown-400">
+          进入成绩查询 →
         </Link>
       </div>
 
-      {loading && <p style={{ fontSize: 14, color: '#8A8078', margin: 0 }}>正在检查登录状态...</p>}
-
-      {!loading && (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, color: '#8A8078', fontSize: 13, marginBottom: 14 }}>
-            <span>已收录 {total} 条成绩</span>
-            {fetching && <span>加载中...</span>}
+      <div className="px-5 py-6 sm:px-7">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-[var(--font-display)] text-3xl font-medium text-brown-800">成绩档案</h2>
+            <p className="mt-1 text-sm text-warm-gray-400">已收录 {total} 条成绩</p>
           </div>
+          {fetching && <span className="text-xs text-warm-gray-400">加载中...</span>}
+        </div>
+
+        {loading && <p className="text-sm text-warm-gray-400">正在检查登录状态...</p>}
+
+        {!loading && (
+          <>
           {previewLocked && (
-            <div style={{ border: '1px solid #DFC7A7', background: '#FFF8EA', color: '#6B4A24', borderRadius: 8, padding: '10px 12px', fontSize: 13, marginBottom: 12, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#DFC7A7] bg-[#FFF8EA] px-4 py-3 text-sm text-[#6B4A24]">
               <span>未登录可预览前 3 条，登录后查看完整成绩档案。</span>
-              <Link href={`/login?redirect=${encodeURIComponent(`/athletes/${athleteId}`)}`} style={{ color: '#6B3E1E', fontWeight: 700, textDecoration: 'none' }}>登录查看全部</Link>
+              <Link href={`/login?redirect=${encodeURIComponent(`/athletes/${athleteId}`)}`} className="font-bold text-brown-700 no-underline">登录查看全部</Link>
             </div>
           )}
-          {error && <div style={{ border: '1px solid #F2C4C4', background: '#FFF5F5', color: '#9B2C2C', borderRadius: 8, padding: '10px 12px', fontSize: 13, marginBottom: 12 }}>{error}</div>}
-          <div style={{ overflowX: 'auto', border: '1px solid #EDE5D8', borderRadius: 10 }}>
-            <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: '#F0E7D8', color: '#655D56' }}>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500 }}>赛事</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500 }}>项目</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500 }}>组别</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 500 }}>名次</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 500 }}>成绩</th>
+          {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+          <div className="overflow-x-auto rounded-lg border border-cream-200">
+            <table className="w-full min-w-[860px] border-collapse text-sm">
+              <thead className="bg-cream-100 text-left text-xs text-warm-gray-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">赛事</th>
+                  <th className="px-4 py-3 font-medium">项目</th>
+                  <th className="px-4 py-3 font-medium">组别</th>
+                  <th className="px-4 py-3 text-center font-medium">名次</th>
+                  <th className="px-4 py-3 text-right font-medium">成绩</th>
+                  <th className="px-4 py-3 text-right font-medium">配速</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-cream-200 bg-white">
                 {items.map((row) => {
                   const members = parseMembers(row.team_members);
                   return (
-                  <tr key={row.result_id} style={{ borderTop: '1px solid #F0EAE0' }}>
-                    <td style={{ padding: '11px 12px', color: '#3D3730', lineHeight: 1.55 }}>
-                      <Link href={`/events/${row.event_id}`} style={{ color: '#6F563B', fontWeight: 600, textDecoration: 'none' }}>{row.event_name}</Link>
-                      <div style={{ fontSize: 11, color: '#9A9086' }}>{[row.province, row.city].filter(Boolean).join(' · ')}</div>
+                  <tr key={row.result_id} className="transition hover:bg-cream-50">
+                    <td className="px-4 py-4 leading-6 text-warm-gray-700">
+                      <Link href={`/events/${row.event_id}`} className="font-semibold text-brown-800 no-underline hover:text-brown-500">{row.event_name}</Link>
+                      <div className="text-xs text-warm-gray-400">{[row.province, row.city].filter(Boolean).join(' · ')}</div>
                     </td>
-                    <td style={{ padding: '11px 12px', color: '#655D56' }}>
+                    <td className="px-4 py-4 text-warm-gray-600">
                       {row.discipline}{row.board_class ? ` / ${row.board_class}` : ''}
-                      {members.length > 0 && <div style={{ fontSize: 11, color: '#9A9086', marginTop: 3 }}>成员：{members.join('、')}</div>}
+                      {members.length > 0 && <div className="mt-1 text-xs text-warm-gray-400">成员：{members.join('、')}</div>}
                     </td>
-                    <td style={{ padding: '11px 12px', color: '#655D56' }}>{row.gender_group}{row.round_label ? ` · ${row.round_label}` : ''}</td>
-                    <td style={{ padding: '11px 12px', textAlign: 'center', color: '#2E2118', fontWeight: 700 }}>{row.rank_position >= 9000 ? '—' : row.rank_position}</td>
-                    <td style={{ padding: '11px 12px', textAlign: 'right', color: '#7A6145', fontWeight: 700 }}><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></td>
+                    <td className="px-4 py-4 text-warm-gray-600">{row.gender_group}{row.round_label ? ` · ${row.round_label}` : ''}</td>
+                    <td className="px-4 py-4 text-center font-bold text-brown-800">{row.rank_position >= 9000 ? '—' : row.rank_position}</td>
+                    <td className="px-4 py-4 text-right font-bold text-brown-800"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></td>
+                    <td className="px-4 py-4 text-right font-medium text-warm-gray-600">{row.pace_display || '-'}</td>
                   </tr>
                   );
                 })}
                 {!fetching && items.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: '28px 12px', textAlign: 'center', color: '#9A9086' }}>暂无已收录成绩</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-10 text-center text-warm-gray-400">暂无已收录成绩</td></tr>
                 )}
               </tbody>
             </table>
           </div>
 
           {totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginTop: 14, color: '#8A8078', fontSize: 13 }}>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-warm-gray-400">
               <span>第 {page} / {totalPages} 页</span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" disabled={page <= 1} onClick={() => setPage((v) => Math.max(1, v - 1))} style={{ border: '1px solid #D8CDBE', background: page <= 1 ? '#F6F0E8' : '#FFFCF7', color: '#655D56', borderRadius: 8, padding: '7px 11px', opacity: page <= 1 ? 0.5 : 1 }}>上一页</button>
-                <button type="button" disabled={page >= totalPages} onClick={() => setPage((v) => Math.min(totalPages, v + 1))} style={{ border: '1px solid #D8CDBE', background: page >= totalPages ? '#F6F0E8' : '#FFFCF7', color: '#655D56', borderRadius: 8, padding: '7px 11px', opacity: page >= totalPages ? 0.5 : 1 }}>下一页</button>
+              <div className="flex gap-2">
+                <button type="button" disabled={page <= 1} onClick={() => setPage((v) => Math.max(1, v - 1))} className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-warm-gray-600 disabled:opacity-40">上一页</button>
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage((v) => Math.min(totalPages, v + 1))} className="rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-warm-gray-600 disabled:opacity-40">下一页</button>
               </div>
             </div>
           )}
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </section>
   );
 }
