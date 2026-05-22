@@ -56,8 +56,10 @@ function cleanParam(value?: string) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function formatDate(value?: string | null) {
-  return value ? value.slice(0, 10) : '-';
+function formatDate(value?: string | Date | null) {
+  if (!value) return '-';
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
 }
 
 function classifyAthlete(row: AthleteCenterRow): AthleteView {
