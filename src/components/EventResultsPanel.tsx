@@ -21,6 +21,8 @@ interface EventResultRow {
   finish_time: string;
   result_status_code: string | null;
   result_status_note: string | null;
+  pace_display: string | null;
+  is_long_distance: boolean;
   team_name: string | null;
   team_members: unknown;
   athlete_name: string | null;
@@ -238,6 +240,25 @@ function AthleteCell({
   );
   if (!athleteId) return body;
   return <Link href={`/athletes/${athleteId}`} className="inline-flex max-w-full no-underline">{body}</Link>;
+}
+
+function ResultDetailCell({ row, align = 'right' }: { row: EventResultRow; align?: 'right' | 'left' }) {
+  const pace = row.is_long_distance ? (row.pace_display || '-') : '-';
+  const team = row.team_name || '个人';
+  const note = row.result_label || '-';
+  const justify = align === 'right' ? 'items-end text-right' : 'items-start text-left';
+  return (
+    <div className={`flex flex-col gap-1 ${justify}`}>
+      <div className="text-base font-bold text-[#8A612F]">
+        <ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} />
+      </div>
+      <div className="space-y-0.5 text-xs font-medium leading-5 text-[#8A8078]">
+        <div>配速：{pace}</div>
+        <div>队伍：{team}</div>
+        <div>说明：{note}</div>
+      </div>
+    </div>
+  );
 }
 
 function Pager({
@@ -636,12 +657,11 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                             name={name}
                             photo={row.athlete_photo}
                             members={members}
-                            teamName={row.team_name}
                             meta={row.round_label || null}
                           />
                         </div>
-                        <div className="shrink-0 text-sm font-semibold text-[#8A612F]">
-                          <ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} />
+                        <div className="shrink-0">
+                          <ResultDetailCell row={row} />
                         </div>
                       </div>
                     );
@@ -671,11 +691,10 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                                 name={row.athlete_name || row.athlete_name_snapshot}
                                 photo={row.athlete_photo}
                                 members={members}
-                                teamName={row.team_name || '个人'}
-                                meta={[row.round_label, row.result_label].filter(Boolean).join(' · ') || null}
+                                meta={row.round_label || null}
                               />
                             </td>
-                            <td className="px-5 py-3 text-right font-semibold text-[#8A612F]"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></td>
+                            <td className="px-5 py-3"><ResultDetailCell row={row} /></td>
                           </tr>
                         );
                       })}
@@ -697,15 +716,13 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                               name={row.athlete_name || row.athlete_name_snapshot}
                               photo={row.athlete_photo}
                               members={members}
-                              teamName={row.team_name || '个人'}
+                              meta={row.round_label || null}
                             />
                           </div>
                           <RankBadge rank={row.rank_position} />
                         </div>
-                        <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
-                          <div><div className="text-xs text-[#8A8078]">赛段</div><div className="mt-1 text-[#655D56]">{row.round_label || '-'}</div></div>
-                          <div><div className="text-xs text-[#8A8078]">说明</div><div className="mt-1 text-[#655D56]">{row.result_label || '-'}</div></div>
-                          <div><div className="text-xs text-[#8A8078]">成绩</div><div className="mt-1 font-semibold text-[#8A612F]"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></div></div>
+                        <div className="mt-4">
+                          <ResultDetailCell row={row} align="left" />
                         </div>
                       </div>
                     );
@@ -725,14 +742,13 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                             name={row.athlete_name || row.athlete_name_snapshot}
                             photo={row.athlete_photo}
                             members={members}
-                            teamName={row.team_name || '个人'}
+                            meta={row.round_label || null}
                           />
                         </div>
                         <RankBadge rank={row.rank_position} />
                       </div>
                       <div className="text-sm">
-                        <div className="text-xs text-[#8A8078]">成绩</div>
-                        <div className="mt-0.5 font-semibold text-[#8A612F]"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></div>
+                        <ResultDetailCell row={row} align="left" />
                       </div>
                     </div>
                   );

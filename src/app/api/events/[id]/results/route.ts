@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
+import { getResultPaceDisplay } from '@/lib/result-pace';
 import type { RowDataPacket } from 'mysql2';
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -143,7 +144,21 @@ export async function GET(
       );
 
       const total = Number(countRows[0]?.total || 0);
-      const preview = applyPublicPreview(rows, access);
+      const rowsWithPace = rows.map((row) => {
+        const pace = getResultPaceDisplay({
+          discipline: row.discipline,
+          gender_group: row.gender_group,
+          time_seconds: row.time_seconds,
+          finish_time: row.finish_time,
+          result_status_code: row.result_status_code,
+        });
+        return {
+          ...row,
+          pace_display: pace.pace_display,
+          is_long_distance: pace.is_long_distance,
+        };
+      });
+      const preview = applyPublicPreview(rowsWithPace, access);
       return NextResponse.json({
         section,
         discipline,
@@ -268,7 +283,21 @@ export async function GET(
       [eventId]
     );
 
-    const resultPreview = applyPublicPreview(rows, access);
+    const rowsWithPace = rows.map((row) => {
+      const pace = getResultPaceDisplay({
+        discipline: row.discipline,
+        gender_group: row.gender_group,
+        time_seconds: row.time_seconds,
+        finish_time: row.finish_time,
+        result_status_code: row.result_status_code,
+      });
+      return {
+        ...row,
+        pace_display: pace.pace_display,
+        is_long_distance: pace.is_long_distance,
+      };
+    });
+    const resultPreview = applyPublicPreview(rowsWithPace, access);
     const pointPreview = applyPublicPreview(pointRows, access);
     return NextResponse.json({
       section,
