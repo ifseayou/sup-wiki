@@ -246,7 +246,21 @@ export async function GET(request: NextRequest) {
     );
 
     const total = Number(countRows[0]?.total || 0);
-    const preview = applyPublicPreview(enrichedItems, access);
+    const shouldMaskAthleteScores = !access.authenticated && Boolean(athleteId);
+    const responseItems = shouldMaskAthleteScores
+      ? enrichedItems.map((item) => ({
+          ...item,
+          finish_time: null,
+          result_status_code: null,
+          result_status_note: null,
+          gap_seconds: null,
+          gap_display: '-',
+          pace_seconds_per_km: null,
+          pace_display: '-',
+          score_locked: true,
+        }))
+      : enrichedItems;
+    const preview = applyPublicPreview(responseItems, access);
 
     return NextResponse.json({
       items: preview.items,
@@ -263,6 +277,7 @@ export async function GET(request: NextRequest) {
       access,
       preview_locked: preview.previewLocked,
       preview_limit: access.previewLimit,
+      score_locked: shouldMaskAthleteScores,
     });
   } catch (error) {
     console.error('查询成绩失败:', error);

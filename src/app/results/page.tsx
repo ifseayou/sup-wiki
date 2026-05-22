@@ -18,7 +18,7 @@ interface ResultRow {
   board_class: string | null;
   round_label: string | null;
   rank_position: number;
-  finish_time: string;
+  finish_time: string | null;
   result_status_code: string | null;
   result_status_note: string | null;
   team_name: string | null;
@@ -33,6 +33,7 @@ interface ResultRow {
   gap_display: string | null;
   pace_display: string | null;
   is_long_distance: boolean;
+  score_locked?: boolean;
 }
 
 interface FilterOption {
@@ -239,6 +240,15 @@ function AthleteCell({ row, members }: { row: ResultRow; members: string[] }) {
   );
   if (!row.athlete_id) return body;
   return <Link href={`/athletes/${row.athlete_id}`} className="block no-underline">{body}</Link>;
+}
+
+function LockedScoreValue({ align = 'right' }: { align?: 'right' | 'left' }) {
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-full border border-[#E1D0B8] bg-[#FFF8ED] px-3 py-1.5 text-xs font-semibold text-[#8A6A45] ${align === 'right' ? 'justify-end' : ''}`}>
+      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#D8C2A2] text-[10px] text-white">锁</span>
+      登录后查看
+    </span>
+  );
 }
 
 function pageItems(current: number, total: number) {
@@ -616,7 +626,7 @@ function ResultsContent() {
         {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         {previewLocked && (
           <div className="mb-4 flex flex-col gap-3 rounded-md border border-[#DFC7A7] bg-[#FFF8EA] px-4 py-3 text-sm text-[#6B4A24] sm:flex-row sm:items-center sm:justify-between">
-            <span>未登录用户可预览前 3 条成绩。登录后可查看完整成绩，并使用更多筛选与导出能力。</span>
+            <span>{filters.athlete_id ? '未登录用户搜索运动员时会隐藏成绩、差距和配速。登录后可查看完整成绩。' : '未登录用户可预览前 3 条成绩。登录后可查看完整成绩，并使用更多筛选与导出能力。'}</span>
             <Link href={`/login?redirect=${encodeURIComponent('/results')}`} className="inline-flex shrink-0 rounded-md bg-[#6B3E1E] px-4 py-2 text-sm font-semibold text-white no-underline">
               登录查看全部
             </Link>
@@ -662,10 +672,14 @@ function ResultsContent() {
                           <div className="text-xs text-[#A09284]">{[row.board_class, row.round_label].filter(Boolean).join(' · ') || '-'}</div>
                         </td>
                         <td className="px-4 py-3 text-right text-base font-bold text-[#634325]">
-                          <span className="inline-flex items-center justify-end gap-1.5"><Icon name="timer" /><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></span>
+                          {row.score_locked ? (
+                            <LockedScoreValue />
+                          ) : (
+                            <span className="inline-flex items-center justify-end gap-1.5"><Icon name="timer" /><ResultStatusBadge finishTime={row.finish_time || '-'} statusCode={row.result_status_code} statusNote={row.result_status_note} /></span>
+                          )}
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.gap_display || '-'}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.is_long_distance ? (row.pace_display || '-') : '-'}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.score_locked ? <LockedScoreValue /> : (row.gap_display || '-')}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.score_locked ? <LockedScoreValue /> : (row.is_long_distance ? (row.pace_display || '-') : '-')}</td>
                         <td className="px-4 py-3">
                           <Link href={`/events/${row.event_id}`} className="font-semibold text-[#6B3E1E] hover:text-[#3B2110]">{row.event_name}</Link>
                           <div className="mt-1 text-xs text-[#A09284]">{[row.province, row.city].filter(Boolean).join(' · ')} {row.start_date?.slice(0, 10)}</div>
