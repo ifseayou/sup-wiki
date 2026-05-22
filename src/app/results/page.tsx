@@ -323,7 +323,7 @@ function NoResultsUploadGuide({
           <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-[#8A7B6B]">
             <span className="inline-flex items-center gap-1.5"><Icon name="star" />当前支持 PDF 成绩册</span>
             <span className="hidden h-1 w-1 rounded-full bg-[#CDBAA4] sm:inline-block" />
-            <span>上传后进入人工校对或智能识别流程</span>
+            <span>上传后进入管理员复核流程</span>
           </div>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link href={uploadHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#B57B2F] px-6 text-sm font-semibold text-white no-underline shadow-[0_12px_26px_rgba(181,123,47,0.24)] transition hover:bg-[#945D1F]">
@@ -337,13 +337,13 @@ function NoResultsUploadGuide({
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#F2E3CF] text-[#9B6A2D]">
               <Icon name="upload" />
             </div>
-            <div className="text-base font-semibold text-[#4A3A2A]">拖拽文件到这里，或点击上传入口</div>
-            <div className="mt-1 text-sm">单个 PDF 文件不超过 50MB</div>
+            <div className="text-base font-semibold text-[#4A3A2A]">点击上传入口提交成绩册</div>
+            <div className="mt-1 text-sm">仅支持 PDF，单个文件不超过 20MB</div>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[
-              ['file', '自动识别成绩', '提取成绩信息'],
-              ['calendar', '支持多页成绩册', '批量校对更高效'],
+              ['file', '提交官方 PDF', '保留原始成绩来源'],
+              ['calendar', '管理员复核', '确认赛事和项目数据'],
               ['trophy', '补充赛事数据库', '完善历史赛事数据'],
             ].map(([icon, title, desc]) => (
               <div key={title} className="rounded-lg border border-[#E8D9C4] bg-[#FFF9F0] px-4 py-3">

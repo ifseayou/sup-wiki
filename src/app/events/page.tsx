@@ -266,6 +266,7 @@ export default async function EventsPage({
   const pageCount = Math.max(1, Math.ceil(visibleEvents.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pagedEvents = visibleEvents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const uploadHref = `/events/upload-results${search ? `?event_name=${encodeURIComponent(search)}` : ''}`;
 
   return (
     <main className="min-h-screen bg-[#F7F1E8] text-[#2E2118]">
@@ -342,7 +343,7 @@ export default async function EventsPage({
             <EventSelect name="province" value={province} options={provinces.map((item) => [item, '全部省份', item])} placeholder="全部省份" />
             <input type="hidden" name="page_size" value={pageSize} />
             <Link
-              href="/admin/result-sources"
+              href={uploadHref}
               className="inline-flex h-12 items-center justify-center whitespace-nowrap rounded-xl border border-[#B58A48] bg-[#FEFCF9] px-4 text-sm font-semibold text-[#7A5530] no-underline transition hover:bg-[#F5E9D8]"
             >
               上传赛事成绩册
@@ -392,8 +393,25 @@ export default async function EventsPage({
             </div>
           </section>
         ) : (
-          <div className="rounded-2xl border border-[#E3D6C6] bg-white/70 py-20 text-center text-[#8A8078]">
-            暂无符合条件的赛事
+          <div className="rounded-2xl border border-[#E3D6C6] bg-white/76 px-6 py-16 text-center shadow-[0_16px_40px_rgba(88,63,36,0.08)]">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#F2E3CF] text-[#8A612F]">
+              <UploadIcon />
+            </div>
+            <h2 className="mt-5 text-xl font-semibold text-[#2E2118]">没有找到对应赛事</h2>
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-7 text-[#75695F]">
+              如果你手上有这场比赛的官方 PDF 成绩册，可以先提交给我们，管理员会复核后决定是否整理入库。
+            </p>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                href={uploadHref}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#8A612F] px-5 text-sm font-semibold text-white no-underline shadow-[0_8px_18px_rgba(138,97,47,0.22)] transition hover:bg-[#704D25]"
+              >
+                <UploadIcon />上传赛事成绩册
+              </Link>
+              <Link href="/events" className="inline-flex h-11 items-center justify-center rounded-xl border border-[#E3D6C6] bg-white px-5 text-sm font-semibold text-[#7A5530] no-underline transition hover:bg-[#F5E9D8]">
+                返回全部赛事
+              </Link>
+            </div>
           </div>
         )}
 
@@ -621,4 +639,8 @@ function PinIcon() {
 
 function DocumentIcon() {
   return <svg className="h-4 w-4 shrink-0 text-[#8A8078]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3h7l4 4v14H7V3Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M14 3v5h5M9.5 13h5M9.5 17h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>;
+}
+
+function UploadIcon() {
+  return <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V5m0 0L8 9m4-4 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
 }

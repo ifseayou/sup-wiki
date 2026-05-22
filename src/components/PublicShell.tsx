@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Header from './Header';
 import Footer from './Footer';
+import GlobalSupportHint from './GlobalSupportHint';
 
 export default function PublicShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,6 +16,7 @@ export default function PublicShell({ children }: { children: React.ReactNode })
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
+      <GlobalSupportHint />
     </>
   );
 }
