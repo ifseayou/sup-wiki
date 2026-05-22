@@ -58,7 +58,7 @@ const remoteCommand = [
   config.buildCommand,
   `${config.processManager} restart ${service.name}`,
   `${config.processManager} status ${service.name} --no-color`,
-  `status=$(curl -s -o /dev/null -w "%{http_code}" ${shellQuote(healthUrl)}) && echo "Health ${healthUrl}: $status" && case "$status" in 2*|3*) exit 0 ;; *) exit 1 ;; esac`,
+  `for i in 1 2 3 4 5 6; do status=$(curl -s -o /dev/null -w "%{http_code}" ${shellQuote(healthUrl)} || true); echo "Health ${healthUrl}: $status"; case "$status" in 2*|3*) exit 0 ;; esac; sleep 3; done; exit 1`,
 ].join(" && ");
 
 run("ssh", [remote, remoteCommand]);
