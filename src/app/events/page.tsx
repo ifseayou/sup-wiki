@@ -1,8 +1,6 @@
 import Link from 'next/link';
-import { Suspense } from 'react';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
-import FilterBar from '@/components/FilterBar';
 import ArticleGuideTabs from '@/components/ArticleGuideTabs';
 import { getEventStarBadgeStyle } from '@/lib/event-stars';
 
@@ -21,6 +19,7 @@ interface EventRow extends RowDataPacket {
   organizer: string | null;
   description: string | null;
   disciplines: string | null;
+  images: string | null;
   price_range: string | null;
   event_status: string;
   star_level: string | null;
@@ -28,7 +27,18 @@ interface EventRow extends RowDataPacket {
   results_count: number;
 }
 
-type EventWithDisciplines = Omit<EventRow, 'disciplines'> & { disciplines: string[] };
+type EventWithDisciplines = Omit<EventRow, 'disciplines' | 'images'> & {
+  disciplines: string[];
+  images: string[];
+};
+
+interface EventStats extends RowDataPacket {
+  total: number;
+  active: number;
+  completed: number;
+}
+
+const DEFAULT_PAGE_SIZE = 6;
 
 const eventTypeLabels: Record<string, string> = {
   race: '竞速赛',
@@ -37,17 +47,61 @@ const eventTypeLabels: Record<string, string> = {
   exhibition: '展览赛',
 };
 
-const eventStatusLabels: Record<string, { label: string; style: string }> = {
-  upcoming: { label: '即将开始', style: 'bg-amber-100 text-amber-800' },
-  ongoing: { label: '进行中', style: 'bg-green-100 text-green-800' },
-  completed: { label: '已结束', style: 'bg-stone-100 text-stone-600' },
-  cancelled: { label: '已取消', style: 'bg-red-100 text-red-600' },
+const eventStatusLabels: Record<string, { label: string; dot: string; chip: string }> = {
+  upcoming: { label: '即将开始', dot: 'bg-amber-500', chip: 'bg-[#FFF7E8] text-[#9A6A22] border-[#E9D1A7]' },
+  ongoing: { label: '进行中', dot: 'bg-[#6E8567]', chip: 'bg-[#ECF0E8] text-[#4F6B48] border-[#D4DFC9]' },
+  completed: { label: '已结束', dot: 'bg-stone-400', chip: 'bg-white/90 text-[#655D56] border-white/70' },
+  cancelled: { label: '已取消', dot: 'bg-red-400', chip: 'bg-red-50 text-red-700 border-red-100' },
 };
+
+const quickFilters = [
+  { label: '国赛', search: '中国' },
+  { label: '省赛', search: '省' },
+  { label: '俱乐部赛', search: '俱乐部' },
+  { label: '技术赛', search: '技术' },
+  { label: '长距离', search: '长距离' },
+];
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function parseJsonArray(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizePage(value?: string) {
+  const page = Number(value || '1');
+  return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+}
+
+function normalizePageSize(value?: string) {
+  const size = Number(value || DEFAULT_PAGE_SIZE);
+  return [6, 12, 24].includes(size) ? size : DEFAULT_PAGE_SIZE;
+}
+
+function buildHref(
+  current: Record<string, string | undefined>,
+  next: Record<string, string | number | undefined | null>,
+) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(current)) {
+    if (value) params.set(key, value);
+  }
+  for (const [key, value] of Object.entries(next)) {
+    if (value === undefined || value === null || value === '') params.delete(key);
+    else params.set(key, String(value));
+  }
+  const query = params.toString();
+  return query ? `/events?${query}` : '/events';
 }
 
 async function getGuideArticles() {
@@ -63,39 +117,42 @@ async function getGuideArticles() {
   }
 }
 
+function buildEventWhere(event_type?: string, event_status?: string, province?: string, year?: string, search?: string) {
+  const conditions: string[] = ["sup_events.status = 'published'"];
+  const params: (string | number)[] = [];
+
+  if (event_type) {
+    conditions.push('sup_events.event_type = ?');
+    params.push(event_type);
+  }
+  if (event_status) {
+    conditions.push('sup_events.event_status = ?');
+    params.push(event_status);
+  }
+  if (province) {
+    conditions.push('sup_events.province = ?');
+    params.push(province);
+  }
+  if (year) {
+    conditions.push('YEAR(sup_events.start_date) = ?');
+    params.push(Number(year));
+  }
+  if (search) {
+    conditions.push('(sup_events.name LIKE ? OR sup_events.city LIKE ? OR sup_events.province LIKE ? OR sup_events.venue LIKE ?)');
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+  }
+
+  return { where: `WHERE ${conditions.join(' AND ')}`, params };
+}
+
 async function getEvents(event_type?: string, event_status?: string, province?: string, year?: string, search?: string) {
   try {
-    const conditions: string[] = ["status = 'published'"];
-    const params: (string | number)[] = [];
-
-    if (event_type) {
-      conditions.push('event_type = ?');
-      params.push(event_type);
-    }
-    if (event_status) {
-      conditions.push('event_status = ?');
-      params.push(event_status);
-    }
-    if (province) {
-      conditions.push('province = ?');
-      params.push(province);
-    }
-    if (year) {
-      conditions.push('YEAR(start_date) = ?');
-      params.push(Number(year));
-    }
-    if (search) {
-      conditions.push('name LIKE ?');
-      params.push(`%${search}%`);
-    }
-
-    const where = `WHERE ${conditions.join(' AND ')}`;
-
+    const { where, params } = buildEventWhere(event_type, event_status, province, year, search);
     const [events] = await pool.execute<EventRow[]>(
       `SELECT sup_events.event_id, name, slug, event_type, location, province, city, venue,
-              start_date, end_date, registration_deadline, organizer,
-              description, disciplines, price_range, event_status, star_level,
-              score_coefficient, COALESCE(r.results_count, 0) AS results_count
+              start_date, end_date, registration_deadline, organizer, description, disciplines,
+              images, price_range, event_status, star_level, score_coefficient,
+              COALESCE(r.results_count, 0) AS results_count
        FROM sup_events
        LEFT JOIN (
          SELECT event_id, COUNT(*) AS results_count
@@ -105,17 +162,34 @@ async function getEvents(event_type?: string, event_status?: string, province?: 
        ${where}
        ORDER BY
          CASE event_status WHEN 'ongoing' THEN 0 WHEN 'upcoming' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,
-         start_date ASC`,
+         start_date DESC`,
       params
     );
 
-    return events.map((e) => ({
-      ...e,
-      disciplines: Array.isArray(e.disciplines) ? e.disciplines : (e.disciplines ? JSON.parse(e.disciplines) : []),
+    return events.map((event) => ({
+      ...event,
+      disciplines: parseJsonArray(event.disciplines),
+      images: parseJsonArray(event.images),
     }));
   } catch (error) {
     console.error('获取赛事列表失败:', error);
     return [];
+  }
+}
+
+async function getEventStats(): Promise<EventStats> {
+  try {
+    const [rows] = await pool.execute<EventStats[]>(
+      `SELECT
+         COUNT(*) AS total,
+         SUM(CASE WHEN event_status IN ('ongoing', 'upcoming') THEN 1 ELSE 0 END) AS active,
+         SUM(CASE WHEN event_status = 'completed' THEN 1 ELSE 0 END) AS completed
+       FROM sup_events
+       WHERE status = 'published'`
+    );
+    return rows[0] || { total: 0, active: 0, completed: 0 } as EventStats;
+  } catch {
+    return { total: 0, active: 0, completed: 0 } as EventStats;
   }
 }
 
@@ -150,103 +224,248 @@ async function getEventProvinces(): Promise<string[]> {
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ event_type?: string; event_status?: string; province?: string; year?: string; search?: string }>;
+  searchParams: Promise<{
+    event_type?: string;
+    event_status?: string;
+    province?: string;
+    year?: string;
+    search?: string;
+    page?: string;
+    page_size?: string;
+  }>;
 }) {
-  const { event_type, event_status, province, year, search } = await searchParams;
-  const [events, guideArticles, years, provinces] = await Promise.all([
-    getEvents(event_type, event_status, province, year, search?.trim()),
+  const params = await searchParams;
+  const { event_type, event_status, province, year } = params;
+  const search = params.search?.trim();
+  const page = normalizePage(params.page);
+  const pageSize = normalizePageSize(params.page_size);
+
+  const [events, guideArticles, stats, years, provinces] = await Promise.all([
+    getEvents(event_type, event_status, province, year, search),
     getGuideArticles(),
+    getEventStats(),
     getEventYears(),
     getEventProvinces(),
   ]);
 
-  const filters = [
-    {
-      key: 'event_type',
-      placeholder: '全部类型',
-      options: [
-        { label: '竞速赛', value: 'race' },
-        { label: '嘉年华', value: 'festival' },
-        { label: '训练营', value: 'training' },
-        { label: '展览赛', value: 'exhibition' },
-      ],
-    },
-    {
-      key: 'event_status',
-      placeholder: '全部状态',
-      options: [
-        { label: '即将开始', value: 'upcoming' },
-        { label: '进行中', value: 'ongoing' },
-        { label: '已结束', value: 'completed' },
-      ],
-    },
-    {
-      key: 'year',
-      placeholder: '全部年份',
-      options: years.map((item) => ({ label: `${item} 年`, value: item })),
-    },
-    {
-      key: 'province',
-      placeholder: '全部省份',
-      options: provinces.map((item) => ({ label: item, value: item })),
-    },
-  ];
-
-  const upcomingOrOngoing = events.filter((e) => e.event_status === 'upcoming' || e.event_status === 'ongoing');
-  const completed = events
-    .filter((e) => e.event_status === 'completed')
-    .sort((a, b) => new Date(b.start_date || 0).getTime() - new Date(a.start_date || 0).getTime());
+  const currentParams = { event_type, event_status, province, year, search, page_size: String(pageSize) };
+  const activeEvents = events.filter((event) => event.event_status === 'upcoming' || event.event_status === 'ongoing');
+  const completedEvents = events.filter((event) => event.event_status === 'completed');
+  const visibleEvents = event_status === 'upcoming' || event_status === 'ongoing'
+    ? activeEvents
+    : event_status && event_status !== 'completed'
+      ? events
+      : completedEvents;
+  const visibleTitle = event_status === 'upcoming'
+    ? '即将开始赛事'
+    : event_status === 'ongoing'
+      ? '进行中赛事'
+      : event_status && event_status !== 'completed'
+        ? '筛选结果'
+        : '已结束赛事';
+  const pageCount = Math.max(1, Math.ceil(visibleEvents.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pagedEvents = visibleEvents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mb-10">
-        <h1 className="mb-2 text-3xl font-bold text-stone-800">国内赛事</h1>
-        <p className="text-stone-500">掌握国内 SUP 桨板赛事动态，报名参与或关注精彩比赛</p>
-      </div>
-
-      <ArticleGuideTabs articles={guideArticles} />
-
-      <Suspense>
-        <FilterBar
-          filters={filters}
-          searches={[{ key: 'search', placeholder: '搜索赛事名称' }]}
+    <main className="min-h-screen bg-[#F7F1E8] text-[#2E2118]">
+      <section className="relative overflow-hidden border-b border-[#E8DDCE] bg-[#F7F1E8]">
+        <div
+          className="absolute inset-0 opacity-70"
+          style={{
+            background:
+              'radial-gradient(circle at 70% 35%, rgba(212, 184, 138, 0.32), transparent 34%), linear-gradient(105deg, rgba(250,247,242,0.96) 0%, rgba(250,247,242,0.82) 42%, rgba(238,224,204,0.56) 100%)',
+          }}
         />
-      </Suspense>
-
-      {upcomingOrOngoing.length > 0 && (
-        <section className="mb-12">
-          <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold text-stone-700">
-            <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
-            即将举办 / 进行中
-          </h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {upcomingOrOngoing.map((event) => (
-              <EventCard key={event.event_id} event={event} highlighted />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {completed.length > 0 && (
-        <section className="mb-12">
-          <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold text-stone-700">
-            <span className="inline-block h-2 w-2 rounded-full bg-stone-400" />
-            已结束赛事
-          </h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {completed.map((event) => (
-              <EventCard key={event.event_id} event={event} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {events.length === 0 && (
-        <div className="py-20 text-center">
-          <p className="text-stone-500">暂无符合条件的赛事</p>
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#F7F1E8] to-transparent" />
+        <div className="pointer-events-none absolute left-[48%] top-8 hidden h-52 w-80 opacity-30 md:block">
+          <div className="absolute bottom-8 left-10 h-1 w-64 rounded-full bg-[#B99159]" />
+          <div className="absolute bottom-9 left-28 h-40 w-14 rounded-full bg-[#8E6C48]/35 blur-[1px]" />
+          <div className="absolute bottom-44 left-36 h-8 w-8 rounded-full bg-[#8E6C48]/35" />
+          <div className="absolute bottom-28 left-16 h-36 w-1 rotate-[-22deg] rounded-full bg-[#8E6C48]/50" />
         </div>
-      )}
+
+        <div className="relative mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8">
+          <div className="grid gap-8 lg:grid-cols-[1fr_520px] lg:items-center">
+            <div>
+              <h1 className="font-[var(--font-display)] text-5xl font-semibold leading-none tracking-[0.02em] text-[#2E2118] sm:text-6xl">
+                国内赛事
+              </h1>
+              <div className="mt-4 h-px w-12 bg-[#B58A48]" />
+              <p className="mt-4 max-w-2xl text-base text-[#655D56] sm:text-lg">
+                掌握国内 SUP 桨板赛事动态，报名参与或关注精彩比赛
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <StatCard icon="trophy" label="赛事总数" value={Number(stats.total || 0)} />
+              <StatCard icon="play" label="进行中" value={Number(stats.active || 0)} tone="sage" />
+              <StatCard icon="check" label="已结束" value={Number(stats.completed || 0)} tone="stone" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-5 overflow-hidden rounded-2xl border border-[#E3D6C6] bg-white/76 shadow-[0_16px_40px_rgba(88,63,36,0.08)] backdrop-blur">
+          <ArticleGuideTabs articles={guideArticles} />
+        </div>
+
+        <section className="mb-7 rounded-2xl border border-[#E3D6C6] bg-white/70 p-4 shadow-[0_12px_34px_rgba(88,63,36,0.08)]">
+          <form action="/events" className="grid gap-3 lg:grid-cols-[minmax(260px,1.1fr)_90px_repeat(4,minmax(140px,0.6fr))_auto]">
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8A8078]">
+                <SearchIcon />
+              </span>
+              <input
+                name="search"
+                defaultValue={search || ''}
+                placeholder="搜索赛事名称"
+                className="h-12 w-full rounded-xl border border-[#E3D6C6] bg-white/85 pl-11 pr-4 text-sm text-[#2E2118] outline-none transition focus:border-[#B58A48]"
+                type="search"
+              />
+            </div>
+            <button className="h-12 rounded-xl bg-[#8A612F] px-5 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(138,97,47,0.22)] transition hover:bg-[#704D25]" type="submit">
+              搜索
+            </button>
+            <EventSelect name="event_type" value={event_type} options={[
+              ['race', '全部类型', '竞速赛'],
+              ['festival', '全部类型', '嘉年华'],
+              ['training', '全部类型', '训练营'],
+              ['exhibition', '全部类型', '展览赛'],
+            ]} placeholder="全部类型" />
+            <EventSelect name="event_status" value={event_status} options={[
+              ['upcoming', '全部状态', '即将开始'],
+              ['ongoing', '全部状态', '进行中'],
+              ['completed', '全部状态', '已结束'],
+            ]} placeholder="全部状态" />
+            <EventSelect name="year" value={year} options={years.map((item) => [item, '全部年份', `${item} 年`])} placeholder="全部年份" />
+            <EventSelect name="province" value={province} options={provinces.map((item) => [item, '全部省份', item])} placeholder="全部省份" />
+            <input type="hidden" name="page_size" value={pageSize} />
+            <Link
+              href="/admin/result-sources"
+              className="inline-flex h-12 items-center justify-center whitespace-nowrap rounded-xl border border-[#B58A48] bg-[#FEFCF9] px-4 text-sm font-semibold text-[#7A5530] no-underline transition hover:bg-[#F5E9D8]"
+            >
+              上传赛事成绩册
+            </Link>
+          </form>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {quickFilters.map((item) => {
+              const active = search === item.search;
+              return (
+                <Link
+                  key={item.label}
+                  href={buildHref(currentParams, { search: active ? null : item.search, page: 1 })}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium no-underline transition ${
+                    active ? 'bg-[#B58A48] text-white' : 'bg-[#F4EBDD] text-[#7A6145] hover:bg-[#E9D8BF]'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+            {(event_type || event_status || province || year || search) && (
+              <Link href="/events" className="rounded-lg px-3 py-1.5 text-xs font-medium text-[#A08060] no-underline hover:text-[#2E2118]">
+                清除筛选
+              </Link>
+            )}
+          </div>
+        </section>
+
+        {activeEvents.length > 0 && !event_status && (
+          <section className="mb-8">
+            <SectionTitle dot="bg-[#6E8567]" title="即将举办 / 进行中" />
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {activeEvents.slice(0, 3).map((event) => (
+                <EventCard key={event.event_id} event={event} highlighted />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {pagedEvents.length > 0 ? (
+          <section className="mb-8">
+            <SectionTitle dot="bg-[#B58A48]" title={visibleTitle} />
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {pagedEvents.map((event) => (
+                <EventCard key={event.event_id} event={event} />
+              ))}
+            </div>
+          </section>
+        ) : (
+          <div className="rounded-2xl border border-[#E3D6C6] bg-white/70 py-20 text-center text-[#8A8078]">
+            暂无符合条件的赛事
+          </div>
+        )}
+
+        {visibleEvents.length > pageSize && (
+          <Pagination
+            currentPage={currentPage}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            currentParams={currentParams}
+          />
+        )}
+      </div>
+    </main>
+  );
+}
+
+function EventSelect({
+  name,
+  value,
+  placeholder,
+  options,
+}: {
+  name: string;
+  value?: string;
+  placeholder: string;
+  options: string[][];
+}) {
+  return (
+    <select
+      name={name}
+      defaultValue={value || ''}
+      className="h-12 rounded-xl border border-[#E3D6C6] bg-white/85 px-4 text-sm text-[#655D56] outline-none transition focus:border-[#B58A48]"
+    >
+      <option value="">{placeholder}</option>
+      {options.map(([optionValue, , label]) => (
+        <option key={optionValue} value={optionValue}>{label}</option>
+      ))}
+    </select>
+  );
+}
+
+function StatCard({ icon, label, value, tone = 'gold' }: {
+  icon: 'trophy' | 'play' | 'check';
+  label: string;
+  value: number;
+  tone?: 'gold' | 'sage' | 'stone';
+}) {
+  const toneClass = tone === 'sage' ? 'bg-[#E8EEE3] text-[#63785D]' : tone === 'stone' ? 'bg-[#ECEAE6] text-[#655D56]' : 'bg-[#F5E8D0] text-[#B58A48]';
+  return (
+    <div className="rounded-2xl border border-white/80 bg-white/76 p-5 shadow-[0_18px_40px_rgba(88,63,36,0.10)] backdrop-blur">
+      <div className="flex items-center gap-4">
+        <div className={`flex h-14 w-14 items-center justify-center rounded-full ${toneClass}`}>
+          {icon === 'trophy' && <TrophyIcon />}
+          {icon === 'play' && <PlayIcon />}
+          {icon === 'check' && <CheckIcon />}
+        </div>
+        <div>
+          <div className="text-sm text-[#655D56]">{label}</div>
+          <div className="font-[var(--font-display)] text-4xl font-semibold leading-none text-[#2E2118]">{value}</div>
+          <div className="mt-1 h-px w-5 bg-[#B58A48]" />
+        </div>
+      </div>
     </div>
+  );
+}
+
+function SectionTitle({ dot, title }: { dot: string; title: string }) {
+  return (
+    <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold text-[#2E2118]">
+      <span className={`inline-block h-3 w-3 rounded-full ${dot} shadow-[0_0_0_4px_rgba(181,138,72,0.15)]`} />
+      {title}
+    </h2>
   );
 }
 
@@ -254,58 +473,152 @@ function EventCard({ event, highlighted = false }: {
   event: EventWithDisciplines;
   highlighted?: boolean;
 }) {
-  const statusInfo = eventStatusLabels[event.event_status] || { label: event.event_status, style: 'bg-stone-100 text-stone-600' };
+  const statusInfo = eventStatusLabels[event.event_status] || eventStatusLabels.completed;
   const typeLabel = eventTypeLabels[event.event_type] || event.event_type;
+  const image = event.images[0];
+  const fallback = highlighted
+    ? 'linear-gradient(120deg, rgba(117,148,156,0.72), rgba(242,218,172,0.72)), radial-gradient(circle at 78% 30%, rgba(255,255,255,0.72), transparent 28%)'
+    : 'linear-gradient(120deg, rgba(137,160,150,0.62), rgba(210,182,139,0.66)), radial-gradient(circle at 70% 24%, rgba(255,255,255,0.64), transparent 28%)';
 
   return (
     <Link
       href={`/events/${event.event_id}`}
-      className={`group block rounded-xl border transition-all duration-200 hover:shadow-md ${
-        highlighted
-          ? 'border-[#E0D8CC] bg-[#FEFCF9] hover:border-[#8B7355]'
-          : 'border-[#E0D8CC] bg-[#FEFCF9] opacity-80 hover:opacity-100'
-      }`}
+      className="group block overflow-hidden rounded-xl border border-[#E0D8CC] bg-white/82 no-underline shadow-[0_14px_34px_rgba(88,63,36,0.08)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(88,63,36,0.14)]"
     >
-      <div className={`h-1.5 rounded-t-xl ${highlighted ? 'bg-amber-400' : 'bg-stone-300'}`} />
-      <div className="p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusInfo.style}`}>
-            {statusInfo.label}
-          </span>
+      <div
+        className="relative h-[84px] overflow-hidden"
+        style={{
+          backgroundImage: image ? `linear-gradient(90deg, rgba(54,42,30,0.2), rgba(255,255,255,0.2)), url(${image})` : fallback,
+          backgroundPosition: 'center',
+          backgroundSize: 'cover',
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-[#2E2118]/10" />
+        <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+          <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusInfo.chip}`}>{statusInfo.label}</span>
           {event.star_level && (
-            <span className={`rounded-full border px-2 py-0.5 text-xs ${getEventStarBadgeStyle(event.star_level)}`}>
+            <span className={`rounded-full border px-3 py-1 text-xs font-medium ${getEventStarBadgeStyle(event.star_level)}`}>
               {event.star_level}
               {event.score_coefficient ? ` / ${event.score_coefficient}` : ''}
             </span>
           )}
-          <span className="rounded-full bg-[#F0EBE1] px-2 py-0.5 text-xs text-[#8B7355]">
+          <span className="rounded-full border border-[#EAD8B9] bg-[#FFF7E8] px-3 py-1 text-xs font-medium text-[#8A612F]">
             {typeLabel}
           </span>
         </div>
-        <h3 className="mb-2 font-semibold leading-snug text-stone-800 transition-colors group-hover:text-[#8B7355]">
+      </div>
+      <div className="p-5">
+        <h3 className="min-h-[48px] text-lg font-semibold leading-snug text-[#2E2118] transition-colors group-hover:text-[#8A612F]">
           {event.name}
         </h3>
-        {event.start_date && (
-          <div className="mb-1 text-sm text-stone-500">
-            {formatDate(event.start_date)}
-            {event.end_date && event.end_date !== event.start_date && ` — ${formatDate(event.end_date)}`}
+        <div className="mt-3 space-y-1.5 text-sm text-[#655D56]">
+          {event.start_date && (
+            <div className="flex items-center gap-2">
+              <CalendarIcon />
+              <span>{formatDate(event.start_date)}{event.end_date && event.end_date !== event.start_date ? ` 至 ${formatDate(event.end_date)}` : ''}</span>
+            </div>
+          )}
+          {(event.city || event.province) && (
+            <div className="flex items-center gap-2">
+              <PinIcon />
+              <span>{[event.city, event.province].filter(Boolean).join('，')}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <DocumentIcon />
+            <span>已录成绩 {event.results_count} 条</span>
           </div>
-        )}
-        {(event.city || event.province) && (
-          <div className="mb-1 text-sm text-stone-500">
-            {[event.city, event.province].filter(Boolean).join('，')}
-          </div>
-        )}
-        {event.organizer && (
-          <div className="mt-3 truncate text-xs text-stone-400">主办：{event.organizer}</div>
-        )}
-        {event.results_count > 0 && (
-          <div className="mt-2 text-xs text-stone-400">已录成绩 {event.results_count} 条</div>
-        )}
-        {event.price_range && (
-          <div className="mt-2 text-sm font-medium text-[#8B7355]">{event.price_range}</div>
-        )}
+        </div>
+        <div className="mt-4 flex justify-end text-sm font-semibold text-[#8A612F]">
+          查看详情 <span className="ml-2 transition group-hover:translate-x-1">›</span>
+        </div>
       </div>
     </Link>
   );
+}
+
+function Pagination({ currentPage, pageCount, pageSize, currentParams }: {
+  currentPage: number;
+  pageCount: number;
+  pageSize: number;
+  currentParams: Record<string, string | undefined>;
+}) {
+  const pages = Array.from(new Set([1, currentPage - 1, currentPage, currentPage + 1, pageCount]))
+    .filter((page) => page >= 1 && page <= pageCount)
+    .sort((a, b) => a - b);
+  return (
+    <div className="mb-8 flex flex-wrap items-center justify-center gap-4">
+      <Link
+        href={buildHref(currentParams, { page: Math.max(1, currentPage - 1), page_size: pageSize })}
+        className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E0D8CC] bg-white/82 text-xl text-[#655D56] no-underline transition hover:border-[#B58A48]"
+      >
+        ‹
+      </Link>
+      <div className="flex items-center gap-2">
+        {pages.map((page, index) => {
+          const previous = pages[index - 1];
+          return (
+            <span key={page} className="flex items-center gap-2">
+              {previous && page - previous > 1 && <span className="px-3 text-[#655D56]">...</span>}
+              <Link
+                href={buildHref(currentParams, { page, page_size: pageSize })}
+                className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold no-underline transition ${
+                  page === currentPage ? 'bg-[#B58A48] text-white shadow-[0_10px_22px_rgba(181,138,72,0.26)]' : 'text-[#655D56] hover:bg-white/82'
+                }`}
+              >
+                {page}
+              </Link>
+            </span>
+          );
+        })}
+      </div>
+      <Link
+        href={buildHref(currentParams, { page: Math.min(pageCount, currentPage + 1), page_size: pageSize })}
+        className="flex h-11 w-11 items-center justify-center rounded-full border border-[#E0D8CC] bg-white/82 text-xl text-[#655D56] no-underline transition hover:border-[#B58A48]"
+      >
+        ›
+      </Link>
+      <form action="/events" className="ml-2 flex h-11 items-center gap-2 rounded-xl border border-[#E0D8CC] bg-white/82 px-4 text-sm text-[#655D56]">
+        {Object.entries(currentParams).map(([key, value]) => (
+          key !== 'page_size' && value ? <input key={key} type="hidden" name={key} value={value} /> : null
+        ))}
+        <input type="hidden" name="page" value="1" />
+        <span>每页</span>
+        <select name="page_size" defaultValue={pageSize} className="bg-transparent outline-none">
+          <option value="6">6 条</option>
+          <option value="12">12 条</option>
+          <option value="24">24 条</option>
+        </select>
+        <button type="submit" className="text-xs font-semibold text-[#8A612F]">应用</button>
+      </form>
+    </div>
+  );
+}
+
+function SearchIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m21 21-4.3-4.3m1.3-5.2a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>;
+}
+
+function TrophyIcon() {
+  return <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 4h8v3.5a4 4 0 0 1-8 0V4Z" stroke="currentColor" strokeWidth="1.7" /><path d="M8 6H5.5a2.5 2.5 0 0 0 0 5H8M16 6h2.5a2.5 2.5 0 0 1 0 5H16M12 12v4M9 20h6M10 16h4v4h-4v-4Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function PlayIcon() {
+  return <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" /><path d="m10 8 6 4-6 4V8Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /></svg>;
+}
+
+function CheckIcon() {
+  return <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" /><path d="m8 12 2.6 2.6L16.5 9" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function CalendarIcon() {
+  return <svg className="h-4 w-4 shrink-0 text-[#8A8078]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3v3M17 3v3M4.5 9h15M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>;
+}
+
+function PinIcon() {
+  return <svg className="h-4 w-4 shrink-0 text-[#8A8078]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" stroke="currentColor" strokeWidth="1.7" /><circle cx="12" cy="10" r="2.3" stroke="currentColor" strokeWidth="1.7" /></svg>;
+}
+
+function DocumentIcon() {
+  return <svg className="h-4 w-4 shrink-0 text-[#8A8078]" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3h7l4 4v14H7V3Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M14 3v5h5M9.5 13h5M9.5 17h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>;
 }
