@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import { getEventResultStatusLabel, getEventStarBadgeStyle } from '@/lib/event-stars';
+import { localResultSourceCondition } from '@/lib/result-source-scope';
 import EventResultsPanel from '@/components/EventResultsPanel';
+import ShareEventButton from '@/components/ShareEventButton';
 
 interface EventRow extends RowDataPacket {
   event_id: number;
@@ -38,6 +40,12 @@ interface EventRow extends RowDataPacket {
   result_source_links: string | null;
 }
 
+interface EventStats extends RowDataPacket {
+  result_count: number | string;
+  module_count: number | string;
+  point_count: number | string;
+}
+
 const eventTypeLabels: Record<string, string> = {
   race: '竞速赛',
   festival: '嘉年华',
@@ -46,16 +54,27 @@ const eventTypeLabels: Record<string, string> = {
 };
 
 const eventStatusLabels: Record<string, { label: string; style: string }> = {
-  upcoming: { label: '即将开始', style: 'bg-amber-100 text-amber-800' },
-  ongoing: { label: '进行中', style: 'bg-green-100 text-green-800' },
-  completed: { label: '已结束', style: 'bg-stone-100 text-stone-600' },
-  cancelled: { label: '已取消', style: 'bg-red-100 text-red-600' },
+  upcoming: { label: '即将开始', style: 'bg-[#FFF4DA] text-[#8A612F] border-[#E9D1A6]' },
+  ongoing: { label: '进行中', style: 'bg-[#E8F2E5] text-[#567146] border-[#C8DEC1]' },
+  completed: { label: '已结束', style: 'bg-[#EEF3F6] text-[#51636D] border-[#D6E0E6]' },
+  cancelled: { label: '已取消', style: 'bg-red-50 text-red-700 border-red-200' },
 };
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function parseJsonArray<T = unknown>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 async function getEvent(id: string) {
@@ -66,18 +85,67 @@ async function getEvent(id: string) {
     );
     if (rows.length === 0) return null;
     const e = rows[0];
-    const parseJson = (v: unknown): unknown[] => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
     return {
       ...e,
-      images: parseJson(e.images),
-      schedule: parseJson(e.schedule),
-      disciplines: parseJson(e.disciplines),
-      result_source_links: parseJson(e.result_source_links) as { title: string; url: string }[],
+      images: parseJsonArray<string>(e.images),
+      schedule: parseJsonArray<{ date: string; time: string; event: string }>(e.schedule),
+      disciplines: parseJsonArray<string>(e.disciplines),
+      result_source_links: parseJsonArray<{ title: string; url: string }>(e.result_source_links),
     };
   } catch (error) {
     console.error('获取赛事详情失败:', error);
     return null;
   }
+}
+
+async function getEventStats(eventId: number) {
+  try {
+    const [resultRows] = await pool.execute<EventStats[]>(
+      `SELECT
+         COUNT(*) AS result_count,
+         COUNT(DISTINCT CONCAT(er.discipline, '||', er.gender_group, '||', COALESCE(er.board_class, ''))) AS module_count
+       FROM sup_event_results er
+       INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
+       INNER JOIN sup_events e ON e.event_id = er.event_id
+       WHERE er.event_id = ? AND e.status = 'published'
+         AND er.review_status = 'confirmed'
+         AND er.is_verified = 1
+         AND ${localResultSourceCondition}`,
+      [eventId]
+    );
+    const [pointRows] = await pool.execute<EventStats[]>(
+      `SELECT COUNT(*) AS point_count
+       FROM sup_event_point_standings ps
+       INNER JOIN sup_events e ON e.event_id = ps.event_id
+       WHERE ps.event_id = ? AND e.status = 'published'`,
+      [eventId]
+    );
+    return {
+      resultCount: Number(resultRows[0]?.result_count || 0),
+      moduleCount: Number(resultRows[0]?.module_count || 0),
+      pointCount: Number(pointRows[0]?.point_count || 0),
+    };
+  } catch (error) {
+    console.error('获取赛事成绩统计失败:', error);
+    return { resultCount: 0, moduleCount: 0, pointCount: 0 };
+  }
+}
+
+function InfoIcon({ type }: { type: 'calendar' | 'pin' | 'file' | 'fee' | 'trophy' | 'cube' | 'star' }) {
+  const paths = {
+    calendar: 'M7 3v3M17 3v3M4.5 9h15M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z',
+    pin: 'M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Zm0-8.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z',
+    file: 'M7 3h7l4 4v14H7V3Zm7 0v5h5M9.5 13h5M9.5 17h4',
+    fee: 'M12 3v18M7 7.5h7a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h8',
+    trophy: 'M8 4h8v3.5a4 4 0 0 1-8 0V4Zm0 2H5.5a2.5 2.5 0 0 0 0 5H8m8-5h2.5a2.5 2.5 0 0 1 0 5H16M12 12v4M9 20h6M10 16h4v4h-4v-4Z',
+    cube: 'm12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 0v9m8-4.5-8 4.5m-8-4.5 8 4.5',
+    star: 'm12 3 2.6 5.5 6 .9-4.3 4.2 1 6-5.3-2.9-5.3 2.9 1-6-4.3-4.2 6-.9L12 3Z',
+  };
+  return (
+    <svg className="h-5 w-5 text-[#8A612F]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d={paths[type]} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 export default async function EventDetailPage({
@@ -89,194 +157,209 @@ export default async function EventDetailPage({
   const event = await getEvent(id);
   if (!event) notFound();
 
-  const statusInfo = eventStatusLabels[event.event_status] || { label: event.event_status, style: 'bg-stone-100 text-stone-600' };
+  const stats = await getEventStats(event.event_id);
+  const statusInfo = eventStatusLabels[event.event_status] || { label: event.event_status, style: 'bg-stone-100 text-stone-600 border-stone-200' };
+  const heroImage = Array.isArray(event.images) && event.images.length > 0 ? event.images[0] : null;
+  const dateLabel = event.start_date
+    ? `${formatDate(event.start_date)}${event.end_date ? ` — ${formatDate(event.end_date)}` : ''}`
+    : '待公布';
+  const placeLabel = [event.venue, event.city, event.province].filter(Boolean).join('，') || event.location || '待公布';
+
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      {/* Breadcrumb */}
-      <nav className="text-sm text-stone-400 mb-6 flex items-center gap-1.5">
-        <Link href="/" className="hover:text-[#8B7355]">首页</Link>
-        <span>/</span>
-        <Link href="/events" className="hover:text-[#8B7355]">赛事</Link>
-        <span>/</span>
-        <span className="text-stone-600">{event.name}</span>
-      </nav>
+    <main className="min-h-screen bg-[#F7F1E8] text-[#2E2118]">
+      <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
+        <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-[#8A8078]">
+          <Link href="/" className="no-underline hover:text-[#8A612F]">首页</Link>
+          <span>/</span>
+          <Link href="/events" className="no-underline hover:text-[#8A612F]">赛事</Link>
+          <span>/</span>
+          <span className="font-medium text-[#2E2118]">{event.name}</span>
+        </nav>
 
-      {/* Header */}
-      <div className="bg-[#FEFCF9] border border-[#E0D8CC] rounded-2xl p-8 mb-6">
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <span className={`text-sm px-3 py-1 rounded-full font-medium ${statusInfo.style}`}>
-            {statusInfo.label}
-          </span>
-          {event.star_level && (
-            <span className={`text-sm px-3 py-1 rounded-full border ${getEventStarBadgeStyle(event.star_level)}`}>
-              {event.star_level}
-              {event.score_coefficient ? ` / ${event.score_coefficient}` : ''}
-            </span>
-          )}
-          <span className="text-sm px-3 py-1 rounded-full bg-[#F0EBE1] text-[#8B7355]">
-            {eventTypeLabels[event.event_type] || event.event_type}
-          </span>
+        <div className="mb-4 flex flex-wrap gap-7 border-b border-[#E6DCCC] text-sm font-semibold text-[#655D56]">
+          {[
+            { href: '#overview', label: '赛事概览', icon: 'calendar' as const },
+            { href: '#results', label: '成绩档案', icon: 'trophy' as const },
+            { href: '#notes', label: '赛事说明', icon: 'file' as const },
+          ].map((tab) => (
+            <a
+              key={tab.href}
+              href={tab.href}
+              className={`inline-flex items-center gap-2 border-b-2 px-3 py-4 no-underline transition ${tab.href === '#results' ? 'border-[#B58A48] text-[#8A612F]' : 'border-transparent hover:text-[#8A612F]'}`}
+            >
+              <InfoIcon type={tab.icon} />
+              {tab.label}
+            </a>
+          ))}
         </div>
 
-        <h1 className="text-3xl font-bold text-stone-800 mb-1">{event.name}</h1>
-        {event.name_en && (
-          <p className="text-stone-400 text-sm mb-4">{event.name_en}</p>
-        )}
+        <section id="overview" className="mb-0 overflow-hidden rounded-2xl border border-[#E4D8C8] bg-white/78 p-4 shadow-[0_18px_50px_rgba(88,63,36,0.10)]">
+          <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
+            <div
+              className="relative min-h-[300px] overflow-hidden rounded-xl bg-[#EFE5D6] p-6 sm:p-8"
+              style={{
+                backgroundImage: heroImage
+                  ? `linear-gradient(90deg, rgba(250,247,242,0.96) 0%, rgba(250,247,242,0.82) 45%, rgba(250,247,242,0.36) 100%), url(${heroImage})`
+                  : 'linear-gradient(90deg, rgba(250,247,242,0.98) 0%, rgba(250,247,242,0.84) 44%, rgba(214,196,165,0.26) 100%), radial-gradient(circle at 70% 50%, rgba(130,154,147,0.32), transparent 35%)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            >
+              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#F7F1E8]/80 to-transparent" />
+              <div className="relative max-w-4xl">
+                <div className="mb-8 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full border px-4 py-1.5 text-sm font-semibold ${statusInfo.style}`}>
+                    {statusInfo.label}
+                  </span>
+                  {event.star_level && (
+                    <span className={`rounded-full border px-4 py-1.5 text-sm font-semibold ${getEventStarBadgeStyle(event.star_level)}`}>
+                      {event.star_level}{event.score_coefficient ? ` / ${event.score_coefficient}` : ''}
+                    </span>
+                  )}
+                  <span className="rounded-full border border-[#EAD8B9] bg-[#FFF7E8] px-4 py-1.5 text-sm font-semibold text-[#8A612F]">
+                    {eventTypeLabels[event.event_type] || event.event_type}
+                  </span>
+                </div>
 
-        {/* Key info grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
-          {event.start_date && (
-            <div>
-              <div className="text-xs text-stone-400 uppercase tracking-wide mb-1">赛事日期</div>
-              <div className="text-stone-700 font-medium">
-                {formatDate(event.start_date)}
-                {event.end_date && event.end_date !== event.start_date && ` — ${formatDate(event.end_date)}`}
+                <h1 className="max-w-4xl font-[var(--font-display)] text-4xl font-semibold leading-tight tracking-[0.01em] text-[#2E2118] sm:text-5xl">
+                  {event.name}
+                </h1>
+                {event.name_en && <p className="mt-3 max-w-3xl text-sm text-[#655D56]">{event.name_en}</p>}
+
+                <div className="mt-9 grid gap-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="flex items-start gap-3">
+                    <InfoIcon type="calendar" />
+                    <div>
+                      <div className="text-xs text-[#8A8078]">赛事日期</div>
+                      <div className="mt-1 font-semibold text-[#2E2118]">{dateLabel}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <InfoIcon type="pin" />
+                    <div>
+                      <div className="text-xs text-[#8A8078]">举办地点</div>
+                      <div className="mt-1 font-semibold text-[#2E2118]">{placeLabel}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <InfoIcon type="file" />
+                    <div>
+                      <div className="text-xs text-[#8A8078]">成绩档案</div>
+                      <div className="mt-1 font-semibold text-[#2E2118]">{getEventResultStatusLabel(event.result_status)}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <InfoIcon type="fee" />
+                    <div>
+                      <div className="text-xs text-[#8A8078]">报名费用</div>
+                      <div className="mt-1 font-semibold text-[#2E2118]">{event.price_range || '待公布'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-9 flex flex-wrap gap-3">
+                  <a
+                    href="#notes"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#CFAE7D] bg-white/72 px-8 text-sm font-semibold text-[#8A612F] no-underline transition hover:bg-white"
+                  >
+                    <InfoIcon type="file" />
+                    查看赛事说明
+                  </a>
+                  {event.registration_url && event.event_status !== 'completed' && event.event_status !== 'cancelled' ? (
+                    <a
+                      href={event.registration_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-11 items-center justify-center rounded-lg bg-[#B58A48] px-8 text-sm font-semibold text-white no-underline shadow-[0_10px_20px_rgba(138,97,47,0.20)] transition hover:bg-[#8A612F]"
+                    >
+                      立即报名
+                    </a>
+                  ) : (
+                    <span className="inline-flex h-11 items-center justify-center rounded-lg bg-[#EAE4DB] px-8 text-sm font-semibold text-[#A99D90]">
+                      报名已结束
+                    </span>
+                  )}
+                  <ShareEventButton title={event.name} />
+                </div>
+              </div>
+            </div>
+
+            <aside className="rounded-xl border border-[#E4D8C8] bg-[#FEFCF9]/88 p-5">
+              {[
+                { label: '成绩', value: stats.resultCount, icon: 'trophy' as const },
+                { label: '模块', value: stats.moduleCount, icon: 'cube' as const },
+                { label: '积分', value: stats.pointCount, icon: 'star' as const },
+              ].map((item, index) => (
+                <div key={item.label} className={`flex items-center gap-4 py-5 ${index > 0 ? 'border-t border-[#E4D8C8]' : ''}`}>
+                  <InfoIcon type={item.icon} />
+                  <div>
+                    <div className="font-[var(--font-display)] text-4xl font-semibold leading-none text-[#2E2118]">{item.value}</div>
+                    <div className="mt-1 text-sm text-[#655D56]">{item.label}</div>
+                  </div>
+                </div>
+              ))}
+            </aside>
+          </div>
+        </section>
+
+        <div id="results">
+          <EventResultsPanel eventId={event.event_id} />
+        </div>
+
+        <section id="notes" className="mt-8 grid gap-6 lg:grid-cols-2">
+          {event.description && (
+            <div className="rounded-2xl border border-[#E4D8C8] bg-[#FEFCF9] p-6">
+              <h2 className="text-lg font-semibold text-[#2E2118]">赛事介绍</h2>
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#655D56]">{event.description}</p>
+            </div>
+          )}
+          {event.requirements && (
+            <div className="rounded-2xl border border-[#E4D8C8] bg-[#FEFCF9] p-6">
+              <h2 className="text-lg font-semibold text-[#2E2118]">参赛要求</h2>
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#655D56]">{event.requirements}</p>
+            </div>
+          )}
+          {event.disciplines.length > 0 && (
+            <div className="rounded-2xl border border-[#E4D8C8] bg-[#FEFCF9] p-6">
+              <h2 className="text-lg font-semibold text-[#2E2118]">参赛项目</h2>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {event.disciplines.map((discipline) => (
+                  <span key={discipline} className="rounded-lg bg-[#F0E7D8] px-3 py-1.5 text-sm font-medium text-[#7A6145]">
+                    {discipline}
+                  </span>
+                ))}
               </div>
             </div>
           )}
-          {event.registration_deadline && (
-            <div>
-              <div className="text-xs text-stone-400 uppercase tracking-wide mb-1">报名截止</div>
-              <div className="text-stone-700 font-medium">{formatDate(event.registration_deadline)}</div>
-            </div>
-          )}
-          {(event.venue || event.city || event.province) && (
-            <div>
-              <div className="text-xs text-stone-400 uppercase tracking-wide mb-1">举办地点</div>
-              <div className="text-stone-700 font-medium">
-                {[event.venue, event.city, event.province].filter(Boolean).join('，')}
+          {event.schedule.length > 0 && (
+            <div className="rounded-2xl border border-[#E4D8C8] bg-[#FEFCF9] p-6">
+              <h2 className="text-lg font-semibold text-[#2E2118]">赛程安排</h2>
+              <div className="mt-4 overflow-hidden rounded-xl border border-[#E6DCCC]">
+                {event.schedule.map((item, index) => (
+                  <div key={`${item.date}-${item.time}-${index}`} className={`grid grid-cols-[88px_64px_1fr] gap-3 px-4 py-3 text-sm ${index % 2 ? 'bg-[#F8F2EA]' : 'bg-white'}`}>
+                    <span className="text-[#8A8078]">{item.date}</span>
+                    <span className="text-[#8A8078]">{item.time}</span>
+                    <span className="text-[#655D56]">{item.event}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-          {event.organizer && (
-            <div>
-              <div className="text-xs text-stone-400 uppercase tracking-wide mb-1">主办方</div>
-              <div className="text-stone-700 font-medium">{event.organizer}</div>
+          {(event.contact_info || event.result_source_note) && (
+            <div className="rounded-2xl border border-[#E4D8C8] bg-[#FEFCF9] p-6 lg:col-span-2">
+              <h2 className="text-lg font-semibold text-[#2E2118]">补充信息</h2>
+              {event.contact_info && <p className="mt-3 text-sm leading-7 text-[#655D56]">{event.contact_info}</p>}
+              {event.result_source_note && <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[#655D56]">{event.result_source_note}</p>}
             </div>
           )}
-          {event.result_status && event.result_status !== 'none' && (
-            <div>
-              <div className="text-xs text-stone-400 uppercase tracking-wide mb-1">成绩档案</div>
-              <div className="text-stone-700 font-medium">{getEventResultStatusLabel(event.result_status)}</div>
-            </div>
-          )}
-          {event.price_range && (
-            <div>
-              <div className="text-xs text-stone-400 uppercase tracking-wide mb-1">报名费用</div>
-              <div className="text-[#8B7355] font-semibold">{event.price_range}</div>
-            </div>
-          )}
-          {event.max_participants && (
-            <div>
-              <div className="text-xs text-stone-400 uppercase tracking-wide mb-1">参赛人数</div>
-              <div className="text-stone-700 font-medium">上限 {event.max_participants} 人</div>
-            </div>
-          )}
-        </div>
+        </section>
 
-        {/* Action buttons */}
-        <div className="flex flex-wrap gap-3 mt-6">
-          {event.registration_url && event.event_status !== 'completed' && event.event_status !== 'cancelled' && (
-            <a
-              href={event.registration_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-2.5 bg-[#8B7355] text-white rounded-lg text-sm font-medium hover:bg-[#6F5B42] transition-colors"
-            >
-              立即报名
-            </a>
-          )}
-          {event.website && (
-            <a
-              href={event.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-2.5 border border-[#E0D8CC] text-stone-600 rounded-lg text-sm font-medium hover:border-[#8B7355] hover:text-[#8B7355] transition-colors"
-            >
-              官方网站
-            </a>
-          )}
+        <div className="mt-8">
+          <Link href="/events" className="text-sm font-medium text-[#8A8078] no-underline transition hover:text-[#8A612F]">
+            ← 返回赛事列表
+          </Link>
         </div>
       </div>
-
-      {/* Description */}
-      {event.description && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-stone-800 mb-3">赛事介绍</h2>
-          <div className="bg-[#FEFCF9] border border-[#E0D8CC] rounded-xl p-6">
-            <p className="text-stone-600 leading-relaxed whitespace-pre-wrap">{event.description}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Requirements */}
-      {event.requirements && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-stone-800 mb-3">参赛要求</h2>
-          <div className="bg-[#FEFCF9] border border-[#E0D8CC] rounded-xl p-6">
-            <p className="text-stone-600 leading-relaxed whitespace-pre-wrap">{event.requirements}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Disciplines */}
-      {event.disciplines && event.disciplines.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-stone-800 mb-3">参赛项目</h2>
-          <div className="flex flex-wrap gap-2">
-            {(event.disciplines as string[]).map((d: string) => (
-              <span key={d} className="px-3 py-1.5 bg-[#F0EBE1] text-[#8B7355] rounded-lg text-sm">
-                {d}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Schedule */}
-      {event.schedule && (event.schedule as { date: string; time: string; event: string }[]).length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-stone-800 mb-3">赛程安排</h2>
-          <div className="bg-[#FEFCF9] border border-[#E0D8CC] rounded-xl overflow-hidden">
-            {(event.schedule as { date: string; time: string; event: string }[]).map((item, idx) => (
-              <div key={idx} className={`flex gap-4 px-6 py-3.5 ${idx % 2 === 0 ? '' : 'bg-[#F5F1EB]'}`}>
-                <div className="text-stone-400 text-sm w-24 shrink-0">{item.date}</div>
-                <div className="text-stone-400 text-sm w-16 shrink-0">{item.time}</div>
-                <div className="text-stone-700 text-sm">{item.event}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Contact */}
-      {event.contact_info && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-stone-800 mb-3">联系方式</h2>
-          <div className="bg-[#FEFCF9] border border-[#E0D8CC] rounded-xl p-6">
-            <p className="text-stone-600">{event.contact_info}</p>
-          </div>
-        </div>
-      )}
-
-      <EventResultsPanel eventId={event.event_id} />
-
-      {event.result_source_note && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-stone-800 mb-3">结果来源</h2>
-          <div className="bg-[#FEFCF9] border border-[#E0D8CC] rounded-xl p-6">
-            <p className="text-stone-600 leading-relaxed whitespace-pre-wrap">{event.result_source_note}</p>
-            <p className="mt-3 text-xs text-stone-400">原始成绩册链接需登录后在成绩档案中查看。</p>
-          </div>
-        </div>
-      )}
-
-      {/* Back */}
-      <div className="mt-8">
-        <Link href="/events" className="text-sm text-stone-400 hover:text-[#8B7355] transition-colors">
-          ← 返回赛事列表
-        </Link>
-      </div>
-    </div>
+    </main>
   );
 }
