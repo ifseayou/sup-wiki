@@ -730,9 +730,9 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                         </div>
                         <RankBadge rank={row.rank_position} />
                       </div>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div><div className="text-xs text-[#8A8078]">队伍/单位</div><div className="mt-0.5 text-[#655D56]">{row.team_name || '个人'}</div></div>
-                        <div><div className="text-xs text-[#8A8078]">成绩</div><div className="mt-0.5 font-semibold text-[#8A612F]"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></div></div>
+                      <div className="text-sm">
+                        <div className="text-xs text-[#8A8078]">成绩</div>
+                        <div className="mt-0.5 font-semibold text-[#8A612F]"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></div>
                       </div>
                     </div>
                   );
