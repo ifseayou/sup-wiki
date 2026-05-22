@@ -250,8 +250,8 @@ async function getAthleteCenterData(filters: {
      FROM athlete_metrics
      ${where}
      ORDER BY FIELD(tier_key, 'elite', 'training', 'squad', 'base'), COALESCE(best_rank, 9999) ASC, result_count DESC, athlete_id ASC
-     LIMIT ? OFFSET ?`,
-    [...baseParams, ...outerParams, PAGE_SIZE, safeOffset]
+     LIMIT ${PAGE_SIZE} OFFSET ${safeOffset}`,
+    [...baseParams, ...outerParams]
   );
 
   return {
