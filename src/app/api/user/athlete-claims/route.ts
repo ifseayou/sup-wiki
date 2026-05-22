@@ -64,6 +64,26 @@ export async function POST(request: NextRequest) {
     if (!Number.isInteger(resultId) || resultId <= 0 || !submittedBib) {
       return NextResponse.json({ error: '请选择最近比赛，并补全该场号码牌' }, { status: 400 });
     }
+    if (!cleanText(body.submitted_name, 80)) {
+      return NextResponse.json({ error: '请填写姓名' }, { status: 400 });
+    }
+    if (!cleanText(body.submitted_avatar_url, 500)) {
+      return NextResponse.json({ error: '请上传本人清晰人脸头像' }, { status: 400 });
+    }
+    if (!cleanText(body.submitted_living_province, 50) || !cleanText(body.submitted_living_city, 50)) {
+      return NextResponse.json({ error: '请选择现居城市' }, { status: 400 });
+    }
+
+    const [ownerRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT user_id
+       FROM sup_athlete_profile_owners
+       WHERE athlete_id = ? AND status = 'active' AND role = 'owner'`,
+      [athleteId]
+    );
+    const ownerIds = ownerRows.map((row) => Number(row.user_id));
+    if (ownerIds.length > 0 && !ownerIds.includes(user.user_id)) {
+      return NextResponse.json({ error: '该运动员资料已被本人绑定' }, { status: 403 });
+    }
 
     const [resultRows] = await pool.execute<RowDataPacket[]>(
       `SELECT er.result_id, er.athlete_id, er.bib_number, a.name AS athlete_name
@@ -83,9 +103,13 @@ export async function POST(request: NextRequest) {
 
     const submittedName = cleanText(body.submitted_name, 80) || result.athlete_name;
     const birthYear = cleanYear(body.submitted_birth_year, 1940);
+    if (!birthYear) {
+      return NextResponse.json({ error: '请填写有效年龄' }, { status: 400 });
+    }
     const startedYear = cleanYear(body.submitted_started_sup_year, 1990);
     const introShort = cleanText(body.submitted_intro_short, 120);
     const intro = cleanText(body.submitted_intro, 1000);
+    const submittedAge = Number(body.submitted_age || 0) || null;
 
     const [inserted] = await pool.execute<ResultSetHeader>(
       `INSERT INTO sup_athlete_profile_claims (
@@ -121,6 +145,8 @@ export async function POST(request: NextRequest) {
           },
           started_sup_year: startedYear,
           intro_short: introShort,
+          submitted_age: submittedAge,
+          age_submitted_year: submittedAge ? new Date().getFullYear() : null,
         }),
         storedBib.slice(0, 2),
         submittedBib,

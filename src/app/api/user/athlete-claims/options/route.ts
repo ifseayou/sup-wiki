@@ -29,6 +29,17 @@ export async function GET(request: NextRequest) {
     );
     if (!athletes.length) return NextResponse.json({ error: '运动员不存在' }, { status: 404 });
 
+    const [ownerRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT user_id
+       FROM sup_athlete_profile_owners
+       WHERE athlete_id = ? AND status = 'active' AND role = 'owner'`,
+      [athleteId]
+    );
+    const ownerIds = ownerRows.map((row) => Number(row.user_id));
+    if (ownerIds.length > 0 && !ownerIds.includes(user.user_id)) {
+      return NextResponse.json({ error: '该运动员资料已被本人绑定' }, { status: 403 });
+    }
+
     const [results] = await pool.execute<RowDataPacket[]>(
       `SELECT
          er.result_id, er.bib_number, er.gender_group, er.discipline, er.rank_position, er.finish_time,

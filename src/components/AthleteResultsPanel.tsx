@@ -142,7 +142,7 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
                   <tr key={row.result_id} style={{ borderTop: '1px solid #F0EAE0' }}>
                     <td style={{ padding: '11px 12px', color: '#3D3730', lineHeight: 1.55 }}>
                       <Link href={`/events/${row.event_id}`} style={{ color: '#6F563B', fontWeight: 600, textDecoration: 'none' }}>{row.event_name}</Link>
-                      <div style={{ fontSize: 11, color: '#9A9086' }}>{[row.province, row.city].filter(Boolean).join(' · ')} {row.start_date?.slice(0, 10)}</div>
+                      <div style={{ fontSize: 11, color: '#9A9086' }}>{[row.province, row.city].filter(Boolean).join(' · ')}</div>
                     </td>
                     <td style={{ padding: '11px 12px', color: '#655D56' }}>
                       {row.discipline}{row.board_class ? ` / ${row.board_class}` : ''}

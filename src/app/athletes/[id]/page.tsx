@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Tooltip from '@/components/Tooltip';
 import AthleteResultsPanel from '@/components/AthleteResultsPanel';
+import AthleteClaimEntry from '@/components/AthleteClaimEntry';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import { marked } from 'marked';
@@ -61,6 +62,22 @@ const disciplineLabels: Record<string, string> = {
   race: '竞速', surf: '冲浪', distance: '长距离', technical: '技巧',
 };
 
+function parseJsonObject(value: unknown) {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function displayNationality(value: string | null) {
+  if (!value) return '';
+  return value === '中国' ? '🇨🇳 中国' : `🌏 ${value}`;
+}
+
 const resultIcon = (result: string, highlight?: boolean) => {
   if (highlight) return '🥇';
   if (result.includes('冠军') || result.includes('金牌') || result.includes('第一') || result.toLowerCase().includes('gold') || result.toLowerCase().includes('champion')) return '🥇';
@@ -88,8 +105,13 @@ marked.setOptions({ breaks: true });
 
 export default async function AthleteDetailPage({
   params,
-}: { params: Promise<{ id: string }> }) {
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ claim?: string }>;
+}) {
   const { id } = await params;
+  const { claim } = await searchParams;
   const athleteId = parseInt(id);
   if (isNaN(athleteId)) notFound();
 
@@ -101,11 +123,14 @@ export default async function AthleteDetailPage({
     : (athlete.achievements ? JSON.parse(String(athlete.achievements)) : []);
   const achievements: Achievement[] = rawAchievements;
 
-  const socialLinks = typeof athlete.social_links === 'object' && athlete.social_links !== null
-    ? athlete.social_links
-    : (athlete.social_links ? JSON.parse(String(athlete.social_links)) : {});
+  const socialLinks = parseJsonObject(athlete.social_links);
+  const publicProfile = parseJsonObject(socialLinks.public_profile);
+  const livingLocation = [publicProfile.living_province, publicProfile.living_city].filter(Boolean).join(' · ');
+  const birthYear = Number(publicProfile.birth_year || 0) || null;
+  const startedSupYear = Number(publicProfile.started_sup_year || 0) || null;
+  const introShort = String(publicProfile.intro_short || '').trim();
 
-  const references: { title: string; url: string }[] = (socialLinks as Record<string, unknown>).references as { title: string; url: string }[] || [];
+  const references: { title: string; url: string }[] = socialLinks.references as { title: string; url: string }[] || [];
 
   // 按年份排序
   const sortedAchievements = [...achievements].sort((a, b) => b.year - a.year);
@@ -142,6 +167,12 @@ export default async function AthleteDetailPage({
         <span style={{ color: '#2E2118' }}>{athlete.name}</span>
       </nav>
 
+      {claim === 'submitted' && (
+        <div style={{ marginBottom: 18, border: '1px solid #BFE3CB', background: '#F0FBF4', color: '#2F7D52', borderRadius: 10, padding: '12px 14px', fontSize: 14 }}>
+          资料已提交，管理员审核通过后会更新到运动员主页。
+        </div>
+      )}
+
       {/* ── 运动员头部卡片 ─────────────────────────────────────── */}
       <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 16, overflow: 'hidden', marginBottom: 32, display: 'flex', flexWrap: 'wrap' }}>
         {/* 照片 */}
@@ -166,24 +197,7 @@ export default async function AthleteDetailPage({
                 </span>
               )}
             </div>
-            <Link
-              href={`/athletes/${athleteId}/claim`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                minHeight: 34,
-                border: '1px solid #CDBA9F',
-                borderRadius: 8,
-                padding: '7px 12px',
-                color: '#6B3E1E',
-                background: '#FFF8EA',
-                fontSize: 13,
-                fontWeight: 600,
-                textDecoration: 'none',
-              }}
-            >
-              这是我，更新资料
-            </Link>
+            <AthleteClaimEntry athleteId={athleteId} />
           </div>
 
           {athlete.name_en && (
@@ -193,12 +207,27 @@ export default async function AthleteDetailPage({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
             {athlete.nationality && (
               <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
-                🌏 {athlete.nationality}
+                {displayNationality(athlete.nationality)}
               </span>
             )}
             {(athlete.province || athlete.city) && (
               <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
                 {['籍贯', athlete.province, athlete.city].filter(Boolean).join(' · ')}
+              </span>
+            )}
+            {livingLocation && (
+              <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
+                {['现居', livingLocation].filter(Boolean).join(' · ')}
+              </span>
+            )}
+            {birthYear && (
+              <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
+                {birthYear}年出生
+              </span>
+            )}
+            {startedSupYear && (
+              <span style={{ fontSize: 13, color: '#655D56', background: '#F0EAE0', padding: '3px 10px', borderRadius: 20 }}>
+                从{startedSupYear}年开始玩桨板
               </span>
             )}
             <span style={{ fontSize: 13, color: '#7A6145', background: '#F0EAE0', border: '1px solid #EDE5D8', padding: '3px 10px', borderRadius: 20 }}>
@@ -210,6 +239,13 @@ export default async function AthleteDetailPage({
               </span>
             )}
           </div>
+
+          {introShort && (
+            <div style={{ marginBottom: 16, color: '#3D3730', fontSize: 15, lineHeight: 1.75 }}>
+              <div style={{ color: '#8A8078', fontSize: 13, marginBottom: 4 }}>一句话介绍自己</div>
+              {introShort}
+            </div>
+          )}
 
           {/* 社交链接 */}
           {(Object.keys(socialLinks).length > 0) && (
