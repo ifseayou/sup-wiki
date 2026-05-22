@@ -15,6 +15,17 @@ function cleanYear(value: unknown, min = 1930, max = new Date().getFullYear()) {
   return year;
 }
 
+function cleanDate(value: unknown) {
+  const text = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const date = new Date(`${text}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  if (date.toISOString().slice(0, 10) !== text) return null;
+  const year = date.getUTCFullYear();
+  if (year < 1940 || year > new Date().getFullYear()) return null;
+  return text;
+}
+
 function normalizeBib(value: unknown) {
   return String(value || '').trim().replace(/\s+/g, '').toUpperCase();
 }
@@ -102,9 +113,10 @@ export async function POST(request: NextRequest) {
     }
 
     const submittedName = cleanText(body.submitted_name, 80) || result.athlete_name;
-    const birthYear = cleanYear(body.submitted_birth_year, 1940);
-    if (!birthYear) {
-      return NextResponse.json({ error: '请填写有效年龄' }, { status: 400 });
+    const birthDate = cleanDate(body.submitted_birth_date);
+    const birthYear = birthDate ? Number(birthDate.slice(0, 4)) : cleanYear(body.submitted_birth_year, 1940);
+    if (!birthDate || !birthYear) {
+      return NextResponse.json({ error: '请填写有效出生年月日' }, { status: 400 });
     }
     const startedYear = cleanYear(body.submitted_started_sup_year, 1990);
     const introShort = cleanText(body.submitted_intro_short, 120);
@@ -114,11 +126,11 @@ export async function POST(request: NextRequest) {
     const [inserted] = await pool.execute<ResultSetHeader>(
       `INSERT INTO sup_athlete_profile_claims (
          user_id, athlete_id, result_id, submitted_name, submitted_avatar_url,
-         submitted_birth_year, submitted_hometown_province, submitted_hometown_city,
+         submitted_birth_year, submitted_birth_date, submitted_hometown_province, submitted_hometown_city,
          submitted_living_province, submitted_living_city, submitted_started_sup_year,
          submitted_intro_short, submitted_intro, submitted_profile_json,
          bib_prefix, submitted_bib_number, bib_match_status, status
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'matched', 'pending')`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'matched', 'pending')`,
       [
         user.user_id,
         athleteId,
@@ -126,6 +138,7 @@ export async function POST(request: NextRequest) {
         submittedName,
         cleanText(body.submitted_avatar_url, 500),
         birthYear,
+        birthDate,
         cleanText(body.submitted_hometown_province, 50),
         cleanText(body.submitted_hometown_city, 50),
         cleanText(body.submitted_living_province, 50),
@@ -134,6 +147,7 @@ export async function POST(request: NextRequest) {
         introShort,
         intro,
         JSON.stringify({
+          birth_date: birthDate,
           birth_year: birthYear,
           hometown: {
             province: cleanText(body.submitted_hometown_province, 50),

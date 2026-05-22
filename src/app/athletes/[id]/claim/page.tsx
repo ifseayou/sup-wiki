@@ -26,6 +26,12 @@ interface AthleteOption {
   province: string | null;
   city: string | null;
   bio: string | null;
+  public_profile?: {
+    birth_date?: string | null;
+    birth_year?: number | string | null;
+    living_province?: string | null;
+    living_city?: string | null;
+  };
 }
 
 export default function AthleteClaimPage() {
@@ -38,7 +44,7 @@ export default function AthleteClaimPage() {
   const [form, setForm] = useState({
     submitted_name: '',
     submitted_avatar_url: '',
-    submitted_age: '',
+    submitted_birth_date: '',
     submitted_living_province: '',
     submitted_living_city: '',
     result_id: '',
@@ -52,7 +58,7 @@ export default function AthleteClaimPage() {
     const checks = [
       form.submitted_avatar_url,
       form.submitted_name,
-      form.submitted_age,
+      form.submitted_birth_date,
       form.submitted_living_province && form.submitted_living_city,
       form.result_id,
       form.submitted_bib_number,
@@ -75,9 +81,15 @@ export default function AthleteClaimPage() {
         if (!res.ok) throw new Error(data.error || '加载失败');
         setAthlete(data.athlete);
         setResults(data.recent_results || []);
+        const profile = data.athlete?.public_profile || {};
+        const birthDate = String(profile.birth_date || '').slice(0, 10);
         setForm((prev) => ({
           ...prev,
           submitted_name: data.athlete?.name || '',
+          submitted_avatar_url: data.athlete?.photo || '',
+          submitted_birth_date: birthDate,
+          submitted_living_province: profile.living_province || '',
+          submitted_living_city: profile.living_city || '',
           result_id: data.recent_results?.[0]?.result_id ? String(data.recent_results[0].result_id) : '',
           submitted_bib_number: data.recent_results?.[0]?.bib_prefix || '',
         }));
@@ -127,6 +139,10 @@ export default function AthleteClaimPage() {
       setError('请选择现居省份和城市');
       return;
     }
+    if (!form.submitted_birth_date) {
+      setError('请填写出生年月日');
+      return;
+    }
     setSubmitting(true);
     setError('');
     setMessage('');
@@ -137,7 +153,7 @@ export default function AthleteClaimPage() {
         body: JSON.stringify({
           ...form,
           athlete_id: athleteId,
-          submitted_birth_year: form.submitted_age ? String(new Date().getFullYear() - Number(form.submitted_age)) : '',
+          submitted_birth_year: form.submitted_birth_date.slice(0, 4),
         }),
       });
       const data = await res.json();
@@ -210,8 +226,8 @@ export default function AthleteClaimPage() {
               <input required value={form.submitted_name} onChange={(e) => update('submitted_name', e.target.value)} className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
             </label>
             <label className="block text-sm font-medium text-warm-gray-700">
-              年龄 <span className="text-red-500">*</span>
-              <input required inputMode="numeric" value={form.submitted_age} onChange={(e) => update('submitted_age', e.target.value.replace(/[^\d]/g, '').slice(0, 2))} placeholder="例如 28" className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
+              出生年月日 <span className="text-red-500">*</span>
+              <input required type="date" value={form.submitted_birth_date} onChange={(e) => update('submitted_birth_date', e.target.value)} className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
             </label>
             <div className="sm:col-span-2">
               <div className="mb-2 text-sm font-medium text-warm-gray-700">现居城市 <span className="text-red-500">*</span></div>
@@ -238,7 +254,7 @@ export default function AthleteClaimPage() {
               <span className="grid size-8 place-items-center rounded-full bg-cream-100 text-brown-500">图</span>
               <div>
                 <h2 className="font-semibold text-brown-800">B. 头像上传 <span className="text-xs font-normal text-red-500">*</span></h2>
-                <p className="mt-1 text-xs text-warm-gray-400">请上传本人清晰人脸头像，审核通过后作为公开头像。</p>
+                <p className="mt-1 text-xs text-warm-gray-400">已有头像会自动加载；如需更新，请上传本人清晰人脸头像。</p>
               </div>
             </div>
           </div>
@@ -310,7 +326,7 @@ export default function AthleteClaimPage() {
             <div className="mt-4 space-y-4 text-sm">
               <div>
                 <div className="font-medium text-green-700">公开展示字段</div>
-                <p className="mt-1 text-xs leading-5 text-warm-gray-400">头像、姓名、年龄和现居训练城市会在审核后进入运动员主页。</p>
+                <p className="mt-1 text-xs leading-5 text-warm-gray-400">头像、姓名、出生年份和现居训练城市会在审核后进入运动员主页。</p>
               </div>
               <div>
                 <div className="font-medium text-brown-600">不公开校验字段</div>

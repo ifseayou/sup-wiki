@@ -71,6 +71,7 @@ export async function PATCH(
     const socialLinks = parseJsonObject(claim.social_links);
     const publicProfile = {
       ...(parseJsonObject(socialLinks.public_profile)),
+      birth_date: claim.submitted_birth_date || null,
       birth_year: claim.submitted_birth_year || null,
       living_province: claim.submitted_living_province || null,
       living_city: claim.submitted_living_city || null,

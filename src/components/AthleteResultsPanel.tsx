@@ -101,13 +101,7 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
   return (
     <section className="mb-10 overflow-hidden rounded-xl border border-cream-200 bg-white shadow-[0_18px_50px_rgba(68,51,35,0.06)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cream-200 bg-cream-50 px-5 py-4 sm:px-7">
-        <div className="flex flex-wrap items-center gap-6 text-sm font-medium">
-          {['成绩档案', '参赛记录', '个人数据', '成长轨迹', '证书荣誉'].map((tab, index) => (
-            <span key={tab} className={index === 0 ? 'border-b-2 border-brown-500 pb-3 text-brown-600' : 'pb-3 text-warm-gray-400'}>
-              {tab}
-            </span>
-          ))}
-        </div>
+        <div className="border-b-2 border-brown-500 pb-3 text-sm font-semibold text-brown-600">成绩档案</div>
         <Link href={`/results?athlete_id=${athleteId}`} className="inline-flex h-9 items-center rounded-lg border border-cream-300 bg-white px-4 text-xs font-semibold text-brown-600 no-underline hover:border-brown-400">
           进入成绩查询 →
         </Link>

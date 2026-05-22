@@ -10,6 +10,17 @@ function bibPrefix(value: unknown) {
   return text ? text.slice(0, 2) : '';
 }
 
+function parseJsonObject(value: unknown) {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function GET(request: NextRequest) {
   const user = requireUser(request);
   if (user instanceof NextResponse) return user;
@@ -21,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [athletes] = await pool.execute<RowDataPacket[]>(
-      `SELECT athlete_id, name, photo, province, city, bio
+      `SELECT athlete_id, name, photo, province, city, bio, social_links
        FROM sup_athletes
        WHERE athlete_id = ?
        LIMIT 1`,
@@ -59,8 +70,16 @@ export async function GET(request: NextRequest) {
       [athleteId]
     );
 
+    const athlete = athletes[0];
+    const socialLinks = parseJsonObject(athlete.social_links);
+    const publicProfile = parseJsonObject(socialLinks.public_profile);
+
     return NextResponse.json({
-      athlete: athletes[0],
+      athlete: {
+        ...athlete,
+        public_profile: publicProfile,
+        social_links: undefined,
+      },
       recent_results: results.map((row) => ({
         ...row,
         bib_prefix: bibPrefix(row.bib_number),

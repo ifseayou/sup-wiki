@@ -16,6 +16,7 @@ interface ClaimRow {
   submitted_name: string | null;
   submitted_avatar_url: string | null;
   submitted_birth_year: number | null;
+  submitted_birth_date: string | null;
   submitted_hometown_province: string | null;
   submitted_hometown_city: string | null;
   submitted_living_province: string | null;
@@ -138,7 +139,7 @@ export default function AdminAthleteClaimsPage() {
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.8, color: '#4B4238' }}>
                 <div><strong>提交姓名：</strong>{item.submitted_name || '-'}</div>
-                <div><strong>出生年份：</strong>{item.submitted_birth_year || '-'}</div>
+                <div><strong>出生日期：</strong>{item.submitted_birth_date?.slice(0, 10) || item.submitted_birth_year || '-'}</div>
                 <div><strong>籍贯：</strong>{[item.submitted_hometown_province, item.submitted_hometown_city].filter(Boolean).join(' · ') || '-'}</div>
                 <div><strong>现居：</strong>{[item.submitted_living_province, item.submitted_living_city].filter(Boolean).join(' · ') || '-'}</div>
                 <div><strong>开始桨板：</strong>{item.submitted_started_sup_year || '-'}</div>

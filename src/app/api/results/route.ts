@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
+import { getResultPaceDisplay, isNormalResultFinish, toResultNumber } from '@/lib/result-pace';
 import type { RowDataPacket } from 'mysql2';
 
 type ResultItemRow = RowDataPacket & {
@@ -36,40 +37,6 @@ function groupKey(row: Pick<ResultItemRow, 'event_id' | 'discipline' | 'gender_g
   ].join('\u0001');
 }
 
-function toNumber(value: number | string | null | undefined) {
-  if (value === null || value === undefined || value === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function isNormalFinish(row: Pick<ResultItemRow, 'result_status_code' | 'finish_time'>) {
-  const code = String(row.result_status_code || '').trim().toUpperCase();
-  if (code) return false;
-  const finish = String(row.finish_time || '').trim().toUpperCase();
-  return !['DNS', 'DNF', 'DSQ', 'DNQ', 'DQ'].includes(finish);
-}
-
-function parseDistanceKm(discipline: string | null) {
-  const text = String(discipline || '').toLowerCase().replace(/\s+/g, '');
-  const kmMatch = text.match(/(\d+(?:\.\d+)?)(?:公里|千米|km|k)/i);
-  if (kmMatch) return Number(kmMatch[1]);
-  const meterMatch = text.match(/(\d+(?:\.\d+)?)(?:米|m)/i);
-  if (meterMatch) return Number(meterMatch[1]) / 1000;
-  return null;
-}
-
-function isYouthGroup(genderGroup: string | null) {
-  const text = String(genderGroup || '').toUpperCase();
-  if (/(U\s*)?(18|15|12|10|9|8)\b/.test(text)) return true;
-  return /青少年|少年|儿童|少儿|小学|中学/.test(text);
-}
-
-function isLongDistance(row: Pick<ResultItemRow, 'discipline' | 'gender_group'>, distanceKm: number | null) {
-  if (!distanceKm) return false;
-  if (isYouthGroup(row.gender_group)) return distanceKm >= 3;
-  return distanceKm >= 6;
-}
-
 function trimDecimals(value: string) {
   return value.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
 }
@@ -87,21 +54,13 @@ function formatDuration(seconds: number, includeSign = false) {
   return `${sign}${String(minutes).padStart(2, '0')}:${secondText}`;
 }
 
-function formatPace(secondsPerKm: number) {
-  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0) return '-';
-  const rounded = Math.round(secondsPerKm);
-  const minutes = Math.floor(rounded / 60);
-  const seconds = rounded % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}/km`;
-}
-
 async function loadPreviousTimes(items: ResultItemRow[]) {
   const normalItems = items.filter((item) => (
     item.result_id &&
     item.event_id &&
     Number(item.rank_position || 0) < 9000 &&
-    toNumber(item.time_seconds) !== null &&
-    isNormalFinish(item)
+    toResultNumber(item.time_seconds) !== null &&
+    isNormalResultFinish(item)
   ));
   if (normalItems.length === 0) return new Map<number, number>();
 
@@ -134,7 +93,7 @@ async function loadPreviousTimes(items: ResultItemRow[]) {
   const previousByResult = new Map<number, number>();
   for (const row of rows) {
     const key = groupKey(row);
-    const currentTime = toNumber(row.time_seconds);
+    const currentTime = toResultNumber(row.time_seconds);
     const previousTime = previousByGroup.get(key);
     if (previousTime !== undefined) previousByResult.set(Number(row.result_id), previousTime);
     if (currentTime !== null) previousByGroup.set(key, currentTime);
@@ -239,25 +198,21 @@ export async function GET(request: NextRequest) {
 
     const previousTimes = await loadPreviousTimes(items);
     const enrichedItems = items.map((item) => {
-      const timeSeconds = toNumber(item.time_seconds);
+      const timeSeconds = toResultNumber(item.time_seconds);
       const previousTime = previousTimes.get(Number(item.result_id));
       const gapSeconds = timeSeconds !== null && previousTime !== undefined
         ? Math.max(0, timeSeconds - previousTime)
         : null;
-      const distanceKm = parseDistanceKm(item.discipline);
-      const longDistance = isLongDistance(item, distanceKm);
-      const paceSeconds = longDistance && isNormalFinish(item) && timeSeconds !== null && distanceKm
-        ? timeSeconds / distanceKm
-        : null;
+      const pace = getResultPaceDisplay(item);
 
       return {
         ...item,
-        distance_km: distanceKm,
-        is_long_distance: longDistance,
+        distance_km: pace.distance_km,
+        is_long_distance: pace.is_long_distance,
         gap_seconds: gapSeconds,
         gap_display: gapSeconds === null ? '-' : formatDuration(gapSeconds, true),
-        pace_seconds_per_km: paceSeconds,
-        pace_display: paceSeconds === null ? '-' : formatPace(paceSeconds),
+        pace_seconds_per_km: pace.pace_seconds_per_km,
+        pace_display: pace.pace_display,
       };
     });
 

@@ -126,7 +126,8 @@ export default async function AthleteDetailPage({
   const socialLinks = parseJsonObject(athlete.social_links);
   const publicProfile = parseJsonObject(socialLinks.public_profile);
   const livingLocation = [publicProfile.living_province, publicProfile.living_city].filter(Boolean).join(' · ');
-  const birthYear = Number(publicProfile.birth_year || 0) || null;
+  const birthDate = String(publicProfile.birth_date || '').trim();
+  const birthYear = Number(publicProfile.birth_year || birthDate.slice(0, 4) || 0) || null;
   const startedSupYear = Number(publicProfile.started_sup_year || 0) || null;
   const introShort = String(publicProfile.intro_short || '').trim();
 
@@ -249,22 +250,6 @@ export default async function AthleteDetailPage({
               </div>
             </div>
           </aside>
-        </div>
-
-        <div className="grid gap-4 border-t border-cream-200 bg-white/45 p-4 sm:grid-cols-2 lg:grid-cols-5 lg:p-7">
-          {[
-            ['ICF 排名', athlete.icf_ranking ? `#${athlete.icf_ranking}` : '待补充', '排名记录'],
-            ['参赛次数', achievements.length ? `${achievements.length} 项` : '待补充', '荣誉记录'],
-            ['主项', displayDiscipline, '公开档案'],
-            ['现居城市', livingLocation || '待补充', '训练城市'],
-            ['资料完整度', `${profileCompleteness}%`, '审核资料'],
-          ].map(([label, value, note]) => (
-            <div key={label} className="rounded-lg border border-cream-200 bg-white/78 p-5">
-              <div className="text-xs font-medium text-warm-gray-400">{label}</div>
-              <div className="mt-3 text-2xl font-bold text-brown-800">{value}</div>
-              <div className="mt-1 text-xs text-warm-gray-400">{note}</div>
-            </div>
-          ))}
         </div>
       </section>
 
