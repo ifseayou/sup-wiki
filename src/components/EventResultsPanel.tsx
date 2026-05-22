@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
 import ResultStatusBadge from '@/components/ResultStatusBadge';
-import AthleteResultName from '@/components/AthleteResultName';
 
 const PAGE_SIZE = 50;
 
@@ -105,6 +104,10 @@ function numberValue(value: number | string | null | undefined) {
   return Number(value || 0);
 }
 
+function byModuleSizeDesc<T extends { total: number | string }>(left: T, right: T) {
+  return numberValue(right.total) - numberValue(left.total);
+}
+
 function cleanModuleDiscipline(value: string, genderGroup?: string | null) {
   let title = String(value || '').trim();
   const longRaceIndex = title.indexOf('古镇长程赛');
@@ -172,33 +175,69 @@ function SmallIcon({ type }: { type: 'search' | 'grid' | 'rotate' | 'list' }) {
 }
 
 function RankBadge({ rank }: { rank: number | string | null }) {
-  const rankText = rank == null || Number(rank) >= 9000 ? '-' : String(rank);
-  const numeric = Number(rankText);
-  const medalClass = numeric === 1
-    ? 'border-[#F2C762] bg-[#FFE9A9] text-[#8A612F]'
-    : numeric === 2
-      ? 'border-[#CBD3D9] bg-[#EEF2F4] text-[#5E6A71]'
-      : numeric === 3
-        ? 'border-[#E1B090] bg-[#F4D1BC] text-[#8B5A3C]'
-        : 'border-[#E3D8C9] bg-white text-[#655D56]';
+  const numeric = Number(rank);
+  if (!rank || numeric >= 9000 || Number.isNaN(numeric)) return <span className="text-[#9B9187]">-</span>;
+  if (numeric <= 3) {
+    const medalClass = numeric === 1
+      ? 'border-[#F5B82E] bg-[radial-gradient(circle_at_38%_28%,#FFF8D7,#FFD45C_54%,#B97312)] text-[#5D3700] shadow-[0_0_0_5px_rgba(245,184,46,0.16),0_8px_18px_rgba(185,115,18,0.22)]'
+      : numeric === 2
+        ? 'border-[#BFC7D0] bg-[radial-gradient(circle_at_38%_28%,#FFFFFF,#DCE3EA_58%,#9BA8B5)] text-[#33404C] shadow-[0_0_0_5px_rgba(160,174,189,0.16),0_8px_18px_rgba(92,107,121,0.18)]'
+        : 'border-[#DE9351] bg-[radial-gradient(circle_at_38%_28%,#FFF1DF,#E9A45F_56%,#A85D26)] text-[#5D2E07] shadow-[0_0_0_5px_rgba(222,147,81,0.16),0_8px_18px_rgba(168,93,38,0.18)]';
+    return (
+      <span className="relative inline-flex h-12 w-12 items-center justify-center">
+        <span className="absolute inset-x-1 bottom-0 h-2 rounded-full bg-black/10 blur-sm" />
+        <span className={`relative inline-flex h-11 w-11 items-center justify-center rounded-full border-2 text-lg font-black ${medalClass}`}>
+          <span className="absolute inset-1 rounded-full border border-white/65" />
+          <span className="relative">{numeric}</span>
+        </span>
+      </span>
+    );
+  }
   return (
-    <span className={`inline-flex h-8 min-w-8 items-center justify-center rounded-full border px-2 text-sm font-semibold ${medalClass}`}>
-      {rankText}
+    <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#E6D9C9] bg-white px-2 font-semibold text-[#5B4A38]">
+      {numeric}
     </span>
   );
 }
 
-function Avatar({ name, photo }: { name: string; photo?: string | null }) {
-  return (
-    <span className="flex h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white bg-[#F1E7D8] shadow-sm">
+function AthleteCell({
+  athleteId,
+  name,
+  photo,
+  members = [],
+  teamName,
+  meta,
+}: {
+  athleteId?: number | null;
+  name: string;
+  photo?: string | null;
+  members?: string[];
+  teamName?: string | null;
+  meta?: string | null;
+}) {
+  const avatar = (
+    <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E1D2BF] bg-[#F6EBDD] shadow-[0_5px_12px_rgba(86,63,38,0.14)]">
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={photo} alt={name} className="h-full w-full object-cover" />
       ) : (
-        <span className="flex h-full w-full items-center justify-center text-sm font-semibold text-[#7A6145]">{name.slice(0, 1) || '?'}</span>
+        <span className="text-sm font-black text-[#7A4B22]">{name.slice(0, 1) || '?'}</span>
       )}
     </span>
   );
+  const body = (
+    <span className="flex min-w-0 items-center gap-3">
+      {avatar}
+      <span className="min-w-0">
+        <span className="block truncate text-base font-bold text-[#3A2B20]">{name}</span>
+        {teamName && <span className="mt-0.5 block truncate text-xs text-[#9B8A76]">{teamName}</span>}
+        {members.length > 0 && <span className="mt-0.5 block max-w-[280px] truncate text-xs text-[#9B8A76]">成员：{members.join('、')}</span>}
+        {meta && <span className="mt-0.5 block truncate text-xs text-[#9B8A76]">{meta}</span>}
+      </span>
+    </span>
+  );
+  if (!athleteId) return body;
+  return <Link href={`/athletes/${athleteId}`} className="inline-flex max-w-full no-underline">{body}</Link>;
 }
 
 function Pager({
@@ -280,8 +319,8 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || '赛事成绩模块加载失败');
           if (cancelled) return;
-          const nextResultModules = data.result_modules || [];
-          const nextPointModules = data.point_modules || [];
+          const nextResultModules = [...(data.result_modules || [])].sort(byModuleSizeDesc);
+          const nextPointModules = [...(data.point_modules || [])].sort(byModuleSizeDesc);
           setResultModules(nextResultModules);
           setPointModules(nextPointModules);
           setStats(data.stats || null);
@@ -397,10 +436,12 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
 
   const disciplineOptions = useMemo(() => Array.from(new Set(resultModules.map((item) => item.discipline))).filter(Boolean), [resultModules]);
   const groupOptions = useMemo(() => Array.from(new Set(resultModules.map((item) => item.gender_group))).filter(Boolean), [resultModules]);
-  const filteredResultModules = useMemo(() => resultModules.filter((item) => (
-    (!disciplineFilter || item.discipline === disciplineFilter)
-    && (!groupFilter || item.gender_group === groupFilter)
-  )), [disciplineFilter, groupFilter, resultModules]);
+  const filteredResultModules = useMemo(() => resultModules
+    .filter((item) => (
+      (!disciplineFilter || item.discipline === disciplineFilter)
+      && (!groupFilter || item.gender_group === groupFilter)
+    ))
+    .sort(byModuleSizeDesc), [disciplineFilter, groupFilter, resultModules]);
   const activeTitle = active?.type === 'results'
     ? formatResultModuleTitle(active.discipline, active.genderGroup, active.boardClass)
     : active?.type === 'points'
@@ -585,13 +626,19 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                 <div className="mb-4 grid gap-4 md:grid-cols-3">
                   {podiumRows.map((row) => {
                     const name = row.athlete_name || row.athlete_name_snapshot;
+                    const members = parseMembers(row.team_members);
                     return (
                       <div key={row.result_id} className="flex items-center gap-4 rounded-xl border border-[#E9DFD1] bg-gradient-to-br from-[#FFF6E5] to-white p-4 shadow-sm">
                         <RankBadge rank={row.rank_position} />
-                        <Avatar name={name} photo={row.athlete_photo} />
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold text-[#2E2118]">{name}</div>
-                          <div className="mt-1 text-xs text-[#655D56]">{row.round_label || '-'}</div>
+                          <AthleteCell
+                            athleteId={row.athlete_id}
+                            name={name}
+                            photo={row.athlete_photo}
+                            members={members}
+                            teamName={row.team_name}
+                            meta={row.round_label || null}
+                          />
                         </div>
                         <div className="shrink-0 text-sm font-semibold text-[#8A612F]">
                           <ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} />
@@ -609,9 +656,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                       <tr>
                         <th className="px-5 py-3 text-left">名次</th>
                         <th className="px-5 py-3 text-left">运动员</th>
-                        <th className="px-5 py-3 text-left">队伍/单位</th>
-                        <th className="px-5 py-3 text-left">赛段</th>
-                        <th className="px-5 py-3 text-left">说明</th>
                         <th className="px-5 py-3 text-right">成绩</th>
                       </tr>
                     </thead>
@@ -622,12 +666,15 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                           <tr key={row.result_id} className="border-t border-[#EEE4D8]">
                             <td className="px-5 py-3"><RankBadge rank={row.rank_position} /></td>
                             <td className="px-5 py-3 text-[#655D56]">
-                              <AthleteResultName athleteId={row.athlete_id} name={row.athlete_name || row.athlete_name_snapshot} photo={row.athlete_photo} bibNumber={row.bib_number} />
-                              {members.length > 0 && <div className="mt-1 text-xs text-[#8A8078]">成员：{members.join('、')}</div>}
+                              <AthleteCell
+                                athleteId={row.athlete_id}
+                                name={row.athlete_name || row.athlete_name_snapshot}
+                                photo={row.athlete_photo}
+                                members={members}
+                                teamName={row.team_name || '个人'}
+                                meta={[row.round_label, row.result_label].filter(Boolean).join(' · ') || null}
+                              />
                             </td>
-                            <td className="px-5 py-3 text-[#655D56]">{row.team_name || '个人'}</td>
-                            <td className="px-5 py-3 text-[#655D56]">{row.round_label || '-'}</td>
-                            <td className="px-5 py-3 text-[#655D56]">{row.result_label || '-'}</td>
                             <td className="px-5 py-3 text-right font-semibold text-[#8A612F]"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></td>
                           </tr>
                         );
@@ -645,9 +692,13 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                       <div key={row.result_id} className="rounded-xl border border-[#E2D7C8] bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <AthleteResultName athleteId={row.athlete_id} name={row.athlete_name || row.athlete_name_snapshot} photo={row.athlete_photo} bibNumber={row.bib_number} />
-                            <div className="mt-2 text-xs text-[#8A8078]">{row.team_name || '个人'}</div>
-                            {members.length > 0 && <div className="mt-1 text-xs text-[#8A8078]">成员：{members.join('、')}</div>}
+                            <AthleteCell
+                              athleteId={row.athlete_id}
+                              name={row.athlete_name || row.athlete_name_snapshot}
+                              photo={row.athlete_photo}
+                              members={members}
+                              teamName={row.team_name || '个人'}
+                            />
                           </div>
                           <RankBadge rank={row.rank_position} />
                         </div>
@@ -669,8 +720,13 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                     <div key={row.result_id} className="p-4">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <AthleteResultName athleteId={row.athlete_id} name={row.athlete_name || row.athlete_name_snapshot} photo={row.athlete_photo} bibNumber={row.bib_number} />
-                          {members.length > 0 && <div className="mt-1 text-xs text-[#8A8078]">成员：{members.join('、')}</div>}
+                          <AthleteCell
+                            athleteId={row.athlete_id}
+                            name={row.athlete_name || row.athlete_name_snapshot}
+                            photo={row.athlete_photo}
+                            members={members}
+                            teamName={row.team_name || '个人'}
+                          />
                         </div>
                         <RankBadge rank={row.rank_position} />
                       </div>
@@ -705,7 +761,12 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                       <tr key={row.standing_id} className="border-t border-[#EEE4D8]">
                         <td className="px-5 py-3"><RankBadge rank={row.rank_position ?? row.status_rank} /></td>
                         <td className="px-5 py-3 text-[#655D56]">
-                          <AthleteResultName athleteId={row.athlete_id} name={row.athlete_name || row.athlete_name_snapshot} photo={row.athlete_photo} bibNumber={row.bib_number} />
+                          <AthleteCell
+                            athleteId={row.athlete_id}
+                            name={row.athlete_name || row.athlete_name_snapshot}
+                            photo={row.athlete_photo}
+                            teamName={row.team_name || '个人'}
+                          />
                         </td>
                         <td className="px-5 py-3 text-[#655D56]">{row.team_name || '个人'}</td>
                         <td className="px-5 py-3 text-right text-[#655D56]">{row.endurance_rank || '-'}{row.endurance_points != null ? ` / ${row.endurance_points}` : ''}</td>
@@ -720,7 +781,12 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                 {displayedPointRows.map((row) => (
                   <div key={row.standing_id} className="p-4">
                     <div className="mb-3 flex items-start justify-between gap-3">
-                      <AthleteResultName athleteId={row.athlete_id} name={row.athlete_name || row.athlete_name_snapshot} photo={row.athlete_photo} bibNumber={row.bib_number} />
+                      <AthleteCell
+                        athleteId={row.athlete_id}
+                        name={row.athlete_name || row.athlete_name_snapshot}
+                        photo={row.athlete_photo}
+                        teamName={row.team_name || '个人'}
+                      />
                       <RankBadge rank={row.rank_position ?? row.status_rank} />
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-sm">
