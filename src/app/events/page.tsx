@@ -4,8 +4,6 @@ import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import FilterBar from '@/components/FilterBar';
 import ArticleGuideTabs from '@/components/ArticleGuideTabs';
-import AnnualGuideTimeline from '@/components/events/AnnualGuideTimeline';
-import { GUIDE_EVENT_ORDER, type GuideTimelineEvent } from '@/lib/event-guide';
 import { getEventStarBadgeStyle } from '@/lib/event-stars';
 
 interface EventRow extends RowDataPacket {
@@ -149,53 +147,15 @@ async function getEventProvinces(): Promise<string[]> {
   }
 }
 
-async function getGuideTimelineEvents() {
-  try {
-    const [events] = await pool.execute<EventRow[]>(
-      `SELECT event_id, name, slug, event_type, province, city,
-              start_date, end_date, organizer, description, disciplines
-       FROM sup_events
-       WHERE status = 'published'
-         AND start_date >= '2025-01-01'
-         AND start_date < '2026-01-01'
-         AND slug IN (${GUIDE_EVENT_ORDER.map(() => '?').join(', ')})
-       ORDER BY start_date ASC`,
-      GUIDE_EVENT_ORDER
-    );
-
-    const parsed: GuideTimelineEvent[] = events.map((e) => ({
-      event_id: e.event_id,
-      name: e.name,
-      slug: e.slug,
-      province: e.province,
-      city: e.city,
-      start_date: e.start_date,
-      end_date: e.end_date,
-      organizer: e.organizer,
-      description: e.description,
-      disciplines: Array.isArray(e.disciplines) ? e.disciplines : (e.disciplines ? JSON.parse(e.disciplines) : []),
-    }));
-
-    return GUIDE_EVENT_ORDER.flatMap((slug) => {
-      const match = parsed.find((event) => event.slug === slug);
-      return match ? [match] : [];
-    });
-  } catch (error) {
-    console.error('获取赛事导览图数据失败:', error);
-    return [];
-  }
-}
-
 export default async function EventsPage({
   searchParams,
 }: {
   searchParams: Promise<{ event_type?: string; event_status?: string; province?: string; year?: string; search?: string }>;
 }) {
   const { event_type, event_status, province, year, search } = await searchParams;
-  const [events, guideArticles, timelineEvents, years, provinces] = await Promise.all([
+  const [events, guideArticles, years, provinces] = await Promise.all([
     getEvents(event_type, event_status, province, year, search?.trim()),
     getGuideArticles(),
-    getGuideTimelineEvents(),
     getEventYears(),
     getEventProvinces(),
   ]);
@@ -266,8 +226,6 @@ export default async function EventsPage({
           </div>
         </section>
       )}
-
-      {timelineEvents.length > 0 && <AnnualGuideTimeline events={timelineEvents} />}
 
       {completed.length > 0 && (
         <section className="mb-12">
