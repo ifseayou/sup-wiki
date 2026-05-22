@@ -76,5 +76,5 @@ const defaultFormData = { athlete_id: undefined, name: '', name_en: '', national
 
 export default function AthletesAdminPage() {
   const { token } = useAdminAuth();
-  return <EntityManager entityName="运动员" apiPath="/api/admin/athletes" columns={columns} FormComponent={AthleteForm} defaultFormData={defaultFormData} token={token} searchPlaceholder="搜索姓名..." />;
+  return <EntityManager entityName="运动员" apiPath="/api/admin/athletes" columns={columns} FormComponent={AthleteForm} defaultFormData={defaultFormData} token={token} searchPlaceholder="搜索姓名..." enableBulkActions />;
 }

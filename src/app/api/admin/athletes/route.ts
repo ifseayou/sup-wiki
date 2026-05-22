@@ -32,6 +32,47 @@ export const GET = withAdmin(async (request: NextRequest) => {
   }
 });
 
+export const PATCH = withAdmin(async (request: NextRequest) => {
+  try {
+    const body = await request.json();
+    const action = String(body.action || '');
+    const ids = Array.isArray(body.ids) ? body.ids.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0) : [];
+
+    if (!['publish', 'draft', 'delete'].includes(action)) {
+      return NextResponse.json({ error: '无效批量操作' }, { status: 400 });
+    }
+    if (ids.length === 0) {
+      return NextResponse.json({ error: '请选择要操作的运动员' }, { status: 400 });
+    }
+    if (ids.length > 200) {
+      return NextResponse.json({ error: '单次最多批量处理 200 名运动员' }, { status: 400 });
+    }
+
+    const placeholders = ids.map(() => '?').join(',');
+    let result: ResultSetHeader;
+
+    if (action === 'publish' || action === 'draft') {
+      const nextStatus = action === 'publish' ? 'published' : 'draft';
+      const [updateResult] = await pool.execute<ResultSetHeader>(
+        `UPDATE sup_athletes SET status = ? WHERE athlete_id IN (${placeholders})`,
+        [nextStatus, ...ids]
+      );
+      result = updateResult;
+    } else {
+      const [deleteResult] = await pool.execute<ResultSetHeader>(
+        `DELETE FROM sup_athletes WHERE athlete_id IN (${placeholders})`,
+        ids
+      );
+      result = deleteResult;
+    }
+
+    return NextResponse.json({ success: true, affectedRows: result.affectedRows });
+  } catch (error) {
+    console.error('批量操作运动员失败:', error);
+    return NextResponse.json({ error: '批量操作运动员失败' }, { status: 500 });
+  }
+});
+
 export const POST = withAdmin(async (request: NextRequest) => {
   try {
     const body = await request.json();
