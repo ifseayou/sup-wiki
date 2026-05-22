@@ -11,18 +11,21 @@ export async function GET(request: NextRequest) {
 
   // 从数据库获取最新状态（包含 openid 关联状态）
   const [rows] = await pool.execute<RowDataPacket[]>(
-    'SELECT user_id, nickname, email, openid FROM sup_users WHERE user_id = ?',
+    'SELECT user_id, nickname, email, openid, user_level, status, daily_result_query_limit FROM sup_users WHERE user_id = ?',
     [payload.user_id]
   );
   if (rows.length === 0) return NextResponse.json({ error: '用户不存在' }, { status: 404 });
+  if (rows[0].status === 'blocked') return NextResponse.json({ error: '账号已被限制' }, { status: 403 });
 
-  const u = rows[0] as { user_id: number; nickname: string; email: string; openid: string | null };
+  const u = rows[0] as { user_id: number; nickname: string; email: string; openid: string | null; user_level?: string; daily_result_query_limit?: number | null };
   return NextResponse.json({
     user: {
       user_id: u.user_id,
       nickname: u.nickname,
       email: u.email,
       has_sport_hacker: !!u.openid,  // 是否已关联运动骇客
+      user_level: u.user_level || 'free',
+      daily_result_query_limit: u.daily_result_query_limit ?? null,
     }
   });
 }

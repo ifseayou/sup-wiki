@@ -6,7 +6,6 @@ export default function AthleteResultName({
   athleteId,
   name,
   photo,
-  bibNumber,
   className = '',
 }: {
   athleteId?: number | null;
@@ -32,7 +31,6 @@ export default function AthleteResultName({
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-semibold text-[#2E2118]">{displayName}</span>
-            {bibNumber && <span className="mt-0.5 block text-xs text-stone-400">参赛号 {bibNumber}</span>}
           </span>
         </span>
       </span>

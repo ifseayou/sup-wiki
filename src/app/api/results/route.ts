@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireUser } from '@/lib/user-auth';
+import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import type { RowDataPacket } from 'mysql2';
@@ -120,7 +120,8 @@ async function loadPreviousTimes(items: ResultItemRow[]) {
      INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
      WHERE er.source_id IS NOT NULL
        AND ${localResultSourceCondition}
-       AND er.review_status <> 'pending'
+       AND er.review_status = 'confirmed'
+       AND er.is_verified = 1
        AND er.rank_position < 9000
        AND er.time_seconds IS NOT NULL
        AND (er.result_status_code IS NULL OR er.result_status_code = '')
@@ -142,10 +143,15 @@ async function loadPreviousTimes(items: ResultItemRow[]) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = requireUser(request);
-  if (auth instanceof NextResponse) return auth;
-
   try {
+    const access = await resolveResultAccess(request);
+    if (access.authenticated && access.remaining === 0 && access.previewLimit === 0) {
+      return NextResponse.json({
+        error: '今日成绩查询次数已用完，请明天再试',
+        access,
+      }, { status: 429 });
+    }
+
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search')?.trim();
     const gender = searchParams.get('gender')?.trim();
@@ -159,13 +165,16 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, Number(searchParams.get('page') || 1));
     const pageSize = Math.min(100, Math.max(10, Number(searchParams.get('pageSize') || 30)));
     const offset = (page - 1) * pageSize;
+    const queryPageSize = access.authenticated ? pageSize : 3;
+    const queryOffset = access.authenticated ? offset : 0;
 
     const conditions = [
       "e.status = 'published'",
       "e.event_status = 'completed'",
       'er.source_id IS NOT NULL',
       localResultSourceCondition,
-      "er.review_status <> 'pending'",
+      "er.review_status = 'confirmed'",
+      'er.is_verified = 1',
     ];
     const params: (string | number)[] = [];
 
@@ -224,7 +233,7 @@ export async function GET(request: NextRequest) {
        INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
        ${where}
        ORDER BY ${resultDefaultOrderBy({ includeEventDate: true })}
-       LIMIT ${pageSize} OFFSET ${offset}`,
+       LIMIT ${queryPageSize} OFFSET ${queryOffset}`,
       params
     );
 
@@ -282,18 +291,23 @@ export async function GET(request: NextRequest) {
     );
 
     const total = Number(countRows[0]?.total || 0);
+    const preview = applyPublicPreview(enrichedItems, access);
+
     return NextResponse.json({
-      items: enrichedItems,
+      items: preview.items,
       total,
       stats: {
         resultCount: total,
         athleteCount: Number(countRows[0]?.athlete_count || 0),
         eventCount: Number(countRows[0]?.event_count || 0),
       },
-      page,
+      page: access.authenticated ? page : 1,
       pageSize,
-      totalPages: Math.ceil(total / pageSize),
+      totalPages: access.authenticated ? Math.ceil(total / pageSize) : 1,
       facets: facets[0] || {},
+      access,
+      preview_locked: preview.previewLocked,
+      preview_limit: access.previewLimit,
     });
   } catch (error) {
     console.error('查询成绩失败:', error);

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireUser } from '@/lib/user-auth';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import type { RowDataPacket } from 'mysql2';
 
@@ -55,9 +54,6 @@ function addContextFilters(
 }
 
 export async function GET(request: NextRequest) {
-  const auth = requireUser(request);
-  if (auth instanceof NextResponse) return auth;
-
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'athlete';
@@ -70,7 +66,8 @@ export async function GET(request: NextRequest) {
         "er.athlete_id IS NOT NULL",
         "e.status = 'published'",
         "e.event_status = 'completed'",
-        "er.review_status <> 'pending'",
+        "er.review_status = 'confirmed'",
+        'er.is_verified = 1',
         localResultSourceCondition,
         "(? = '' OR a.name LIKE ? OR er.athlete_name_snapshot LIKE ?)",
       ];
@@ -96,7 +93,8 @@ export async function GET(request: NextRequest) {
       const conditions = [
         "e.status = 'published'",
         "e.event_status = 'completed'",
-        "er.review_status <> 'pending'",
+        "er.review_status = 'confirmed'",
+        'er.is_verified = 1',
         localResultSourceCondition,
         "(? = '' OR e.name LIKE ?)",
       ];
@@ -123,7 +121,8 @@ export async function GET(request: NextRequest) {
         "er.discipline <> ''",
         "e.status = 'published'",
         "e.event_status = 'completed'",
-        "er.review_status <> 'pending'",
+        "er.review_status = 'confirmed'",
+        'er.is_verified = 1',
         localResultSourceCondition,
         "(? = '' OR er.discipline LIKE ?)",
       ];
@@ -147,7 +146,8 @@ export async function GET(request: NextRequest) {
         "er.gender_group <> ''",
         "e.status = 'published'",
         "e.event_status = 'completed'",
-        "er.review_status <> 'pending'",
+        "er.review_status = 'confirmed'",
+        'er.is_verified = 1',
         localResultSourceCondition,
         "(? = '' OR er.gender_group LIKE ?)",
       ];
@@ -170,7 +170,8 @@ export async function GET(request: NextRequest) {
         "e.start_date IS NOT NULL",
         "e.status = 'published'",
         "e.event_status = 'completed'",
-        "er.review_status <> 'pending'",
+        "er.review_status = 'confirmed'",
+        'er.is_verified = 1',
         localResultSourceCondition,
         "(? = '' OR CAST(YEAR(e.start_date) AS CHAR) LIKE ?)",
       ];
@@ -194,7 +195,8 @@ export async function GET(request: NextRequest) {
         "e.star_level <> ''",
         "e.status = 'published'",
         "e.event_status = 'completed'",
-        "er.review_status <> 'pending'",
+        "er.review_status = 'confirmed'",
+        'er.is_verified = 1',
         localResultSourceCondition,
         "(? = '' OR e.star_level LIKE ?)",
       ];

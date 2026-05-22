@@ -53,6 +53,7 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
   const { token, loading } = useUser();
   const [items, setItems] = useState<ResultRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [previewLocked, setPreviewLocked] = useState(false);
   const [page, setPage] = useState(1);
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
@@ -67,19 +68,20 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
   }, [athleteId, page]);
 
   useEffect(() => {
-    if (!token) return;
+    if (loading) return;
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
       setFetching(true);
       setError('');
-      fetch(`/api/results?${query}`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`/api/results?${query}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
         .then(async (res) => {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || '成绩加载失败');
           if (cancelled) return;
           setItems(data.items || []);
           setTotal(Number(data.total || 0));
+          setPreviewLocked(Boolean(data.preview_locked));
         })
         .catch((err) => {
           if (!cancelled) setError(err instanceof Error ? err.message : '成绩加载失败');
@@ -91,7 +93,7 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
     return () => {
       cancelled = true;
     };
-  }, [query, token]);
+  }, [loading, query, token]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -102,32 +104,25 @@ export default function AthleteResultsPanel({ athleteId }: { athleteId: number }
           <div style={{ width: 3, height: 20, background: '#7A6145', borderRadius: 2 }} />
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', margin: 0 }}>成绩档案</h2>
         </div>
-        {token && (
-          <Link href={`/results?athlete_id=${athleteId}`} style={{ color: '#7A6145', fontSize: 13, textDecoration: 'none' }}>
-            进入成绩查询
-          </Link>
-        )}
+        <Link href={`/results?athlete_id=${athleteId}`} style={{ color: '#7A6145', fontSize: 13, textDecoration: 'none' }}>
+          进入成绩查询
+        </Link>
       </div>
 
       {loading && <p style={{ fontSize: 14, color: '#8A8078', margin: 0 }}>正在检查登录状态...</p>}
 
-      {!loading && !token && (
-        <>
-          <p style={{ fontSize: 14, lineHeight: 1.75, color: '#655D56', margin: '0 0 14px' }}>
-            运动员的完整比赛成绩、原始成绩册和对标查询需要登录后查看。
-          </p>
-          <Link href={`/login?redirect=${encodeURIComponent(`/athletes/${athleteId}`)}`} style={{ display: 'inline-flex', background: '#8B7355', color: '#fff', borderRadius: 8, padding: '9px 14px', fontSize: 13, textDecoration: 'none' }}>
-            登录后查看成绩档案
-          </Link>
-        </>
-      )}
-
-      {token && (
+      {!loading && (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, color: '#8A8078', fontSize: 13, marginBottom: 14 }}>
             <span>已收录 {total} 条成绩</span>
             {fetching && <span>加载中...</span>}
           </div>
+          {previewLocked && (
+            <div style={{ border: '1px solid #DFC7A7', background: '#FFF8EA', color: '#6B4A24', borderRadius: 8, padding: '10px 12px', fontSize: 13, marginBottom: 12, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span>未登录可预览前 3 条，登录后查看完整成绩档案。</span>
+              <Link href={`/login?redirect=${encodeURIComponent(`/athletes/${athleteId}`)}`} style={{ color: '#6B3E1E', fontWeight: 700, textDecoration: 'none' }}>登录查看全部</Link>
+            </div>
+          )}
           {error && <div style={{ border: '1px solid #F2C4C4', background: '#FFF5F5', color: '#9B2C2C', borderRadius: 8, padding: '10px 12px', fontSize: 13, marginBottom: 12 }}>{error}</div>}
           <div style={{ overflowX: 'auto', border: '1px solid #EDE5D8', borderRadius: 10 }}>
             <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 13 }}>

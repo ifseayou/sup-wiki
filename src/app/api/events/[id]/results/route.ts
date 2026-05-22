@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireUser } from '@/lib/user-auth';
+import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import type { RowDataPacket } from 'mysql2';
@@ -24,10 +24,12 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = requireUser(request);
-  if (auth instanceof NextResponse) return auth;
-
   try {
+    const access = await resolveResultAccess(request);
+    if (access.authenticated && access.remaining === 0 && access.previewLimit === 0) {
+      return NextResponse.json({ error: '今日成绩查询次数已用完，请明天再试', access }, { status: 429 });
+    }
+
     const { id } = await params;
     const eventId = Number(id);
     if (!Number.isInteger(eventId) || eventId <= 0) {
@@ -41,6 +43,7 @@ export async function GET(
         `SELECT
            er.discipline,
            er.gender_group,
+           er.board_class,
            COUNT(*) AS total,
            COUNT(DISTINCT er.round_label) AS round_count,
            MIN(er.rank_position) AS best_rank
@@ -48,10 +51,11 @@ export async function GET(
          INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
          INNER JOIN sup_events e ON e.event_id = er.event_id
          WHERE er.event_id = ? AND e.status = 'published'
-           AND er.review_status <> 'pending'
+           AND er.review_status = 'confirmed'
+           AND er.is_verified = 1
            AND ${localResultSourceCondition}
-         GROUP BY er.discipline, er.gender_group
-         ORDER BY er.discipline ASC, er.gender_group ASC`,
+         GROUP BY er.discipline, er.gender_group, er.board_class
+         ORDER BY er.discipline ASC, er.gender_group ASC, er.board_class ASC`,
         [eventId]
       );
 
@@ -86,20 +90,24 @@ export async function GET(
     if (section === 'results') {
       const discipline = normalizeFilter(request.nextUrl.searchParams.get('discipline'));
       const genderGroup = normalizeFilter(request.nextUrl.searchParams.get('gender_group'));
+      const boardClass = normalizeFilter(request.nextUrl.searchParams.get('board_class'));
       if (!discipline || !genderGroup) {
         return NextResponse.json({ error: '缺少项目或组别参数' }, { status: 400 });
       }
 
       const { page, pageSize, offset } = readPageParams(request);
-      const commonParams = [eventId, discipline, genderGroup];
+      const queryPageSize = access.authenticated ? pageSize : 3;
+      const queryOffset = access.authenticated ? offset : 0;
+      const commonParams = [eventId, discipline, genderGroup, boardClass];
       const [countRows] = await pool.execute<RowDataPacket[]>(
         `SELECT COUNT(*) AS total
          FROM sup_event_results er
          INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
          INNER JOIN sup_events e ON e.event_id = er.event_id
-         WHERE er.event_id = ? AND er.discipline = ? AND er.gender_group = ?
+         WHERE er.event_id = ? AND er.discipline = ? AND er.gender_group = ? AND (er.board_class <=> ?)
            AND e.status = 'published'
-           AND er.review_status <> 'pending'
+           AND er.review_status = 'confirmed'
+           AND er.is_verified = 1
            AND ${localResultSourceCondition}`,
         commonParams
       );
@@ -124,25 +132,31 @@ export async function GET(
          LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
          INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
          INNER JOIN sup_events e ON e.event_id = er.event_id
-         WHERE er.event_id = ? AND er.discipline = ? AND er.gender_group = ?
+         WHERE er.event_id = ? AND er.discipline = ? AND er.gender_group = ? AND (er.board_class <=> ?)
            AND e.status = 'published'
-           AND er.review_status <> 'pending'
+           AND er.review_status = 'confirmed'
+           AND er.is_verified = 1
            AND ${localResultSourceCondition}
          ORDER BY ${resultDefaultOrderBy()}
-         LIMIT ${pageSize} OFFSET ${offset}`,
+         LIMIT ${queryPageSize} OFFSET ${queryOffset}`,
         commonParams
       );
 
       const total = Number(countRows[0]?.total || 0);
+      const preview = applyPublicPreview(rows, access);
       return NextResponse.json({
         section,
         discipline,
         gender_group: genderGroup,
-        items: rows,
+        board_class: boardClass,
+        items: preview.items,
         total,
-        page,
+        page: access.authenticated ? page : 1,
         pageSize,
-        totalPages: Math.ceil(total / pageSize),
+        totalPages: access.authenticated ? Math.ceil(total / pageSize) : 1,
+        access,
+        preview_locked: preview.previewLocked,
+        preview_limit: access.previewLimit,
       });
     }
 
@@ -151,6 +165,8 @@ export async function GET(
       if (!groupName) return NextResponse.json({ error: '缺少积分榜分组参数' }, { status: 400 });
 
       const { page, pageSize, offset } = readPageParams(request);
+      const queryPageSize = access.authenticated ? pageSize : 3;
+      const queryOffset = access.authenticated ? offset : 0;
       const [countRows] = await pool.execute<RowDataPacket[]>(
         `SELECT COUNT(*) AS total
          FROM sup_event_point_standings ps
@@ -178,19 +194,23 @@ export async function GET(
            CASE WHEN ps.rank_position IS NULL THEN 1 ELSE 0 END,
            ps.rank_position ASC,
            ps.standing_id ASC
-         LIMIT ${pageSize} OFFSET ${offset}`,
+         LIMIT ${queryPageSize} OFFSET ${queryOffset}`,
         [eventId, groupName]
       );
 
       const total = Number(countRows[0]?.total || 0);
+      const preview = applyPublicPreview(pointRows, access);
       return NextResponse.json({
         section,
         group_name: groupName,
-        items: pointRows,
+        items: preview.items,
         total,
-        page,
+        page: access.authenticated ? page : 1,
         pageSize,
-        totalPages: Math.ceil(total / pageSize),
+        totalPages: access.authenticated ? Math.ceil(total / pageSize) : 1,
+        access,
+        preview_locked: preview.previewLocked,
+        preview_limit: access.previewLimit,
       });
     }
 
@@ -218,7 +238,8 @@ export async function GET(
        INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
        INNER JOIN sup_events e ON e.event_id = er.event_id
        WHERE er.event_id = ? AND e.status = 'published'
-         AND er.review_status <> 'pending'
+         AND er.review_status = 'confirmed'
+         AND er.is_verified = 1
          AND ${localResultSourceCondition}
        ORDER BY ${resultDefaultOrderBy()}`,
       [eventId]
@@ -247,7 +268,16 @@ export async function GET(
       [eventId]
     );
 
-    return NextResponse.json({ section, items: rows, point_standings: pointRows });
+    const resultPreview = applyPublicPreview(rows, access);
+    const pointPreview = applyPublicPreview(pointRows, access);
+    return NextResponse.json({
+      section,
+      items: resultPreview.items,
+      point_standings: pointPreview.items,
+      access,
+      preview_locked: resultPreview.previewLocked || pointPreview.previewLocked,
+      preview_limit: access.previewLimit,
+    });
   } catch (error) {
     console.error('获取赛事成绩失败:', error);
     return NextResponse.json({ error: '获取赛事成绩失败' }, { status: 500 });

@@ -24,10 +24,12 @@ const navItems = [
   { href: '/admin/brands', label: '品牌' },
   { href: '/admin/products', label: '产品' },
   { href: '/admin/athletes', label: '运动员' },
+  { href: '/admin/athlete-claims', label: '资料审批' },
   { href: '/admin/athlete-identities', label: '身份匹配' },
   { href: '/admin/creators', label: '博主' },
   { href: '/admin/events', label: '赛事' },
   { href: '/admin/results', label: '成绩明细' },
+  { href: '/admin/event-result-submissions', label: '成绩册提交' },
   { href: '/admin/courses', label: '课程' },
   { href: '/admin/techniques', label: '技术动作库' },
   { href: '/admin/media', label: '图片库' },
@@ -35,6 +37,7 @@ const navItems = [
   { href: '/admin/learn-questions', label: '题库' },
   { href: '/admin/learn-docs', label: '学习文档' },
   { href: '/admin/shop', label: '商城' },
+  { href: '/admin/users', label: '用户管理' },
   { href: '/admin/import', label: '批量导入' },
 ];
 

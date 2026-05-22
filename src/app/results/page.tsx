@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
 import ResultStatusBadge from '@/components/ResultStatusBadge';
 import type { ReactNode } from 'react';
@@ -41,6 +41,11 @@ interface FilterOption {
   meta?: string | null;
 }
 
+interface MemberLike {
+  name?: unknown;
+  member_name?: unknown;
+}
+
 const rankOptions: FilterOption[] = [
   { value: '', label: '全部名次' },
   { value: '3', label: '前三名' },
@@ -50,12 +55,12 @@ const rankOptions: FilterOption[] = [
 
 const pageSize = 20;
 
-function parseMembers(value: unknown) {
-  if (Array.isArray(value)) return value.map((item: any) => item?.name || item?.member_name || '').filter(Boolean);
+function parseMembers(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item: MemberLike) => String(item?.name || item?.member_name || '')).filter(Boolean);
   if (!value) return [];
   try {
     const parsed = JSON.parse(String(value));
-    return Array.isArray(parsed) ? parsed.map((item) => item?.name || item?.member_name || '').filter(Boolean) : [];
+    return Array.isArray(parsed) ? parsed.map((item: MemberLike) => String(item?.name || item?.member_name || '')).filter(Boolean) : [];
   } catch {
     return [];
   }
@@ -98,32 +103,30 @@ function SearchSelect({
   optionParams?: Record<string, string>;
   icon?: 'search' | 'user' | 'trophy' | 'calendar' | 'star';
 }) {
-  const { token } = useUser();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(display);
   const [options, setOptions] = useState<FilterOption[]>(staticOptions || []);
   const boxRef = useRef<HTMLDivElement>(null);
   const optionParamKey = JSON.stringify(optionParams || {});
 
-  useEffect(() => setText(display), [display]);
+  useEffect(() => {
+    queueMicrotask(() => setText(display));
+  }, [display]);
 
   useEffect(() => {
-    if (staticOptions || !token || !type || !open) return;
+    if (staticOptions || !type || !open) return;
     const controller = new AbortController();
     const params = new URLSearchParams({ type, q: text });
     const optionEntries = Object.entries(JSON.parse(optionParamKey) as Record<string, string>);
     for (const [key, paramValue] of optionEntries) {
       if (paramValue) params.set(key, paramValue);
     }
-    fetch(`/api/results/options?${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-    })
+    fetch(`/api/results/options?${params}`, { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => setOptions(data.items || []))
       .catch(() => undefined);
     return () => controller.abort();
-  }, [open, optionParamKey, staticOptions, text, token, type]);
+  }, [open, optionParamKey, staticOptions, text, type]);
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -226,7 +229,6 @@ function AthleteCell({ row, members }: { row: ResultRow; members: string[] }) {
       </span>
       <span className="min-w-0">
         <span className="block truncate text-base font-bold text-[#3A2B20]">{name}</span>
-        <span className="mt-0.5 block text-xs font-normal text-[#AAA096]">{row.bib_number ? `#${row.bib_number}` : '未登记参赛号'}</span>
         {members.length > 0 && <span className="mt-0.5 block max-w-[220px] truncate text-xs font-normal text-[#9B8A76]">成员：{members.join('、')}</span>}
       </span>
     </span>
@@ -249,7 +251,6 @@ function pageItems(current: number, total: number) {
 }
 
 function ResultsContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { token, loading } = useUser();
   const [items, setItems] = useState<ResultRow[]>([]);
@@ -260,6 +261,7 @@ function ResultsContent() {
   const [jumpPage, setJumpPage] = useState('1');
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
+  const [previewLocked, setPreviewLocked] = useState(false);
   const [filters, setFilters] = useState({
     athlete_id: '',
     athlete_label: '',
@@ -280,16 +282,14 @@ function ResultsContent() {
   useEffect(() => {
     const athleteId = searchParams.get('athlete_id') || '';
     if (!athleteId) return;
-    setFilters((prev) => prev.athlete_id === athleteId ? prev : {
-      ...prev,
-      athlete_id: athleteId,
-      athlete_label: prev.athlete_label || `运动员 #${athleteId}`,
+    queueMicrotask(() => {
+      setFilters((prev) => prev.athlete_id === athleteId ? prev : {
+        ...prev,
+        athlete_id: athleteId,
+        athlete_label: prev.athlete_label || `运动员 #${athleteId}`,
+      });
     });
   }, [searchParams]);
-
-  useEffect(() => {
-    if (!loading && !token) router.replace(`/login?redirect=${encodeURIComponent('/results')}`);
-  }, [loading, token, router]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
@@ -304,27 +304,45 @@ function ResultsContent() {
   }, [filters, page]);
 
   useEffect(() => {
-    if (!token) return;
-    setFetching(true);
-    setError('');
-    fetch(`/api/results?${query}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '成绩查询失败');
-        setItems(data.items || []);
-        setTotal(Number(data.total || 0));
-        setStats({
-          resultCount: Number(data.stats?.resultCount || data.total || 0),
-          athleteCount: Number(data.stats?.athleteCount || 0),
-          eventCount: Number(data.stats?.eventCount || 0),
+    if (loading) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setFetching(true);
+      setError('');
+      fetch(`/api/results?${query}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || '成绩查询失败');
+          if (cancelled) return;
+          setItems(data.items || []);
+          setPreviewLocked(Boolean(data.preview_locked));
+          setTotal(Number(data.total || 0));
+          setStats({
+            resultCount: Number(data.stats?.resultCount || data.total || 0),
+            athleteCount: Number(data.stats?.athleteCount || 0),
+            eventCount: Number(data.stats?.eventCount || 0),
+          });
+          setTotalPages(Math.max(1, Number(data.totalPages || 1)));
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setPreviewLocked(false);
+            setError(err instanceof Error ? err.message : '成绩查询失败');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setFetching(false);
         });
-        setTotalPages(Math.max(1, Number(data.totalPages || 1)));
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : '成绩查询失败'))
-      .finally(() => setFetching(false));
-  }, [token, query]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, token, query]);
 
-  useEffect(() => setJumpPage(String(page)), [page]);
+  useEffect(() => {
+    queueMicrotask(() => setJumpPage(String(page)));
+  }, [page]);
 
   function updateFilter(valueKey: keyof typeof filters, labelKey: keyof typeof filters, value: string, label: string) {
     setFilters((prev) => ({ ...prev, [valueKey]: value, [labelKey]: label }));
@@ -375,7 +393,7 @@ function ResultsContent() {
     setPage(next);
   }
 
-  if (loading || !token) {
+  if (loading) {
     return <div className="min-h-[60vh] px-6 py-20 text-center text-[#7B6D5E]">正在检查登录状态...</div>;
   }
 
@@ -393,13 +411,13 @@ function ResultsContent() {
             <p className="mt-5 max-w-2xl text-base leading-7 text-[#E5D8C6]">记录你的每一次成长与进步</p>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            {[
+            {([
               ['成绩数', stats.resultCount, 'timer'],
               ['参赛运动员数', stats.athleteCount, 'user'],
               ['比赛数', stats.eventCount, 'trophy'],
-            ].map(([label, value, icon]) => (
+            ] as const).map(([label, value, icon]) => (
               <div key={String(label)} className="min-w-[128px] rounded-md border border-[#8C704E] bg-black/18 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur">
-                <div className="mb-3 flex items-center gap-2 text-xs text-[#D7B77F]"><Icon name={icon as any} />{label}</div>
+                <div className="mb-3 flex items-center gap-2 text-xs text-[#D7B77F]"><Icon name={icon} />{label}</div>
                 <div className="text-3xl font-bold">{value}</div>
               </div>
             ))}
@@ -442,14 +460,14 @@ function ResultsContent() {
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
             <span className="mr-1 text-[#7B6D5E]">快捷筛选:</span>
-            {[
+            {([
               ['rank', '10', '前十名'],
               ['discipline', '7公里', '7公里'],
               ['discipline', '200米', '200米'],
               ['gender', '男子精英组', '男子精英组'],
               ['gender', '女子公开组', '女子公开组'],
-            ].map(([type, value, label]) => (
-              <button key={`${type}-${value}`} type="button" onClick={() => applyQuick(type as any, value, label)} className="rounded-full border border-[#E4D6C3] bg-white px-4 py-1.5 text-[#6B3E1E] transition hover:border-[#C28C4F] hover:bg-[#FFF4E6]">
+            ] as const).map(([type, value, label]) => (
+              <button key={`${type}-${value}`} type="button" onClick={() => applyQuick(type, value, label)} className="rounded-full border border-[#E4D6C3] bg-white px-4 py-1.5 text-[#6B3E1E] transition hover:border-[#C28C4F] hover:bg-[#FFF4E6]">
                 {label}
               </button>
             ))}
@@ -458,6 +476,14 @@ function ResultsContent() {
         </div>
 
         {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+        {previewLocked && (
+          <div className="mb-4 flex flex-col gap-3 rounded-md border border-[#DFC7A7] bg-[#FFF8EA] px-4 py-3 text-sm text-[#6B4A24] sm:flex-row sm:items-center sm:justify-between">
+            <span>未登录用户可预览前 3 条成绩。登录后可查看完整成绩，并使用更多筛选与导出能力。</span>
+            <Link href={`/login?redirect=${encodeURIComponent('/results')}`} className="inline-flex shrink-0 rounded-md bg-[#6B3E1E] px-4 py-2 text-sm font-semibold text-white no-underline">
+              登录查看全部
+            </Link>
+          </div>
+        )}
 
         <div className="overflow-hidden border border-[#E2D4C0] bg-white shadow-[0_18px_42px_rgba(91,68,43,0.08)]">
           <div className="overflow-x-auto">
@@ -502,6 +528,25 @@ function ResultsContent() {
                     </tr>
                   );
                 })}
+                {previewLocked && total > items.length && [0, 1, 2].map((item) => (
+                  <tr key={`locked-${item}`} className="border-b border-[#EFE5D8] bg-[#FFF9EF]">
+                    <td className="px-4 py-4 text-center"><span className="inline-flex h-8 w-8 rounded-full bg-[#E6D8C4] blur-[2px]" /></td>
+                    <td className="px-4 py-4">
+                      <div className="h-4 w-28 rounded bg-[#D8C7AF] blur-[2px]" />
+                      <div className="mt-2 h-3 w-20 rounded bg-[#E7DAC9] blur-[2px]" />
+                    </td>
+                    <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-[#E7DAC9] blur-[2px]" /></td>
+                    <td className="px-4 py-4"><div className="h-4 w-20 rounded bg-[#E7DAC9] blur-[2px]" /></td>
+                    <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-24 rounded bg-[#D8C7AF] blur-[2px]" /></td>
+                    <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-20 rounded bg-[#E7DAC9] blur-[2px]" /></td>
+                    <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-16 rounded bg-[#E7DAC9] blur-[2px]" /></td>
+                    <td className="px-4 py-4" colSpan={2}>
+                      <Link href={`/login?redirect=${encodeURIComponent('/results')}`} className="inline-flex rounded-md bg-[#6B3E1E] px-3 py-1.5 text-xs font-semibold text-white no-underline">
+                        登录查看隐藏成绩
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
                 {!fetching && items.length === 0 && (
                   <tr><td colSpan={9} className="px-4 py-14 text-center text-[#9B8A76]">没有匹配的成绩</td></tr>
                 )}

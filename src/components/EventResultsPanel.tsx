@@ -49,6 +49,7 @@ interface PointStandingRow {
 interface ResultModule {
   discipline: string;
   gender_group: string;
+  board_class: string | null;
   total: number | string;
   round_count: number | string;
 }
@@ -71,6 +72,7 @@ interface PageData<T> {
   page: number;
   pageSize: number;
   totalPages: number;
+  preview_locked?: boolean;
 }
 
 interface MemberLike {
@@ -79,7 +81,7 @@ interface MemberLike {
 }
 
 type ActiveModule =
-  | { type: 'results'; discipline: string; genderGroup: string }
+  | { type: 'results'; discipline: string; genderGroup: string; boardClass: string | null }
   | { type: 'points'; groupName: string };
 
 function parseMembers(value: unknown) {
@@ -103,8 +105,28 @@ function numberValue(value: number | string | null | undefined) {
   return Number(value || 0);
 }
 
-function resultKey(module: Pick<ResultModule, 'discipline' | 'gender_group'>) {
-  return `results:${module.discipline}:${module.gender_group}`;
+function cleanModuleDiscipline(value: string, genderGroup?: string | null) {
+  let title = String(value || '').trim();
+  const longRaceIndex = title.indexOf('古镇长程赛');
+  if (longRaceIndex >= 0) title = title.slice(longRaceIndex);
+  title = title
+    .replace(/^2024第六届南浔古镇桨板公开赛（水上运动户外运动周）\s*/, '')
+    .replace(/^第六届南浔古镇桨板公开赛暨水上运动户外运动周\s*/, '')
+    .replace(/\s*成绩公告.*$/, '')
+    .trim();
+  if (genderGroup && title.endsWith(`-${genderGroup}`)) return title;
+  return title || '未分项目';
+}
+
+function formatResultModuleTitle(discipline: string, genderGroup: string, boardClass?: string | null) {
+  const cleanDiscipline = cleanModuleDiscipline(discipline, genderGroup);
+  const groupParts = [boardClass, genderGroup].filter(Boolean);
+  if (genderGroup && cleanDiscipline.includes(genderGroup)) return cleanDiscipline;
+  return [cleanDiscipline, ...groupParts].join(' · ');
+}
+
+function resultKey(module: Pick<ResultModule, 'discipline' | 'gender_group' | 'board_class'>) {
+  return `results:${module.discipline}:${module.gender_group}:${module.board_class || ''}`;
 }
 
 function pointKey(module: Pick<PointModule, 'group_name'>) {
@@ -114,7 +136,7 @@ function pointKey(module: Pick<PointModule, 'group_name'>) {
 function activeKey(active: ActiveModule | null) {
   if (!active) return '';
   return active.type === 'results'
-    ? `results:${active.discipline}:${active.genderGroup}`
+    ? `results:${active.discipline}:${active.genderGroup}:${active.boardClass || ''}`
     : `points:${active.groupName}`;
 }
 
@@ -182,6 +204,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
+    if (loading) return;
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
@@ -193,10 +216,9 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
       setModuleError('');
       setDetailError('');
       setCurrentPage(1);
-      if (!token) return;
 
       setLoadingModules(true);
-      fetch(`/api/events/${eventId}/results?section=modules`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`/api/events/${eventId}/results?section=modules`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
         .then(async (res) => {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || '赛事成绩模块加载失败');
@@ -215,10 +237,10 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
     return () => {
       cancelled = true;
     };
-  }, [eventId, token]);
+  }, [eventId, loading, token]);
 
   const selectResultModule = useCallback((module: ResultModule) => {
-    setActive({ type: 'results', discipline: module.discipline, genderGroup: module.gender_group });
+    setActive({ type: 'results', discipline: module.discipline, genderGroup: module.gender_group, boardClass: module.board_class || null });
     setCurrentPage(1);
     setDetailError('');
   }, []);
@@ -231,7 +253,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
 
   const selectedResultModule = useMemo(() => {
     if (!active || active.type !== 'results') return null;
-    return resultModules.find((item) => item.discipline === active.discipline && item.gender_group === active.genderGroup) || null;
+    return resultModules.find((item) => item.discipline === active.discipline && item.gender_group === active.genderGroup && (item.board_class || null) === active.boardClass) || null;
   }, [active, resultModules]);
 
   const selectedPointModule = useMemo(() => {
@@ -240,7 +262,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
   }, [active, pointModules]);
 
   useEffect(() => {
-    if (!token || !active) return;
+    if (loading || !active) return;
     let cancelled = false;
     const key = `${activeKey(active)}:page:${currentPage}`;
     if (pages[key]) return;
@@ -253,6 +275,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
     if (active.type === 'results') {
       params.set('discipline', active.discipline);
       params.set('gender_group', active.genderGroup);
+      if (active.boardClass) params.set('board_class', active.boardClass);
     } else {
       params.set('group_name', active.groupName);
     }
@@ -261,7 +284,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
       if (cancelled) return;
       setLoadingDetail(true);
       setDetailError('');
-      fetch(`/api/events/${eventId}/results?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`/api/events/${eventId}/results?${params.toString()}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
         .then(async (res) => {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || '成绩明细加载失败');
@@ -277,13 +300,13 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
     return () => {
       cancelled = true;
     };
-  }, [active, currentPage, eventId, pages, token]);
+  }, [active, currentPage, eventId, loading, pages, token]);
 
   const currentData = active ? pages[`${activeKey(active)}:page:${currentPage}`] : null;
   const resultRows = active?.type === 'results' ? (currentData?.items || []) as EventResultRow[] : [];
   const pointRows = active?.type === 'points' ? (currentData?.items || []) as PointStandingRow[] : [];
   const activeTitle = active?.type === 'results'
-    ? `${active.discipline} · ${active.genderGroup}`
+    ? formatResultModuleTitle(active.discipline, active.genderGroup, active.boardClass)
     : active?.type === 'points'
       ? `${active.groupName} 积分榜`
       : '';
@@ -292,18 +315,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
 
   if (loading) {
     return <div className="mb-6 rounded-xl border border-[#E0D8CC] bg-[#FEFCF9] p-6 text-sm text-stone-500">正在检查登录状态...</div>;
-  }
-
-  if (!token) {
-    return (
-      <div className="mb-6 rounded-xl border border-[#E0D8CC] bg-[#FEFCF9] p-6">
-        <h2 className="mb-2 text-lg font-semibold text-stone-800">赛事成绩档案</h2>
-        <p className="mb-4 text-sm text-stone-500">成绩明细和原始成绩册是登录用户可见内容。</p>
-        <Link href={`/login?redirect=${encodeURIComponent(pathname)}`} className="inline-flex rounded-lg bg-[#8B7355] px-4 py-2 text-sm font-medium text-white hover:bg-[#6F5B42]">
-          登录后查看
-        </Link>
-      </div>
-    );
   }
 
   if (moduleError) {
@@ -368,8 +379,10 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-[#2E2118]">{module.discipline || '未分项目'}</div>
-                      <div className="mt-1 text-xs text-stone-500">{module.gender_group || '公开组'}</div>
+                      <div className="truncate text-sm font-semibold text-[#2E2118]">{cleanModuleDiscipline(module.discipline, module.gender_group)}</div>
+                      <div className="mt-1 text-xs text-stone-500">
+                        {module.board_class ? `${module.board_class} · ` : ''}{module.gender_group || '公开组'}
+                      </div>
                     </div>
                     <div className="shrink-0 rounded-full bg-white px-2 py-1 text-xs font-medium text-[#7A6145]">{numberValue(module.total)}</div>
                   </div>
@@ -429,6 +442,12 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
               </div>
 
               {detailError && <div className="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{detailError}</div>}
+              {currentData && 'preview_locked' in currentData && (currentData as PageData<EventResultRow> & { preview_locked?: boolean }).preview_locked && (
+                <div className="m-4 flex flex-col gap-2 rounded-lg border border-[#DFC7A7] bg-[#FFF8EA] p-4 text-sm text-[#6B4A24] sm:flex-row sm:items-center sm:justify-between">
+                  <span>未登录可预览前 3 条成绩，登录后查看完整项目成绩。</span>
+                  <Link href={`/login?redirect=${encodeURIComponent(pathname)}`} className="font-semibold text-[#6B3E1E] no-underline">登录查看全部</Link>
+                </div>
+              )}
               {loadingDetail && !currentData && <div className="p-8 text-center text-sm text-stone-500">正在加载当前模块...</div>}
 
               {active.type === 'results' && currentData && (

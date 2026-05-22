@@ -155,15 +155,35 @@ export default async function AthleteDetailPage({
 
         {/* 基本信息 */}
         <div style={{ flex: 1, padding: '28px 32px', minWidth: 260 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 400, color: '#2E2118', margin: 0 }}>
-              {athlete.name}
-            </h1>
-            {athlete.icf_ranking && (
-              <span style={{ fontSize: 12, background: '#EBF5FB', color: '#1A5276', border: '1px solid #AED6F1', borderRadius: 12, padding: '2px 10px' }}>
-                <Tooltip tip="国际皮划艇联合会 (International Canoe Federation) 世界排名">ICF #{athlete.icf_ranking}</Tooltip>
-              </span>
-            )}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 4, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 400, color: '#2E2118', margin: 0 }}>
+                {athlete.name}
+              </h1>
+              {athlete.icf_ranking && (
+                <span style={{ fontSize: 12, background: '#EBF5FB', color: '#1A5276', border: '1px solid #AED6F1', borderRadius: 12, padding: '2px 10px' }}>
+                  <Tooltip tip="国际皮划艇联合会 (International Canoe Federation) 世界排名">ICF #{athlete.icf_ranking}</Tooltip>
+                </span>
+              )}
+            </div>
+            <Link
+              href={`/athletes/${athleteId}/claim`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                minHeight: 34,
+                border: '1px solid #CDBA9F',
+                borderRadius: 8,
+                padding: '7px 12px',
+                color: '#6B3E1E',
+                background: '#FFF8EA',
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
+              这是我，更新资料
+            </Link>
           </div>
 
           {athlete.name_en && (
