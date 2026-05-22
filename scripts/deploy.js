@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 const { readFileSync } = require("fs");
 const { resolve } = require("path");
 const { spawnSync } = require("child_process");
@@ -15,18 +17,13 @@ if (!service) {
 }
 
 const dryRun = process.argv.includes("--dry-run");
+const migrationIndex = process.argv.indexOf("--migration");
+const migrationFile = migrationIndex >= 0 ? process.argv[migrationIndex + 1] : "";
 const remote = config.server.includes("@")
   ? config.server
   : `root@${config.server}`;
 
-const excludes = [
-  ".git",
-  ".next",
-  "node_modules",
-  ".env.local",
-  ".DS_Store",
-  ".AGENTS.md.swp",
-];
+const branch = config.branch || "main";
 
 function run(command, args) {
   console.log(`\n> ${command} ${args.join(" ")}`);
@@ -42,23 +39,28 @@ function run(command, args) {
   }
 }
 
-const rsyncArgs = [
-  "-az",
-  "--delete",
-  ...excludes.flatMap((pattern) => ["--exclude", pattern]),
-  `${repoRoot}/`,
-  `${remote}:${config.deployPath}/`,
-];
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+const healthUrl = `http://127.0.0.1:${service.port}${service.healthPath || "/"}`;
+const migrationCommand = migrationFile
+  ? `node scripts/run-migration.js ${shellQuote(migrationFile)}`
+  : "echo 'No database migration requested'";
 
 const remoteCommand = [
   `cd ${config.deployPath}`,
+  "git fetch origin",
+  `git reset --hard origin/${branch}`,
+  `${config.packageManager || "npm"} install`,
+  migrationCommand,
   "rm -rf .next",
   config.buildCommand,
   `${config.processManager} restart ${service.name}`,
   `${config.processManager} status ${service.name} --no-color`,
+  `status=$(curl -s -o /dev/null -w "%{http_code}" ${shellQuote(healthUrl)}) && echo "Health ${healthUrl}: $status" && case "$status" in 2*|3*) exit 0 ;; *) exit 1 ;; esac`,
 ].join(" && ");
 
-run("rsync", rsyncArgs);
 run("ssh", [remote, remoteCommand]);
 
 console.log(

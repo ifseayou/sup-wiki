@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "deploy": "node scripts/deploy.js",
     "race-results:parse": "python3 scripts/parse-race-results.py /Users/xhl/Downloads/桨板赛事 -o .cache/race-results-import.json --copy-to-public public",
