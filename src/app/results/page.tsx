@@ -66,7 +66,7 @@ function parseMembers(value: unknown): string[] {
   }
 }
 
-function Icon({ name }: { name: 'search' | 'user' | 'trophy' | 'timer' | 'calendar' | 'rotate' | 'star' }) {
+function Icon({ name }: { name: 'search' | 'user' | 'trophy' | 'timer' | 'calendar' | 'rotate' | 'star' | 'upload' | 'file' | 'check' | 'help' }) {
   const paths: Record<string, ReactNode> = {
     search: <><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></>,
     user: <><path d="M20 21a8 8 0 0 0-16 0" /><circle cx="12" cy="8" r="4" /></>,
@@ -75,6 +75,10 @@ function Icon({ name }: { name: 'search' | 'user' | 'trophy' | 'timer' | 'calend
     calendar: <><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4" /><path d="M16 3v4" /><path d="M4 10h16" /></>,
     rotate: <><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 4v6h-6" /></>,
     star: <path d="m12 3 2.7 5.48 6.05.88-4.38 4.27 1.03 6.02L12 16.8l-5.4 2.85 1.03-6.02-4.38-4.27 6.05-.88z" />,
+    upload: <><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M20 16.5a4.5 4.5 0 0 1-4.5 4.5h-7A4.5 4.5 0 0 1 4 16.5a4.5 4.5 0 0 1 6.7-3.9" /></>,
+    file: <><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z" /><path d="M14 2v5h5" /><path d="M9 13h6" /><path d="M9 17h4" /></>,
+    check: <path d="m5 12 4 4L19 6" />,
+    help: <><circle cx="12" cy="12" r="9" /><path d="M9.4 9a3 3 0 0 1 5.2 2c0 2-2.6 2.2-2.6 4" /><path d="M12 18h.01" /></>,
   };
 
   return (
@@ -250,9 +254,137 @@ function pageItems(current: number, total: number) {
     }, []);
 }
 
+function NoResultsUploadGuide({
+  uploadHref,
+  eventName,
+  onClear,
+  onRefilter,
+}: {
+  uploadHref: string;
+  eventName: string;
+  onClear: () => void;
+  onRefilter: () => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-[#E5D7C4] bg-[#FFFCF7] shadow-[0_18px_48px_rgba(91,68,43,0.08)]">
+      <div className="grid gap-0 lg:grid-cols-[0.95fr_1.2fr_0.85fr]">
+        <div className="relative min-h-[300px] overflow-hidden bg-[radial-gradient(circle_at_35%_34%,rgba(206,151,72,0.22),transparent_30%),linear-gradient(135deg,#FFF7EA,#F9EFE0)] px-8 py-8">
+          <div className="absolute -left-10 bottom-0 h-36 w-36 rounded-full border border-[#E7D8C2] bg-white/30" />
+          <div className="absolute right-8 top-8 h-16 w-16 rounded-full border border-[#E0C9A9] bg-white/50 shadow-[0_12px_30px_rgba(101,71,36,0.12)]" />
+          <div className="relative mx-auto mt-8 h-48 max-w-[320px]">
+            <div className="absolute bottom-1 left-1/2 h-8 w-64 -translate-x-1/2 rounded-[50%] bg-[#D9B77C]/20 blur-sm" />
+            <div className="absolute bottom-6 left-5 h-24 w-24 rounded-b-lg rounded-t-[44px] border border-[#D5A657] bg-[linear-gradient(145deg,#F6D47C,#B77722)] shadow-[0_18px_36px_rgba(133,82,27,0.22)]">
+              <div className="absolute left-1/2 top-7 h-10 w-10 -translate-x-1/2 rounded-full border-4 border-[#FFF0BC]" />
+              <div className="absolute -left-4 top-8 h-8 w-7 rounded-l-full border-4 border-r-0 border-[#C8953D]" />
+              <div className="absolute -right-4 top-8 h-8 w-7 rounded-r-full border-4 border-l-0 border-[#C8953D]" />
+              <div className="absolute bottom-[-18px] left-1/2 h-5 w-14 -translate-x-1/2 rounded-t-md bg-[#93601F]" />
+            </div>
+            <div className="absolute bottom-10 left-28 h-36 w-28 -rotate-3 rounded-md border border-[#E0D0BA] bg-white/78 p-4 shadow-[0_18px_38px_rgba(94,68,42,0.13)]">
+              <div className="mb-4 h-2 w-12 rounded-full bg-[#D3B485]" />
+              <div className="space-y-2">
+                <div className="h-2 rounded bg-[#E9DDCC]" />
+                <div className="h-2 rounded bg-[#E9DDCC]" />
+                <div className="h-2 w-16 rounded bg-[#E9DDCC]" />
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-1">
+                {Array.from({ length: 9 }).map((_, index) => <div key={index} className="h-4 rounded-sm border border-[#EFE2D0]" />)}
+              </div>
+            </div>
+            <div className="absolute bottom-8 right-9 h-24 w-24 rounded-full border-[10px] border-[#C49A5A] bg-white/25 shadow-[0_18px_34px_rgba(92,62,31,0.18)]">
+              <div className="absolute -bottom-8 -right-4 h-12 w-3 rotate-[-38deg] rounded-full bg-[#7C5430]" />
+            </div>
+          </div>
+        </div>
+
+        <div className="px-7 py-9 md:px-10">
+          <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#8B6A3F] text-white shadow-[0_10px_22px_rgba(139,106,63,0.2)]">
+            <Icon name="file" />
+          </div>
+          <h2 className="text-2xl font-bold tracking-tight text-[#2D261F] md:text-3xl">未找到相关成绩记录</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#7B6D5E]">
+            当前按姓名或赛事查询暂无结果，你可以上传该比赛的成绩册，帮助补充和完善赛事数据。
+          </p>
+          {eventName && (
+            <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-[#E8D9C4] bg-white px-3 py-1.5 text-xs font-semibold text-[#6B4A24]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#B77A2E]" />
+              <span className="truncate">将为「{eventName}」预填赛事名称</span>
+            </div>
+          )}
+          <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-[#8A7B6B]">
+            <span className="inline-flex items-center gap-1.5"><Icon name="star" />当前支持 PDF 成绩册</span>
+            <span className="hidden h-1 w-1 rounded-full bg-[#CDBAA4] sm:inline-block" />
+            <span>上传后进入人工校对或智能识别流程</span>
+          </div>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <Link href={uploadHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#B57B2F] px-6 text-sm font-semibold text-white no-underline shadow-[0_12px_26px_rgba(181,123,47,0.24)] transition hover:bg-[#945D1F]">
+              <Icon name="upload" />上传比赛成绩册
+            </Link>
+            <button type="button" onClick={onRefilter} className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-[#DCCBB4] bg-white px-6 text-sm font-semibold text-[#6B3E1E] transition hover:bg-[#F8EFE4]">
+              <Icon name="search" />重新筛选
+            </button>
+          </div>
+          <div className="mt-7 rounded-xl border border-dashed border-[#D8C4A8] bg-white/70 px-5 py-5 text-center text-[#8A7B6B]">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#F2E3CF] text-[#9B6A2D]">
+              <Icon name="upload" />
+            </div>
+            <div className="text-base font-semibold text-[#4A3A2A]">拖拽文件到这里，或点击上传入口</div>
+            <div className="mt-1 text-sm">单个 PDF 文件不超过 50MB</div>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {[
+              ['file', '自动识别成绩', '提取成绩信息'],
+              ['calendar', '支持多页成绩册', '批量校对更高效'],
+              ['trophy', '补充赛事数据库', '完善历史赛事数据'],
+            ].map(([icon, title, desc]) => (
+              <div key={title} className="rounded-lg border border-[#E8D9C4] bg-[#FFF9F0] px-4 py-3">
+                <div className="mb-2 text-[#A06D2C]"><Icon name={icon as 'file' | 'calendar' | 'trophy'} /></div>
+                <div className="text-sm font-semibold text-[#4A3A2A]">{title}</div>
+                <div className="mt-1 text-xs text-[#9B8A76]">{desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <aside className="border-t border-[#E8D9C4] bg-[#FFF8ED] p-7 lg:border-l lg:border-t-0">
+          <div className="rounded-xl border border-[#E2D0B6] bg-white/78 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#C9AA77] text-white"><Icon name="help" /></span>
+              <h3 className="text-xl font-bold text-[#3A2B20]">为什么要上传？</h3>
+            </div>
+            <div className="space-y-5">
+              {[
+                ['补全缺失赛事成绩', '完整历史赛事档案'],
+                ['帮助更多运动员被检索到', '让优秀成绩被更多人看到'],
+                ['让俱乐部数据库更完整', '为训练与赛事管理提供数据支持'],
+              ].map(([title, desc]) => (
+                <div key={title} className="flex gap-3">
+                  <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#F2E3CF] text-[#8B5A2B]"><Icon name="check" /></span>
+                  <div>
+                    <div className="font-semibold text-[#4A3A2A]">{title}</div>
+                    <div className="mt-1 text-sm text-[#9B8A76]">{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </div>
+      <div className="flex flex-col gap-3 border-t border-[#E8D9C4] bg-white/70 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <button type="button" onClick={onClear} className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#DCCBB4] bg-white px-5 text-sm font-semibold text-[#6B3E1E] transition hover:bg-[#F8EFE4]">
+          <Icon name="rotate" />返回全部成绩
+        </button>
+        <button type="button" onClick={onRefilter} className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-[#DCCBB4] bg-white px-5 text-sm font-semibold text-[#6B3E1E] transition hover:bg-[#F8EFE4]">
+          <Icon name="search" />重新筛选
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ResultsContent() {
   const searchParams = useSearchParams();
   const { token, loading } = useUser();
+  const filtersPanelRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<ResultRow[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState({ resultCount: 0, athleteCount: 0, eventCount: 0 });
@@ -393,6 +525,12 @@ function ResultsContent() {
     setPage(next);
   }
 
+  const uploadParams = new URLSearchParams();
+  if (filters.event_label.trim()) uploadParams.set('event_name', filters.event_label.trim());
+  const uploadQuery = uploadParams.toString();
+  const uploadHref = `/events/upload-results${uploadQuery ? `?${uploadQuery}` : ''}`;
+  const showUploadGuide = !fetching && !error && items.length === 0;
+
   if (loading) {
     return <div className="min-h-[60vh] px-6 py-20 text-center text-[#7B6D5E]">正在检查登录状态...</div>;
   }
@@ -426,7 +564,7 @@ function ResultsContent() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-5 border border-[#E2D4C0] bg-white/88 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
+        <div ref={filtersPanelRef} className="mb-5 border border-[#E2D4C0] bg-white/88 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <SearchSelect label="运动员" type="athlete" value={filters.athlete_id} display={filters.athlete_label} icon="user" onChange={(v, l) => updateFilter('athlete_id', 'athlete_label', v, l)} />
             <SearchSelect label="赛事" type="event" value={filters.event_id} display={filters.event_label} icon="trophy" onChange={updateEventFilter} />
@@ -485,78 +623,84 @@ function ResultsContent() {
           </div>
         )}
 
-        <div className="overflow-hidden border border-[#E2D4C0] bg-white shadow-[0_18px_42px_rgba(91,68,43,0.08)]">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1320px] text-sm">
-              <thead className="border-b border-[#E8DCCA] bg-[#F4EDDF] text-left text-xs font-semibold uppercase tracking-wide text-[#746556]">
-                <tr>
-                  <th className="px-4 py-4 text-center">名次</th>
-                  <th className="px-4 py-4">运动员</th>
-                  <th className="px-4 py-4">组别</th>
-                  <th className="px-4 py-4">项目</th>
-                  <th className="px-4 py-4 text-right">成绩</th>
-                  <th className="px-4 py-4 text-right">与上一名差距</th>
-                  <th className="px-4 py-4 text-right">平均配速</th>
-                  <th className="px-4 py-4">赛事</th>
-                  <th className="px-4 py-4">队伍</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row) => {
-                  const members = parseMembers(row.team_members);
-                  return (
-                    <tr key={row.result_id} className="border-b border-[#EFE5D8] transition hover:bg-[#FFF8EE]">
-                      <td className="px-4 py-3 text-center"><RankBadge rank={row.rank_position} /></td>
-                      <td className="px-4 py-3 font-semibold text-[#3A2B20]">
-                        <AthleteCell row={row} members={members} />
-                      </td>
-                      <td className="px-4 py-3 text-[#5B5148]">{row.gender_group || '-'}</td>
-                      <td className="px-4 py-3 text-[#5B5148]">
-                        <div className="font-medium text-[#3A2B20]">{row.discipline || '-'}</div>
-                        <div className="text-xs text-[#A09284]">{[row.board_class, row.round_label].filter(Boolean).join(' · ') || '-'}</div>
-                      </td>
-                      <td className="px-4 py-3 text-right text-base font-bold text-[#634325]">
-                        <span className="inline-flex items-center justify-end gap-1.5"><Icon name="timer" /><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.gap_display || '-'}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.is_long_distance ? (row.pace_display || '-') : '-'}</td>
-                      <td className="px-4 py-3">
-                        <Link href={`/events/${row.event_id}`} className="font-semibold text-[#6B3E1E] hover:text-[#3B2110]">{row.event_name}</Link>
-                        <div className="mt-1 text-xs text-[#A09284]">{[row.province, row.city].filter(Boolean).join(' · ')} {row.start_date?.slice(0, 10)}</div>
-                      </td>
-                      <td className="px-4 py-3 text-[#5B5148]">{row.team_name || '个人'}</td>
-                    </tr>
-                  );
-                })}
-                {previewLocked && total > items.length && [0, 1, 2].map((item) => (
-                  <tr key={`locked-${item}`} className="border-b border-[#EFE5D8] bg-[#FFF9EF]">
-                    <td className="px-4 py-4 text-center"><span className="inline-flex h-8 w-8 rounded-full bg-[#E6D8C4] blur-[2px]" /></td>
-                    <td className="px-4 py-4">
-                      <div className="h-4 w-28 rounded bg-[#D8C7AF] blur-[2px]" />
-                      <div className="mt-2 h-3 w-20 rounded bg-[#E7DAC9] blur-[2px]" />
-                    </td>
-                    <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-[#E7DAC9] blur-[2px]" /></td>
-                    <td className="px-4 py-4"><div className="h-4 w-20 rounded bg-[#E7DAC9] blur-[2px]" /></td>
-                    <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-24 rounded bg-[#D8C7AF] blur-[2px]" /></td>
-                    <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-20 rounded bg-[#E7DAC9] blur-[2px]" /></td>
-                    <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-16 rounded bg-[#E7DAC9] blur-[2px]" /></td>
-                    <td className="px-4 py-4" colSpan={2}>
-                      <Link href={`/login?redirect=${encodeURIComponent('/results')}`} className="inline-flex rounded-md bg-[#6B3E1E] px-3 py-1.5 text-xs font-semibold text-white no-underline">
-                        登录查看隐藏成绩
-                      </Link>
-                    </td>
+        {showUploadGuide ? (
+          <NoResultsUploadGuide
+            uploadHref={uploadHref}
+            eventName={filters.event_label.trim()}
+            onClear={clearFilters}
+            onRefilter={() => filtersPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          />
+        ) : (
+          <div className="overflow-hidden border border-[#E2D4C0] bg-white shadow-[0_18px_42px_rgba(91,68,43,0.08)]">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1320px] text-sm">
+                <thead className="border-b border-[#E8DCCA] bg-[#F4EDDF] text-left text-xs font-semibold uppercase tracking-wide text-[#746556]">
+                  <tr>
+                    <th className="px-4 py-4 text-center">名次</th>
+                    <th className="px-4 py-4">运动员</th>
+                    <th className="px-4 py-4">组别</th>
+                    <th className="px-4 py-4">项目</th>
+                    <th className="px-4 py-4 text-right">成绩</th>
+                    <th className="px-4 py-4 text-right">与上一名差距</th>
+                    <th className="px-4 py-4 text-right">平均配速</th>
+                    <th className="px-4 py-4">赛事</th>
+                    <th className="px-4 py-4">队伍</th>
                   </tr>
-                ))}
-                {!fetching && items.length === 0 && (
-                  <tr><td colSpan={9} className="px-4 py-14 text-center text-[#9B8A76]">没有匹配的成绩</td></tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {items.map((row) => {
+                    const members = parseMembers(row.team_members);
+                    return (
+                      <tr key={row.result_id} className="border-b border-[#EFE5D8] transition hover:bg-[#FFF8EE]">
+                        <td className="px-4 py-3 text-center"><RankBadge rank={row.rank_position} /></td>
+                        <td className="px-4 py-3 font-semibold text-[#3A2B20]">
+                          <AthleteCell row={row} members={members} />
+                        </td>
+                        <td className="px-4 py-3 text-[#5B5148]">{row.gender_group || '-'}</td>
+                        <td className="px-4 py-3 text-[#5B5148]">
+                          <div className="font-medium text-[#3A2B20]">{row.discipline || '-'}</div>
+                          <div className="text-xs text-[#A09284]">{[row.board_class, row.round_label].filter(Boolean).join(' · ') || '-'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-right text-base font-bold text-[#634325]">
+                          <span className="inline-flex items-center justify-end gap-1.5"><Icon name="timer" /><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.gap_display || '-'}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.is_long_distance ? (row.pace_display || '-') : '-'}</td>
+                        <td className="px-4 py-3">
+                          <Link href={`/events/${row.event_id}`} className="font-semibold text-[#6B3E1E] hover:text-[#3B2110]">{row.event_name}</Link>
+                          <div className="mt-1 text-xs text-[#A09284]">{[row.province, row.city].filter(Boolean).join(' · ')} {row.start_date?.slice(0, 10)}</div>
+                        </td>
+                        <td className="px-4 py-3 text-[#5B5148]">{row.team_name || '个人'}</td>
+                      </tr>
+                    );
+                  })}
+                  {previewLocked && total > items.length && [0, 1, 2].map((item) => (
+                    <tr key={`locked-${item}`} className="border-b border-[#EFE5D8] bg-[#FFF9EF]">
+                      <td className="px-4 py-4 text-center"><span className="inline-flex h-8 w-8 rounded-full bg-[#E6D8C4] blur-[2px]" /></td>
+                      <td className="px-4 py-4">
+                        <div className="h-4 w-28 rounded bg-[#D8C7AF] blur-[2px]" />
+                        <div className="mt-2 h-3 w-20 rounded bg-[#E7DAC9] blur-[2px]" />
+                      </td>
+                      <td className="px-4 py-4"><div className="h-4 w-24 rounded bg-[#E7DAC9] blur-[2px]" /></td>
+                      <td className="px-4 py-4"><div className="h-4 w-20 rounded bg-[#E7DAC9] blur-[2px]" /></td>
+                      <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-24 rounded bg-[#D8C7AF] blur-[2px]" /></td>
+                      <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-20 rounded bg-[#E7DAC9] blur-[2px]" /></td>
+                      <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-16 rounded bg-[#E7DAC9] blur-[2px]" /></td>
+                      <td className="px-4 py-4" colSpan={2}>
+                        <Link href={`/login?redirect=${encodeURIComponent('/results')}`} className="inline-flex rounded-md bg-[#6B3E1E] px-3 py-1.5 text-xs font-semibold text-white no-underline">
+                          登录查看隐藏成绩
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {fetching && <div className="border-t border-[#EEE4D8] px-4 py-4 text-center text-sm text-[#9B8A76]">加载中...</div>}
           </div>
-          {fetching && <div className="border-t border-[#EEE4D8] px-4 py-4 text-center text-sm text-[#9B8A76]">加载中...</div>}
-        </div>
+        )}
 
-        <div className="mt-5 flex flex-col gap-3 border border-[#E2D4C0] bg-white px-4 py-3 text-sm text-[#746556] sm:flex-row sm:items-center sm:justify-between">
+        {!showUploadGuide && <div className="mt-5 flex flex-col gap-3 border border-[#E2D4C0] bg-white px-4 py-3 text-sm text-[#746556] sm:flex-row sm:items-center sm:justify-between">
           <span>共 {total} 条记录，第 {page} / {totalPages} 页</span>
           <div className="flex flex-wrap items-center gap-2">
             <button disabled={page <= 1} onClick={() => setPage((v) => Math.max(1, v - 1))} className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#D8CDBE] bg-white disabled:opacity-40">‹</button>
@@ -570,7 +714,7 @@ function ResultsContent() {
             <button onClick={jumpToPage} className="h-10 rounded-md border border-[#D8CDBE] bg-white px-3 hover:bg-[#F8EFE4]">跳转</button>
             <span className="rounded-md border border-[#D8CDBE] bg-white px-3 py-2">{pageSize} 条/页</span>
           </div>
-        </div>
+        </div>}
       </section>
     </main>
   );
