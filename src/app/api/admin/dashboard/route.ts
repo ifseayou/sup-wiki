@@ -48,21 +48,25 @@ export const GET = withAdmin(async () => {
       count("SELECT COUNT(*) AS total FROM sup_shop_items WHERE status = 'draft'"),
     ]);
 
-    const [recentRows] = await pool.execute<RowDataPacket[]>(
-      `(SELECT '资料审批' AS type, CONCAT(a.name, ' / ', u.nickname) AS title, c.status, c.created_at, '/admin/athlete-claims' AS href
+    const [recentClaimRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT '资料审批' AS type, CONCAT(a.name, ' / ', u.nickname) AS title, c.status, c.created_at, '/admin/athlete-claims' AS href
         FROM sup_athlete_profile_claims c
         INNER JOIN sup_athletes a ON a.athlete_id = c.athlete_id
         INNER JOIN sup_users u ON u.user_id = c.user_id
         ORDER BY c.created_at DESC
-        LIMIT 4)
-       UNION ALL
-       (SELECT '成绩册提交' AS type, s.event_name AS title, s.status, s.created_at, '/admin/event-result-submissions' AS href
+        LIMIT 4`
+    );
+
+    const [recentSubmissionRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT '成绩册提交' AS type, s.event_name AS title, s.status, s.created_at, '/admin/event-result-submissions' AS href
         FROM sup_event_result_submissions s
         ORDER BY s.created_at DESC
-        LIMIT 4)
-       ORDER BY created_at DESC
-       LIMIT 6`
+        LIMIT 4`
     );
+
+    const recentItems = [...recentClaimRows, ...recentSubmissionRows]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 6);
 
     const draftContent = {
       brands: brandsDraft,
@@ -89,7 +93,7 @@ export const GET = withAdmin(async () => {
         draftContentTotal: Object.values(draftContent).reduce((sum, value) => sum + value, 0),
       },
       draftContent,
-      recentItems: recentRows,
+      recentItems,
     });
   } catch (error) {
     console.error('获取后台仪表板失败:', error);
