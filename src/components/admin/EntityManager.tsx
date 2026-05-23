@@ -34,6 +34,11 @@ export function StatusBadge({ status }: { status: string }) {
   return <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700">草稿</span>;
 }
 
+function initialQueryValue(key: string) {
+  if (typeof window === 'undefined') return '';
+  return new URLSearchParams(window.location.search).get(key) || '';
+}
+
 // ---- Delete Confirm ----
 function DeleteConfirm({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
@@ -187,10 +192,10 @@ export default function EntityManager({
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState(() => initialQueryValue('search'));
+  const [statusFilter, setStatusFilter] = useState(() => initialQueryValue('status'));
   const [extraFilterValues, setExtraFilterValues] = useState<Record<string, string>>(
-    Object.fromEntries(filters.map((filter) => [filter.key, '']))
+    () => Object.fromEntries(filters.map((filter) => [filter.key, initialQueryValue(filter.key)]))
   );
   const [loading, setLoading] = useState(true);
   const [editItem, setEditItem] = useState<Record<string, unknown> | null>(null);
@@ -208,6 +213,14 @@ export default function EntityManager({
 
   const idKey = Object.keys(defaultFormData).find(k => k.endsWith('_id')) || 'id';
   const lastQueryKeyRef = useRef<string>('');
+
+  useEffect(() => {
+    if (initialQueryValue('action') === 'new') {
+      setIsNew(true);
+      setEditItem(null);
+      setFormData(defaultFormData);
+    }
+  }, [defaultFormData]);
 
   const queryKey = useMemo(
     () =>

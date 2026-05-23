@@ -53,6 +53,11 @@ const emptyForm = {
   review_status: 'confirmed',
 };
 
+function initialQueryValue(key: string) {
+  if (typeof window === 'undefined') return '';
+  return new URLSearchParams(window.location.search).get(key) || '';
+}
+
 function parseMembers(value: unknown) {
   if (Array.isArray(value)) return value.map((item: any) => item?.name || item?.member_name || '').filter(Boolean);
   if (!value) return [];
@@ -69,7 +74,8 @@ export default function AdminResultsPage() {
   const [items, setItems] = useState<ResultRow[]>([]);
   const [search, setSearch] = useState('');
   const [statusCode, setStatusCode] = useState('');
-  const [reviewStatus, setReviewStatus] = useState('');
+  const [reviewStatus, setReviewStatus] = useState(() => initialQueryValue('review_status'));
+  const [eventId] = useState(() => initialQueryValue('event_id'));
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -80,10 +86,11 @@ export default function AdminResultsPage() {
   const query = useMemo(() => {
     const params = new URLSearchParams({ page: String(page), pageSize: '30' });
     if (search) params.set('search', search);
+    if (eventId) params.set('event_id', eventId);
     if (statusCode) params.set('result_status_code', statusCode);
     if (reviewStatus) params.set('review_status', reviewStatus);
     return params.toString();
-  }, [page, reviewStatus, search, statusCode]);
+  }, [eventId, page, reviewStatus, search, statusCode]);
 
   async function load() {
     setLoading(true);

@@ -222,9 +222,20 @@ const columns = [
     key: 'results_manage',
     label: '成绩管理',
     render: (_v: unknown, row: Record<string, unknown>) => (
-      <Link href={`/admin/events/${row.event_id}/results`} className="text-xs text-brown-500 hover:text-brown-700">
-        进入成绩页
-      </Link>
+      <div className="flex flex-wrap gap-2 text-xs">
+        <Link href={`/admin/events/${row.event_id}/results`} className="text-brown-500 hover:text-brown-700">
+          成绩
+        </Link>
+        <Link href={`/admin/results?event_id=${row.event_id}`} className="text-brown-500 hover:text-brown-700">
+          明细
+        </Link>
+        <Link href="/admin/result-sources" className="text-brown-500 hover:text-brown-700">
+          来源
+        </Link>
+        <Link href="/admin/athlete-identities" className="text-brown-500 hover:text-brown-700">
+          匹配
+        </Link>
+      </div>
     ),
   },
 ];

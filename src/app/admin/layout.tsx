@@ -19,27 +19,67 @@ export function useAdminAuth() {
 }
 
 // ---- Nav config ----
-const navItems = [
-  { href: '/admin', label: '仪表板', exact: true },
-  { href: '/admin/brands', label: '品牌' },
-  { href: '/admin/products', label: '产品' },
-  { href: '/admin/athletes', label: '运动员' },
-  { href: '/admin/athlete-claims', label: '资料审批' },
-  { href: '/admin/athlete-identities', label: '身份匹配' },
-  { href: '/admin/creators', label: '博主' },
-  { href: '/admin/events', label: '赛事' },
-  { href: '/admin/results', label: '成绩明细' },
-  { href: '/admin/event-result-submissions', label: '成绩册提交' },
-  { href: '/admin/courses', label: '课程' },
-  { href: '/admin/techniques', label: '技术动作库' },
-  { href: '/admin/media', label: '图片库' },
-  { href: '/admin/articles', label: '文章' },
-  { href: '/admin/learn-questions', label: '题库' },
-  { href: '/admin/learn-docs', label: '学习文档' },
-  { href: '/admin/shop', label: '商城' },
-  { href: '/admin/users', label: '用户管理' },
-  { href: '/admin/import', label: '批量导入' },
+const navGroups = [
+  {
+    key: 'dashboard',
+    label: '仪表板',
+    icon: '⌂',
+    items: [{ href: '/admin', label: '后台首页', exact: true }],
+  },
+  {
+    key: 'results',
+    label: '赛事成绩',
+    icon: '◈',
+    items: [
+      { href: '/admin/events', label: '赛事' },
+      { href: '/admin/results', label: '成绩明细' },
+      { href: '/admin/event-result-submissions', label: '成绩册提交' },
+      { href: '/admin/result-sources', label: '成绩来源' },
+      { href: '/admin/import', label: '批量导入' },
+    ],
+  },
+  {
+    key: 'athletes',
+    label: '运动员',
+    icon: '◎',
+    items: [
+      { href: '/admin/athletes', label: '运动员' },
+      { href: '/admin/athlete-claims', label: '资料审批' },
+      { href: '/admin/athlete-identities', label: '身份匹配' },
+      { href: '/admin/users', label: '用户管理' },
+    ],
+  },
+  {
+    key: 'content',
+    label: '内容资料',
+    icon: '▤',
+    items: [
+      { href: '/admin/brands', label: '品牌' },
+      { href: '/admin/products', label: '产品' },
+      { href: '/admin/creators', label: '博主' },
+      { href: '/admin/articles', label: '文章' },
+      { href: '/admin/media', label: '图片库' },
+      { href: '/admin/shop', label: '商城' },
+    ],
+  },
+  {
+    key: 'learning',
+    label: '学习体系',
+    icon: '◇',
+    items: [
+      { href: '/admin/learn-questions', label: '题库' },
+      { href: '/admin/learn-docs', label: '学习文档' },
+      { href: '/admin/courses', label: '课程' },
+      { href: '/admin/techniques', label: '技术动作库' },
+    ],
+  },
 ];
+
+const navItems = navGroups.flatMap(group => group.items);
+
+function isNavActive(pathname: string, item: { href: string; exact?: boolean }) {
+  return item.exact ? pathname === item.href : pathname.startsWith(item.href) && pathname !== '/admin';
+}
 
 // ---- Login Screen ----
 function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
@@ -160,11 +200,17 @@ function AdminShell({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const activeGroupKey = navGroups.find(group => group.items.some(item => isNavActive(pathname, item)))?.key || 'dashboard';
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(navGroups.map(group => [group.key, group.key === activeGroupKey || group.key === 'results']))
+  );
+
+  useEffect(() => {
+    setOpenGroups(prev => ({ ...prev, [activeGroupKey]: true }));
+  }, [activeGroupKey]);
 
   // Derive current page title
-  const currentNav = navItems.find(item =>
-    item.exact ? pathname === item.href : pathname.startsWith(item.href) && pathname !== '/admin'
-  ) || navItems[0];
+  const currentNav = navItems.find(item => isNavActive(pathname, item)) || navItems[0];
 
   return (
     <AdminAuthContext.Provider value={{ token, logout }}>
@@ -245,57 +291,90 @@ function AdminShell({
 
           {/* Nav items */}
           <nav style={{ flex: 1, padding: '12px 8px', overflowY: 'auto' }}>
-            {navItems.map(item => {
-              const isActive = item.exact
-                ? pathname === item.href
-                : pathname.startsWith(item.href) && pathname !== '/admin';
+            {navGroups.map(group => {
+              const groupActive = group.items.some(item => isNavActive(pathname, item));
+              const isOpen = openGroups[group.key] ?? false;
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '8px 12px',
-                    borderRadius: 7,
-                    marginBottom: 2,
-                    color: isActive ? '#FAF7F2' : '#8B8580',
-                    background: isActive ? 'rgba(139,115,85,0.25)' : 'transparent',
-                    fontWeight: isActive ? 500 : 400,
-                    textDecoration: 'none',
-                    transition: 'all 0.1s',
-                    fontSize: 13.5,
-                  }}
-                  onMouseEnter={e => {
-                    if (!isActive) {
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
-                      (e.currentTarget as HTMLElement).style.color = '#E0D8CC';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!isActive) {
-                      (e.currentTarget as HTMLElement).style.background = 'transparent';
-                      (e.currentTarget as HTMLElement).style.color = '#8B8580';
-                    }
-                  }}
-                >
-                  {/* Active indicator */}
-                  {isActive && (
-                    <span
-                      style={{
-                        width: 3,
-                        height: 3,
-                        borderRadius: '50%',
-                        background: '#C4A882',
-                        marginRight: 10,
-                        flexShrink: 0,
-                      }}
-                    />
+                <div key={group.key} style={{ marginBottom: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenGroups(prev => ({ ...prev, [group.key]: !isOpen }))}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '8px 10px',
+                      borderRadius: 7,
+                      border: 'none',
+                      background: groupActive ? 'rgba(139,115,85,0.18)' : 'transparent',
+                      color: groupActive ? '#EDE5D8' : '#7D746C',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: '0.04em',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ width: 16, color: groupActive ? '#C4A882' : '#6B6560' }}>{group.icon}</span>
+                    <span style={{ flex: 1 }}>{group.label}</span>
+                    <span style={{ color: '#6B6560', fontSize: 11 }}>{isOpen ? '−' : '+'}</span>
+                  </button>
+                  {isOpen && (
+                    <div style={{ marginTop: 3 }}>
+                      {group.items.map(item => {
+                        const isActive = isNavActive(pathname, item);
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileOpen(false)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '7px 10px 7px 28px',
+                              borderRadius: 7,
+                              marginBottom: 2,
+                              color: isActive ? '#FAF7F2' : '#8B8580',
+                              background: isActive ? 'rgba(139,115,85,0.28)' : 'transparent',
+                              fontWeight: isActive ? 600 : 400,
+                              textDecoration: 'none',
+                              transition: 'all 0.1s',
+                              fontSize: 13.5,
+                            }}
+                            onMouseEnter={e => {
+                              if (!isActive) {
+                                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
+                                (e.currentTarget as HTMLElement).style.color = '#E0D8CC';
+                              }
+                            }}
+                            onMouseLeave={e => {
+                              if (!isActive) {
+                                (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                (e.currentTarget as HTMLElement).style.color = '#8B8580';
+                              }
+                            }}
+                          >
+                            {isActive && (
+                              <span
+                                style={{
+                                  width: 3,
+                                  height: 3,
+                                  borderRadius: '50%',
+                                  background: '#C4A882',
+                                  marginRight: 10,
+                                  flexShrink: 0,
+                                }}
+                              />
+                            )}
+                            {!isActive && <span style={{ width: 13, flexShrink: 0 }} />}
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
                   )}
-                  {!isActive && <span style={{ width: 13, flexShrink: 0 }} />}
-                  {item.label}
-                </Link>
+                </div>
               );
             })}
           </nav>
