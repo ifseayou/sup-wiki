@@ -21,49 +21,6 @@ const difficultyCards = [
   { key: 'advanced', label: '专家题目', sub: '高阶应用，综合突破', icon: '♛', tag: '高阶能力突破', tone: 'purple' },
 ];
 
-const domesticPlatforms = [
-  {
-    name: '国家体育总局水上运动管理中心',
-    nameEn: 'CWSC Water Sports',
-    url: 'https://www.sport.gov.cn/sszx/',
-    tag: '官方机构',
-    icon: '🏛️',
-    desc: '国家体育总局直属单位，负责全国水上运动项目的管理、竞赛组织、人才培养和体育产业发展。',
-  },
-  {
-    name: '中国桨板俱乐部联赛 CPL',
-    nameEn: 'China Paddle League',
-    url: 'https://www.sport.gov.cn/n14471/n14492/n14529/',
-    tag: '官方赛事',
-    icon: '🏆',
-    desc: '国内顶级桨板竞速联赛，每年多站巡回，由国家体育总局水上中心主办。',
-  },
-  {
-    name: '2025 桨板亚洲杯（浙江青田）',
-    nameEn: '2025 SUP Asian Cup Qingtian',
-    url: 'http://www.qingtian.gov.cn/art/2025/7/14/art_1229365841_508699.html',
-    tag: '官方赛事',
-    icon: '🌏',
-    desc: '2025年7月10-13日在浙江丽水青田举办，是亚洲范围内高规格桨板赛事之一。',
-  },
-  {
-    name: '亚洲桨板锦标赛（ASF主办）',
-    nameEn: 'Asian Surfing Federation SUP',
-    url: 'https://asiansurfing.org/',
-    tag: '官方赛事',
-    icon: '🏅',
-    desc: '亚洲冲浪联合会主办的亚洲桨板锦标赛，是亚洲区域高规格官方桨板赛事。',
-  },
-  {
-    name: '国家体育总局水上运动中心·桨板',
-    nameEn: 'CWSC SUP News and Announcements',
-    url: 'https://www.sport.gov.cn/sszx/n5207/',
-    tag: '官方公告',
-    icon: '📋',
-    desc: '发布桨板项目规则、俱乐部注册名单、赛事公告和运动员等级评定结果。',
-  },
-];
-
 const internationalPlatforms = [
   {
     name: 'ICF 国际皮划艇联合会',
@@ -115,7 +72,9 @@ const internationalPlatforms = [
   },
 ];
 
-function PlatformGrid({ title, flag, items }: { title: string; flag: string; items: typeof domesticPlatforms }) {
+type PlatformItem = (typeof internationalPlatforms)[number];
+
+function PlatformGrid({ title, flag, items }: { title: string; flag: string; items: PlatformItem[] }) {
   return (
     <section className="platform-section">
       <div className="platform-section__head">
@@ -252,11 +211,12 @@ export default async function LearnPage() {
         .learn-quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
         .learn-quick-card {
           position: relative;
-          min-height: 126px;
+          min-height: 148px;
           display: grid;
           grid-template-columns: auto 1fr;
+          grid-template-rows: auto 1fr auto;
           gap: 16px;
-          padding: 20px;
+          padding: 20px 20px 18px;
           border: 1px solid #eadbc8;
           border-radius: 14px;
           text-decoration: none;
@@ -269,6 +229,8 @@ export default async function LearnPage() {
         .learn-quick-card__icon, .learn-category-card__icon, .platform-card__icon {
           width: 54px; height: 54px; border-radius: 14px; display: grid; place-items: center; background: rgba(255,255,255,0.66); font-size: 28px;
         }
+        .learn-quick-card__icon { grid-row: 1 / 4; }
+        .learn-quick-card__body { min-width: 0; padding-right: 72px; }
         .learn-quick-card__body span { display: block; }
         .learn-quick-card__title { font-size: 18px; font-weight: 900; }
         .learn-quick-card__en { margin-top: 4px; color: #b67525; font-size: 12px; text-transform: uppercase; }
@@ -277,7 +239,7 @@ export default async function LearnPage() {
         .learn-quick-card--dark .learn-quick-card__desc { color: rgba(255,255,255,0.76); }
         .learn-quick-card__count { position: absolute; top: 16px; right: 18px; padding: 5px 12px; border-radius: 999px; background: rgba(176, 128, 63, 0.14); color: #9a6429; font-size: 12px; font-weight: 800; }
         .learn-quick-card--dark .learn-quick-card__count { background: rgba(255,255,255,0.13); color: #f0c780; }
-        .learn-quick-card__cta { position: absolute; right: 18px; bottom: 16px; color: #9a6429; font-size: 13px; font-weight: 900; }
+        .learn-quick-card__cta { grid-column: 2; justify-self: end; align-self: end; margin-top: 8px; color: #9a6429; font-size: 13px; font-weight: 900; white-space: nowrap; }
         .learn-quick-card--dark .learn-quick-card__cta { color: #f0c780; }
         .learn-category-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
         .learn-category-card {
@@ -345,6 +307,7 @@ export default async function LearnPage() {
           .learn-stats__divider, .learn-stats__percent { display: none; }
           .learn-stats__body, .learn-stats__cta { grid-column: 1 / -1; }
           .learn-quick-grid, .learn-category-grid, .difficulty-grid, .platform-grid { grid-template-columns: 1fr; }
+          .learn-quick-card__body { padding-right: 76px; }
           .learn-doc-card { align-items: flex-start; }
           .learn-doc-card__cta { display: none; }
         }
@@ -404,10 +367,9 @@ export default async function LearnPage() {
           <div className="platforms__eyebrow">Media &amp; Official Platforms</div>
           <h2>媒体与官方平台</h2>
           <p>
-            收录国内外权威 SUP 官方机构、赛事平台和国际专业媒体，帮助你获取一手资讯、规则和成绩数据。
+            收录国际 SUP 官方机构、赛事平台和专业媒体，帮助你获取一手资讯、规则和成绩数据。
           </p>
-          <PlatformGrid title="国内平台" flag="🇨🇳" items={domesticPlatforms} />
-          <PlatformGrid title="国际平台" flag="🌐" items={internationalPlatforms} />
+          <PlatformGrid title="国外平台" flag="🌐" items={internationalPlatforms} />
         </section>
       </div>
     </main>
