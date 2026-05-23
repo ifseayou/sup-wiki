@@ -208,6 +208,34 @@ export default async function LearnPage() {
         .section-title { margin: 24px 0 14px; }
         .section-title h2 { margin: 0 0 8px; font-family: var(--font-display); font-size: 28px; font-weight: 500; }
         .section-title p { margin: 0; color: #8a8078; font-size: 14px; }
+        .learn-knowledge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 16px 0 20px; }
+        .learn-knowledge-card {
+          min-height: 150px;
+          display: grid;
+          grid-template-columns: auto 1fr auto;
+          align-items: center;
+          gap: 18px;
+          padding: 22px 24px;
+          border: 1px solid #eadbc8;
+          border-radius: 16px;
+          background: rgba(255,252,248,0.9);
+          color: #2e2118;
+          text-decoration: none;
+          box-shadow: 0 12px 30px rgba(92, 65, 35, 0.06);
+        }
+        .learn-knowledge-card__icon {
+          width: 68px;
+          height: 68px;
+          border-radius: 18px;
+          display: grid;
+          place-items: center;
+          background: linear-gradient(145deg, #fff8ed, #f3e4cf);
+          font-size: 34px;
+        }
+        .learn-knowledge-card strong { display: block; font-size: 22px; }
+        .learn-knowledge-card em { display: block; margin-top: 4px; color: #b67525; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; font-style: normal; }
+        .learn-knowledge-card small { display: block; margin-top: 10px; color: #5f544b; font-size: 14px; line-height: 1.7; }
+        .learn-knowledge-card__arrow { color: #9b7b53; font-size: 28px; }
         .learn-quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
         .learn-quick-card {
           position: relative;
@@ -306,7 +334,9 @@ export default async function LearnPage() {
           .learn-stats { grid-template-columns: auto auto 1fr; gap: 16px; }
           .learn-stats__divider, .learn-stats__percent { display: none; }
           .learn-stats__body, .learn-stats__cta { grid-column: 1 / -1; }
-          .learn-quick-grid, .learn-category-grid, .difficulty-grid, .platform-grid { grid-template-columns: 1fr; }
+          .learn-knowledge-grid, .learn-quick-grid, .learn-category-grid, .difficulty-grid, .platform-grid { grid-template-columns: 1fr; }
+          .learn-knowledge-card { min-height: 0; padding: 18px; grid-template-columns: auto 1fr; }
+          .learn-knowledge-card__arrow { display: none; }
           .learn-quick-card__body { padding-right: 76px; }
           .learn-doc-card { align-items: flex-start; }
           .learn-doc-card__cta { display: none; }
@@ -336,6 +366,31 @@ export default async function LearnPage() {
           </span>
           <span className="learn-doc-card__cta">浏览全部 →</span>
         </Link>
+
+        <section className="section-title">
+          <h2>认识桨板圈</h2>
+          <p>把品牌、产品线和内容创作者浓缩成适合手机浏览的学习卡片。</p>
+        </section>
+        <div className="learn-knowledge-grid">
+          <Link href="/learn/brands" className="learn-knowledge-card">
+            <span className="learn-knowledge-card__icon">🏷️</span>
+            <span>
+              <strong>认识常见品牌</strong>
+              <em>Brand Learning</em>
+              <small>了解主流桨板品牌、国家地区、定位与代表产品线，后续再进入详情页深挖。</small>
+            </span>
+            <span className="learn-knowledge-card__arrow">›</span>
+          </Link>
+          <Link href="/learn/creators" className="learn-knowledge-card">
+            <span className="learn-knowledge-card__icon">🎙️</span>
+            <span>
+              <strong>认识常见博主</strong>
+              <em>Creator Learning</em>
+              <small>快速认识桨板内容创作者，判断他们适合用来学习教程、测评还是训练经验。</small>
+            </span>
+            <span className="learn-knowledge-card__arrow">›</span>
+          </Link>
+        </div>
 
         <section className="section-title">
           <h2>分类学习 &amp; 测验</h2>

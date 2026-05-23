@@ -1,11 +1,11 @@
 import Link from 'next/link';
 
 const links = [
-  { href: '/brands', label: '品牌' },
-  { href: '/products', label: '产品' },
+  { href: '/results', label: '成绩查询' },
   { href: '/athletes', label: '运动员' },
-  { href: '/creators', label: '博主' },
   { href: '/events', label: '赛事' },
+  { href: '/learn', label: '学习' },
+  { href: '/shop', label: '商城' },
 ];
 
 export default function Footer() {
@@ -18,7 +18,7 @@ export default function Footer() {
               SUP Wiki
             </div>
             <p style={{ fontSize: 12, color: '#A08060', maxWidth: 300, lineHeight: 1.75, margin: 0 }}>
-              桨板运动资讯百科。收录品牌、产品、运动员、博主与赛事信息。
+              桨板运动资讯百科。以成绩查询、运动员档案、赛事资料和系统学习为核心。
             </p>
           </div>
           <nav style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>

@@ -10,8 +10,6 @@ const navLinks = [
   { href: '/athletes', label: '运动员' },
   { href: '/events', label: '赛事' },
   { href: '/learn', label: '学习' },
-  { href: '/brands', label: '品牌' },
-  { href: '/creators', label: '博主' },
   { href: '/shop', label: '商城' },
   { href: '/courses', label: '课程' },
 ];
@@ -114,11 +112,23 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                style={{ fontSize: 14, color: '#655D56', textDecoration: 'none', padding: '10px 0', borderBottom: '1px solid #F0E8DB', letterSpacing: '0.02em' }}
+                style={{ fontSize: 15, color: '#655D56', textDecoration: 'none', padding: '13px 0', borderBottom: '1px solid #F0E8DB', letterSpacing: '0.02em', minHeight: 44 }}
               >
                 {link.label}
               </Link>
             ))}
+            {!loading && (
+              user ? (
+                <>
+                  <Link href="/my-learning" onClick={() => setOpen(false)} style={{ fontSize: 15, color: '#655D56', textDecoration: 'none', padding: '13px 0', borderBottom: '1px solid #F0E8DB', minHeight: 44 }}>我的学习</Link>
+                  <Link href="/my-training" onClick={() => setOpen(false)} style={{ fontSize: 15, color: '#655D56', textDecoration: 'none', padding: '13px 0', borderBottom: '1px solid #F0E8DB', minHeight: 44 }}>我的训练</Link>
+                  {!hasSportHacker && <Link href="/link-account" onClick={() => setOpen(false)} style={{ fontSize: 15, color: '#7A6145', textDecoration: 'none', padding: '13px 0', borderBottom: '1px solid #F0E8DB', minHeight: 44 }}>关联运动骇客</Link>}
+                  <button onClick={() => { logout(); setOpen(false); }} style={{ fontSize: 15, color: '#c0392b', textDecoration: 'none', padding: '13px 0', border: 'none', borderBottom: '1px solid #F0E8DB', minHeight: 44, background: 'none', textAlign: 'left' }}>退出登录</button>
+                </>
+              ) : (
+                <Link href={`/login?redirect=${encodeURIComponent(pathname)}`} onClick={() => setOpen(false)} style={{ fontSize: 15, color: '#7A6145', textDecoration: 'none', padding: '13px 0', borderBottom: '1px solid #F0E8DB', minHeight: 44 }}>登录</Link>
+              )
+            )}
           </nav>
         )}
       </div>
