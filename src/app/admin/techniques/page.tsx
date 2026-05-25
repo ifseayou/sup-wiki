@@ -169,7 +169,7 @@ function TechniqueForm({ data, onChange, token }: { data: Record<string, unknown
 
 const columns = [
   { key: 'source_code', label: '编号' },
-  { key: 'cover_image', label: '封面', render: (v: unknown) => v ? <img src={String(v)} alt="" className="h-10 w-14 rounded object-cover" /> : '—' },
+  { key: 'cover_image', label: '封面', render: (v: unknown) => v ? <img src={String(v)} alt="" loading="lazy" decoding="async" className="h-10 w-14 rounded object-cover" /> : '—' },
   { key: 'name', label: '动作' },
   { key: 'stage_label', label: '阶段' },
   { key: 'level', label: '难度', render: (v: unknown) => levelOptions.find(option => option.value === String(v))?.label || String(v) },
@@ -199,6 +199,7 @@ export default function TechniquesAdminPage() {
     <EntityManager
       entityName="技术动作"
       apiPath="/api/admin/techniques"
+      getItemPath={(id) => `/api/admin/techniques/${id}`}
       columns={columns}
       FormComponent={TechniqueForm}
       defaultFormData={defaultFormData}

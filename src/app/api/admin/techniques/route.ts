@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
-import { parseJsonArray } from '@/lib/course-utils';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 export const GET = withAdmin(async (request: NextRequest) => {
@@ -36,17 +35,16 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const total = Number(countRows[0]?.total || 0);
 
     const [rows] = await pool.execute<RowDataPacket[]>(
-      `SELECT * FROM sup_techniques ${where}
+      `SELECT
+         technique_id, source_code, name, cover_image, stage, stage_label, level,
+         category, points, sort_order, status, updated_at
+       FROM sup_techniques ${where}
        ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, sort_order ASC, technique_id ASC
        LIMIT ${pageSize} OFFSET ${offset}`,
       params
     );
 
-    const items = rows.map((row) => ({
-      ...row,
-      images: parseJsonArray(row.images),
-    }));
-    return NextResponse.json({ items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
+    return NextResponse.json({ items: rows, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
   } catch (error) {
     console.error('获取技术动作列表失败:', error);
     return NextResponse.json({ error: '获取技术动作列表失败' }, { status: 500 });

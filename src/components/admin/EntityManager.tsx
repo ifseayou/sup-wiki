@@ -18,6 +18,7 @@ interface EntityManagerProps {
   defaultFormData: Record<string, unknown>;
   token: string;
   searchPlaceholder?: string;
+  getItemPath?: (id: string | number) => string;
   additionalFilters?: {
     key: string;
     placeholder: string;
@@ -184,6 +185,7 @@ export default function EntityManager({
   defaultFormData,
   token,
   searchPlaceholder = '搜索...',
+  getItemPath,
   additionalFilters,
   enableBulkActions = false,
 }: EntityManagerProps) {
@@ -303,10 +305,22 @@ export default function EntityManager({
     setIsNew(true);
   }
 
-  function openEdit(item: Record<string, unknown>) {
-    setFormData({ ...item });
+  async function openEdit(item: Record<string, unknown>) {
+    const id = item[idKey] as string | number;
     setEditItem(item);
+    setFormData({ ...item });
     setIsNew(false);
+    if (!getItemPath) return;
+    try {
+      const res = await fetch(getItemPath(id), { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (res.ok && data.item) {
+        setEditItem(data.item);
+        setFormData(data.item);
+      }
+    } catch {
+      setMsg(`${entityName}详情加载失败，正在使用列表数据编辑`);
+    }
   }
 
   function openDuplicate(item: Record<string, unknown>) {

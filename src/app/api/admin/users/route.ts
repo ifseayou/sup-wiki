@@ -21,10 +21,27 @@ export const GET = withAdmin(async (request: NextRequest) => {
          u.daily_result_query_limit, u.admin_note, u.created_at, u.updated_at, u.last_login_at,
          COALESCE(today.query_count, 0) AS today_result_queries,
          COUNT(DISTINCT owner.athlete_id) AS owned_athlete_count,
-         COUNT(DISTINCT claim.claim_id) AS claim_count
+         COUNT(DISTINCT claim.claim_id) AS claim_count,
+         GROUP_CONCAT(
+           DISTINCT CASE
+             WHEN owner.athlete_id IS NULL THEN NULL
+             ELSE CONCAT_WS(
+               '\t',
+               owner.athlete_id,
+               REPLACE(COALESCE(athlete.name, ''), '\t', ' '),
+               REPLACE(COALESCE(athlete.name_en, ''), '\t', ' '),
+               owner.role,
+               owner.status,
+               COALESCE(DATE_FORMAT(owner.verified_at, '%Y-%m-%d %H:%i:%s'), '')
+             )
+           END
+           ORDER BY athlete.name ASC, owner.athlete_id ASC
+           SEPARATOR '\n'
+         ) AS owned_athletes_raw
        FROM sup_users u
        LEFT JOIN sup_user_result_query_usage today ON today.user_id = u.user_id AND today.usage_date = CURDATE()
        LEFT JOIN sup_athlete_profile_owners owner ON owner.user_id = u.user_id AND owner.status = 'active'
+       LEFT JOIN sup_athletes athlete ON athlete.athlete_id = owner.athlete_id
        LEFT JOIN sup_athlete_profile_claims claim ON claim.user_id = u.user_id
        ${where}
        GROUP BY u.user_id, today.query_count
@@ -32,7 +49,25 @@ export const GET = withAdmin(async (request: NextRequest) => {
        LIMIT 200`,
       params
     );
-    return NextResponse.json({ items: rows });
+    const items = rows.map((row) => {
+      const raw = String(row.owned_athletes_raw || '');
+      const owned_athletes = raw
+        ? raw.split('\n').map((line) => {
+          const [athleteId, name, nameEn, role, status, verifiedAt] = line.split('\t');
+          return {
+            athlete_id: Number(athleteId),
+            name,
+            name_en: nameEn || null,
+            role,
+            status,
+            verified_at: verifiedAt || null,
+          };
+        }).filter((item) => Number.isInteger(item.athlete_id) && item.athlete_id > 0)
+        : [];
+      const { owned_athletes_raw: _raw, ...rest } = row;
+      return { ...rest, owned_athletes };
+    });
+    return NextResponse.json({ items });
   } catch (error) {
     console.error('获取用户列表失败:', error);
     return NextResponse.json({ error: '获取用户列表失败' }, { status: 500 });

@@ -14,6 +14,14 @@ interface UserRow {
   admin_note: string | null;
   today_result_queries: number;
   owned_athlete_count: number;
+  owned_athletes?: {
+    athlete_id: number;
+    name: string;
+    name_en: string | null;
+    role: string;
+    status: string;
+    verified_at: string | null;
+  }[];
   claim_count: number;
   created_at: string;
   last_login_at: string | null;
@@ -116,7 +124,7 @@ export default function AdminUsersPage() {
               <th style={{ padding: 12, textAlign: 'left' }}>状态</th>
               <th style={{ padding: 12, textAlign: 'left' }}>每日查询上限</th>
               <th style={{ padding: 12, textAlign: 'left' }}>今日查询</th>
-              <th style={{ padding: 12, textAlign: 'left' }}>运动员/提交</th>
+              <th style={{ padding: 12, textAlign: 'left' }}>绑定运动员 / 提交</th>
               <th style={{ padding: 12, textAlign: 'left' }}>备注</th>
               <th style={{ padding: 12, textAlign: 'right' }}>操作</th>
             </tr>
@@ -157,7 +165,35 @@ export default function AdminUsersPage() {
                   />
                 </td>
                 <td style={{ padding: 12, color: '#6F5B42', fontWeight: 700 }}>{user.today_result_queries || 0}</td>
-                <td style={{ padding: 12, color: '#6F5B42' }}>{user.owned_athlete_count || 0} / {user.claim_count || 0}</td>
+                <td style={{ padding: 12, color: '#6F5B42', minWidth: 220 }}>
+                  <div style={{ fontWeight: 700 }}>{user.owned_athlete_count || 0} / {user.claim_count || 0}</div>
+                  {Array.isArray(user.owned_athletes) && user.owned_athletes.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+                      {user.owned_athletes.map((athlete) => (
+                        <a
+                          key={athlete.athlete_id}
+                          href={`/athletes/${athlete.athlete_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            width: 'fit-content',
+                            maxWidth: 220,
+                            color: '#7A4E22',
+                            textDecoration: 'none',
+                            fontSize: 12,
+                            lineHeight: 1.45,
+                          }}
+                          title={athlete.name_en || athlete.name}
+                        >
+                          #{athlete.athlete_id} {athlete.name}
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ color: '#B0A090', fontSize: 12, marginTop: 4 }}>未绑定运动员</div>
+                  )}
+                </td>
                 <td style={{ padding: 12 }}>
                   <input value={user.admin_note || ''} onChange={(e) => updateLocal(user.user_id, 'admin_note', e.target.value)} style={{ width: 220, height: 34, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 8px' }} />
                 </td>
