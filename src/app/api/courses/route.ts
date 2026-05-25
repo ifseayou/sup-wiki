@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { parseJsonArray, parseTechniqueJson } from '@/lib/course-utils';
+import { parseJsonArray, parseJsonObject, parseTechniqueJson } from '@/lib/course-utils';
 import type { RowDataPacket } from 'mysql2';
+
+const jsonArrayFields = [
+  'price_options',
+  'images',
+  'audience_tags',
+  'target_audience',
+  'consultation_required',
+  'learning_outcomes',
+  'includes',
+  'excludes',
+  'bring_items',
+  'safety_notes',
+  'class_flow',
+  'faq',
+];
 
 export async function GET(request: NextRequest) {
   try {
@@ -65,8 +80,8 @@ export async function GET(request: NextRequest) {
 
     const items = rows.map((row) => ({
       ...row,
-      price_options: parseJsonArray(row.price_options),
-      images: parseJsonArray(row.images),
+      ...Object.fromEntries(jsonArrayFields.map((field) => [field, parseJsonArray(row[field])])),
+      coach_profile: parseJsonObject(row.coach_profile),
       techniques: parseTechniqueJson(row.techniques).filter(Boolean),
     }));
 

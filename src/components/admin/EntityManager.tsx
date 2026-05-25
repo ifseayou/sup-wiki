@@ -102,7 +102,7 @@ function EditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/30">
-      <div className="bg-cream-50 border border-cream-200 rounded-t-2xl md:rounded-2xl w-full max-w-2xl mx-0 md:mx-4 shadow-xl flex flex-col max-h-[90vh]">
+      <div className="bg-cream-50 border border-cream-200 rounded-t-2xl md:rounded-2xl w-full max-w-4xl mx-0 md:mx-4 shadow-xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-cream-200 shrink-0">
           <h2 className="font-semibold text-brown-800">{title}</h2>

@@ -14,6 +14,34 @@ async function syncCourseTechniques(connection: PoolConnection, courseId: number
   }
 }
 
+const jsonArrayFields = new Set([
+  'images',
+  'price_options',
+  'audience_tags',
+  'target_audience',
+  'consultation_required',
+  'learning_outcomes',
+  'includes',
+  'excludes',
+  'bring_items',
+  'safety_notes',
+  'class_flow',
+  'faq',
+]);
+
+const jsonObjectFields = new Set(['coach_profile']);
+
+function jsonValue(value: unknown, fallback: unknown[] | Record<string, unknown>) {
+  if (value === null || value === '') return null;
+  if (Array.isArray(value) || typeof value === 'object') return JSON.stringify(value);
+  try {
+    JSON.parse(String(value));
+    return String(value);
+  } catch {
+    return JSON.stringify(fallback);
+  }
+}
+
 export const PUT = withAdmin(async (request: NextRequest) => {
   const connection = await pool.getConnection();
   try {
@@ -22,6 +50,9 @@ export const PUT = withAdmin(async (request: NextRequest) => {
     const allowed = [
       'slug', 'title', 'subtitle', 'summary', 'description', 'venue', 'schedule_note',
       'cover_image', 'images', 'equipment_note', 'board_note', 'duration_minutes', 'price_display', 'price_options',
+      'course_type', 'positioning', 'audience_tags', 'target_audience', 'consultation_required', 'learning_outcomes',
+      'capacity_note', 'age_note', 'includes', 'excludes', 'bring_items', 'safety_notes', 'class_flow',
+      'change_policy', 'coach_profile', 'faq', 'enrollment_note', 'wechat_id', 'cta_text',
       'sort_order', 'status',
     ];
     const fields: string[] = [];
@@ -29,8 +60,10 @@ export const PUT = withAdmin(async (request: NextRequest) => {
     for (const field of allowed) {
       if (body[field] !== undefined) {
         fields.push(`${field} = ?`);
-        if (field === 'price_options' || field === 'images') {
-          values.push(body[field] ? JSON.stringify(body[field]) : null);
+        if (jsonArrayFields.has(field)) {
+          values.push(jsonValue(body[field], []) as string | null);
+        } else if (jsonObjectFields.has(field)) {
+          values.push(jsonValue(body[field], {}) as string | null);
         } else {
           values.push(body[field] === '' ? null : body[field]);
         }

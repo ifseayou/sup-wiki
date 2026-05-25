@@ -27,6 +27,23 @@ export function parseJsonArray(value: unknown): unknown[] {
   }
 }
 
+export function parseJsonObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function parseStringArray(value: unknown): string[] {
+  return parseJsonArray(value)
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+}
+
 export function normalizeTechniqueIds(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
   return Array.from(

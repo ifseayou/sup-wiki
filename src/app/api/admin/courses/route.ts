@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
-import { getTechniqueIdsFromRows, normalizeTechniqueIds, parseJsonArray } from '@/lib/course-utils';
+import { getTechniqueIdsFromRows, normalizeTechniqueIds, parseJsonArray, parseJsonObject } from '@/lib/course-utils';
 import type { PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 
 async function syncCourseTechniques(connection: PoolConnection, courseId: number, techniqueIds: number[]) {
@@ -11,6 +11,44 @@ async function syncCourseTechniques(connection: PoolConnection, courseId: number
       'INSERT INTO sup_course_techniques (course_id, technique_id, sort_order) VALUES (?, ?, ?)',
       [courseId, techniqueIds[index], index + 1]
     );
+  }
+}
+
+const jsonArrayFields = [
+  'images',
+  'price_options',
+  'audience_tags',
+  'target_audience',
+  'consultation_required',
+  'learning_outcomes',
+  'includes',
+  'excludes',
+  'bring_items',
+  'safety_notes',
+  'class_flow',
+  'faq',
+];
+
+const jsonObjectFields = ['coach_profile'];
+
+function normalizeCourseRow(row: RowDataPacket, relations: RowDataPacket[] = []) {
+  return {
+    ...row,
+    ...Object.fromEntries(jsonArrayFields.map((field) => [field, parseJsonArray(row[field])])),
+    ...Object.fromEntries(jsonObjectFields.map((field) => [field, parseJsonObject(row[field])])),
+    technique_ids: getTechniqueIdsFromRows(relations.filter((relation) => Number(relation.course_id) === Number(row.course_id))),
+  };
+}
+
+function jsonValue(value: unknown, fallback: unknown[] | Record<string, unknown>) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  if (Array.isArray(value) || typeof value === 'object') return JSON.stringify(value);
+  try {
+    JSON.parse(String(value));
+    return String(value);
+  } catch {
+    return JSON.stringify(fallback);
   }
 }
 
@@ -63,12 +101,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
       relations = relationRows;
     }
 
-    const items = rows.map((row) => ({
-      ...row,
-      price_options: parseJsonArray(row.price_options),
-      images: parseJsonArray(row.images),
-      technique_ids: getTechniqueIdsFromRows(relations.filter((relation) => Number(relation.course_id) === Number(row.course_id))),
-    }));
+    const items = rows.map((row) => normalizeCourseRow(row, relations));
 
     return NextResponse.json({ items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
   } catch (error) {
@@ -87,6 +120,10 @@ export const POST = withAdmin(async (request: NextRequest) => {
       venue = '中流击水桨板俱乐部（余杭塘河-梦想小镇段）',
       schedule_note = '课程时间和教练自行约定',
       equipment_note, board_note, duration_minutes, price_display, price_options,
+      course_type = 'custom', positioning, audience_tags, target_audience, consultation_required,
+      learning_outcomes, capacity_note, age_note, includes, excludes, bring_items,
+      safety_notes, class_flow, change_policy, coach_profile, faq, enrollment_note,
+      wechat_id = 'i_add_u', cta_text = '微信咨询课程',
       sort_order = 0, status = 'draft',
     } = body;
     if (!slug || !title) return NextResponse.json({ error: '缺少必填字段: slug, title' }, { status: 400 });
@@ -96,8 +133,10 @@ export const POST = withAdmin(async (request: NextRequest) => {
     const [result] = await connection.execute<ResultSetHeader>(
       `INSERT INTO sup_courses
         (slug, title, subtitle, summary, description, cover_image, images, venue, schedule_note, equipment_note, board_note,
+         course_type, positioning, audience_tags, target_audience, consultation_required, learning_outcomes, capacity_note, age_note,
+         includes, excludes, bring_items, safety_notes, class_flow, change_policy, coach_profile, faq, enrollment_note, wechat_id, cta_text,
          duration_minutes, price_display, price_options, sort_order, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         slug,
         title,
@@ -105,14 +144,33 @@ export const POST = withAdmin(async (request: NextRequest) => {
         summary || null,
         description || null,
         cover_image || null,
-        images ? JSON.stringify(images) : null,
+        jsonValue(images, []),
         venue || null,
         schedule_note || null,
         equipment_note || null,
         board_note || null,
+        course_type || 'custom',
+        positioning || null,
+        jsonValue(audience_tags, []),
+        jsonValue(target_audience, []),
+        jsonValue(consultation_required, []),
+        jsonValue(learning_outcomes, []),
+        capacity_note || null,
+        age_note || null,
+        jsonValue(includes, []),
+        jsonValue(excludes, []),
+        jsonValue(bring_items, []),
+        jsonValue(safety_notes, []),
+        jsonValue(class_flow, []),
+        change_policy || null,
+        jsonValue(coach_profile, {}),
+        jsonValue(faq, []),
+        enrollment_note || null,
+        wechat_id || 'i_add_u',
+        cta_text || '微信咨询课程',
         duration_minutes ? Number(duration_minutes) : null,
         price_display || null,
-        price_options ? JSON.stringify(price_options) : null,
+        jsonValue(price_options, []),
         Number(sort_order) || 0,
         status,
       ]
