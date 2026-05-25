@@ -2,26 +2,25 @@
 
 USE sport_hacker;
 
-ALTER TABLE sup_courses
-  ADD COLUMN IF NOT EXISTS course_type VARCHAR(40) DEFAULT 'custom' AFTER board_note,
-  ADD COLUMN IF NOT EXISTS positioning VARCHAR(300) NULL AFTER course_type,
-  ADD COLUMN IF NOT EXISTS audience_tags JSON NULL AFTER positioning,
-  ADD COLUMN IF NOT EXISTS target_audience JSON NULL AFTER audience_tags,
-  ADD COLUMN IF NOT EXISTS consultation_required JSON NULL AFTER target_audience,
-  ADD COLUMN IF NOT EXISTS learning_outcomes JSON NULL AFTER consultation_required,
-  ADD COLUMN IF NOT EXISTS capacity_note VARCHAR(200) NULL AFTER learning_outcomes,
-  ADD COLUMN IF NOT EXISTS age_note VARCHAR(200) NULL AFTER capacity_note,
-  ADD COLUMN IF NOT EXISTS includes JSON NULL AFTER age_note,
-  ADD COLUMN IF NOT EXISTS excludes JSON NULL AFTER includes,
-  ADD COLUMN IF NOT EXISTS bring_items JSON NULL AFTER excludes,
-  ADD COLUMN IF NOT EXISTS safety_notes JSON NULL AFTER bring_items,
-  ADD COLUMN IF NOT EXISTS class_flow JSON NULL AFTER safety_notes,
-  ADD COLUMN IF NOT EXISTS change_policy TEXT NULL AFTER class_flow,
-  ADD COLUMN IF NOT EXISTS coach_profile JSON NULL AFTER change_policy,
-  ADD COLUMN IF NOT EXISTS faq JSON NULL AFTER coach_profile,
-  ADD COLUMN IF NOT EXISTS enrollment_note TEXT NULL AFTER faq,
-  ADD COLUMN IF NOT EXISTS wechat_id VARCHAR(80) DEFAULT 'i_add_u' AFTER enrollment_note,
-  ADD COLUMN IF NOT EXISTS cta_text VARCHAR(120) DEFAULT '微信咨询课程' AFTER wechat_id;
+CALL add_col_if_missing('sup_courses', 'course_type', "ALTER TABLE sup_courses ADD COLUMN course_type VARCHAR(40) DEFAULT 'custom' AFTER board_note");
+CALL add_col_if_missing('sup_courses', 'positioning', "ALTER TABLE sup_courses ADD COLUMN positioning VARCHAR(300) NULL AFTER course_type");
+CALL add_col_if_missing('sup_courses', 'audience_tags', "ALTER TABLE sup_courses ADD COLUMN audience_tags JSON NULL AFTER positioning");
+CALL add_col_if_missing('sup_courses', 'target_audience', "ALTER TABLE sup_courses ADD COLUMN target_audience JSON NULL AFTER audience_tags");
+CALL add_col_if_missing('sup_courses', 'consultation_required', "ALTER TABLE sup_courses ADD COLUMN consultation_required JSON NULL AFTER target_audience");
+CALL add_col_if_missing('sup_courses', 'learning_outcomes', "ALTER TABLE sup_courses ADD COLUMN learning_outcomes JSON NULL AFTER consultation_required");
+CALL add_col_if_missing('sup_courses', 'capacity_note', "ALTER TABLE sup_courses ADD COLUMN capacity_note VARCHAR(200) NULL AFTER learning_outcomes");
+CALL add_col_if_missing('sup_courses', 'age_note', "ALTER TABLE sup_courses ADD COLUMN age_note VARCHAR(200) NULL AFTER capacity_note");
+CALL add_col_if_missing('sup_courses', 'includes', "ALTER TABLE sup_courses ADD COLUMN includes JSON NULL AFTER age_note");
+CALL add_col_if_missing('sup_courses', 'excludes', "ALTER TABLE sup_courses ADD COLUMN excludes JSON NULL AFTER includes");
+CALL add_col_if_missing('sup_courses', 'bring_items', "ALTER TABLE sup_courses ADD COLUMN bring_items JSON NULL AFTER excludes");
+CALL add_col_if_missing('sup_courses', 'safety_notes', "ALTER TABLE sup_courses ADD COLUMN safety_notes JSON NULL AFTER bring_items");
+CALL add_col_if_missing('sup_courses', 'class_flow', "ALTER TABLE sup_courses ADD COLUMN class_flow JSON NULL AFTER safety_notes");
+CALL add_col_if_missing('sup_courses', 'change_policy', "ALTER TABLE sup_courses ADD COLUMN change_policy TEXT NULL AFTER class_flow");
+CALL add_col_if_missing('sup_courses', 'coach_profile', "ALTER TABLE sup_courses ADD COLUMN coach_profile JSON NULL AFTER change_policy");
+CALL add_col_if_missing('sup_courses', 'faq', "ALTER TABLE sup_courses ADD COLUMN faq JSON NULL AFTER coach_profile");
+CALL add_col_if_missing('sup_courses', 'enrollment_note', "ALTER TABLE sup_courses ADD COLUMN enrollment_note TEXT NULL AFTER faq");
+CALL add_col_if_missing('sup_courses', 'wechat_id', "ALTER TABLE sup_courses ADD COLUMN wechat_id VARCHAR(80) DEFAULT 'i_add_u' AFTER enrollment_note");
+CALL add_col_if_missing('sup_courses', 'cta_text', "ALTER TABLE sup_courses ADD COLUMN cta_text VARCHAR(120) DEFAULT '微信咨询课程' AFTER wechat_id");
 
 UPDATE sup_courses SET
   course_type = 'experience',
