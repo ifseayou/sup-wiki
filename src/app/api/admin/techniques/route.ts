@@ -36,7 +36,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
 
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT
-         technique_id, source_code, name, cover_image, images, JSON_LENGTH(images) AS image_count,
+         technique_id, source_code, name, cover_image, COALESCE(JSON_LENGTH(images), 0) AS image_count,
          stage, stage_label, level, category, points, sort_order, status, updated_at
        FROM sup_techniques ${where}
        ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, sort_order ASC, technique_id ASC

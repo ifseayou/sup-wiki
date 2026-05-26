@@ -195,6 +195,7 @@ export default function EntityManager({
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
   const [search, setSearch] = useState(() => initialQueryValue('search'));
+  const [debouncedSearch, setDebouncedSearch] = useState(() => initialQueryValue('search'));
   const [statusFilter, setStatusFilter] = useState(() => initialQueryValue('status'));
   const [extraFilterValues, setExtraFilterValues] = useState<Record<string, string>>(
     () => Object.fromEntries(filters.map((filter) => [filter.key, initialQueryValue(filter.key)]))
@@ -224,6 +225,11 @@ export default function EntityManager({
     }
   }, [defaultFormData]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
   const queryKey = useMemo(
     () =>
       JSON.stringify({
@@ -231,7 +237,7 @@ export default function EntityManager({
         token,
         page,
         pageSize,
-        search,
+        debouncedSearch,
         statusFilter,
         extraFilterValues,
         sortBy,
@@ -239,7 +245,7 @@ export default function EntityManager({
         filters: filters.map((filter) => filter.key),
         refreshTick,
       }),
-    [apiPath, token, page, pageSize, search, statusFilter, extraFilterValues, sortBy, sortOrder, filters, refreshTick]
+    [apiPath, token, page, pageSize, debouncedSearch, statusFilter, extraFilterValues, sortBy, sortOrder, filters, refreshTick]
   );
 
   useEffect(() => {
@@ -253,7 +259,7 @@ export default function EntityManager({
       setLoadError('');
       try {
         const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-        if (search) params.set('search', search);
+        if (debouncedSearch) params.set('search', debouncedSearch);
         if (statusFilter) params.set('status', statusFilter);
         for (const filter of filters) {
           const value = extraFilterValues[filter.key];
@@ -293,7 +299,7 @@ export default function EntityManager({
     return () => {
       cancelled = true;
     };
-  }, [queryKey, apiPath, token, page, pageSize, search, statusFilter, extraFilterValues, sortBy, sortOrder, filters, entityName]);
+  }, [queryKey, apiPath, token, page, pageSize, debouncedSearch, statusFilter, extraFilterValues, sortBy, sortOrder, filters, entityName]);
 
   function refreshItems() {
     setRefreshTick((tick) => tick + 1);
