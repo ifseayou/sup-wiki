@@ -11,6 +11,8 @@ interface TechniqueOption {
   technique_id: number;
   source_code: string | null;
   name: string;
+  cover_image?: string | null;
+  images?: unknown;
   stage: number;
   stage_label: string;
   level: string;
@@ -31,6 +33,22 @@ function getIds(value: unknown): number[] {
 function getStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === 'string' && item.length > 0);
+}
+
+function getTechniqueImage(item: TechniqueOption) {
+  if (item.cover_image) return item.cover_image;
+  if (Array.isArray(item.images)) {
+    return item.images.find((url): url is string => typeof url === 'string' && url.length > 0) || '';
+  }
+  if (typeof item.images === 'string' && item.images) {
+    try {
+      const parsed = JSON.parse(item.images);
+      return Array.isArray(parsed) ? parsed.find((url): url is string => typeof url === 'string' && url.length > 0) || '' : '';
+    } catch {
+      return '';
+    }
+  }
+  return '';
 }
 
 function getRecord(value: unknown): Record<string, unknown> {
@@ -275,6 +293,13 @@ function TechniquePicker({
               onChange={() => toggle(item.technique_id)}
               className="mt-1"
             />
+            <span className="h-12 w-12 flex-none overflow-hidden rounded-lg bg-cream-200">
+              {getTechniqueImage(item) ? (
+                <img src={getTechniqueImage(item)} alt={item.name} className="h-full w-full object-cover" />
+              ) : (
+                <span className="grid h-full place-items-center text-xs font-semibold text-brown-500">{item.source_code || item.stage}</span>
+              )}
+            </span>
             <span className="min-w-0 flex-1">
               <span className="block font-medium">
                 {item.source_code ? `${item.source_code}. ` : ''}{item.name}

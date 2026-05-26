@@ -372,6 +372,15 @@ export default async function LearnPage() {
           <p>把品牌、产品线和内容创作者浓缩成适合手机浏览的学习卡片。</p>
         </section>
         <div className="learn-knowledge-grid">
+          <Link href="/techniques" className="learn-knowledge-card">
+            <span className="learn-knowledge-card__icon">桨</span>
+            <span>
+              <strong>技术动作库</strong>
+              <em>Technique Library</em>
+              <small>按入门、进阶、高阶拆解站姿、划行、转向和救援动作，课程中的每个动作都可进入详情页学习。</small>
+            </span>
+            <span className="learn-knowledge-card__arrow">›</span>
+          </Link>
           <Link href="/learn/brands" className="learn-knowledge-card">
             <span className="learn-knowledge-card__icon">🏷️</span>
             <span>

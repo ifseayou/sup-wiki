@@ -171,6 +171,7 @@ const columns = [
   { key: 'source_code', label: '编号' },
   { key: 'cover_image', label: '封面', render: (v: unknown) => v ? <img src={String(v)} alt="" loading="lazy" decoding="async" className="h-10 w-14 rounded object-cover" /> : '—' },
   { key: 'name', label: '动作' },
+  { key: 'image_count', label: '相册', render: (v: unknown) => `${Number(v || 0)} 张` },
   { key: 'stage_label', label: '阶段' },
   { key: 'level', label: '难度', render: (v: unknown) => levelOptions.find(option => option.value === String(v))?.label || String(v) },
   { key: 'category', label: '分类', render: (v: unknown) => categoryOptions.find(option => option.value === String(v))?.label || String(v) },

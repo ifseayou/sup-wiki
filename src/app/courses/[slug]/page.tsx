@@ -278,15 +278,25 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ s
                 {groupTechniques(course.techniques).map(([stageLabel, techniques]) => (
                   <div key={stageLabel}>
                     <h3 className="mb-3 text-sm font-semibold text-stone-700">{stageLabel}</h3>
-                    <div className="grid gap-2 md:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-2">
                       {techniques.map((technique) => (
-                        <div key={technique.technique_id} className="rounded-lg border border-[#EDE5D8] bg-white p-3">
-                          <div className="flex items-center gap-2">
-                            {technique.source_code && <span className="rounded bg-[#F0EAE0] px-2 py-0.5 text-xs text-[#7A6145]">{technique.source_code}</span>}
-                            <span className="text-sm font-medium text-[#2E2118]">{technique.name}</span>
+                        <Link key={technique.technique_id} href={`/techniques/${technique.technique_id}`} className="group grid grid-cols-[78px_1fr] gap-3 rounded-lg border border-[#EDE5D8] bg-white p-3 transition hover:border-[#8B7355]">
+                          <div className="aspect-square overflow-hidden rounded-lg bg-[#F0EAE0]">
+                            {technique.cover_image || technique.images?.[0] ? (
+                              <img src={technique.cover_image || technique.images?.[0]} alt={technique.name} className="h-full w-full object-cover transition group-hover:scale-105" />
+                            ) : (
+                              <div className="grid h-full place-items-center text-sm font-semibold text-[#8B7355]">{technique.source_code || technique.stage}</div>
+                            )}
                           </div>
-                          {technique.key_points && <p className="mt-2 line-clamp-2 text-xs leading-6 text-stone-500">{technique.key_points}</p>}
-                        </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              {technique.source_code && <span className="rounded bg-[#F0EAE0] px-2 py-0.5 text-xs text-[#7A6145]">{technique.source_code}</span>}
+                              <span className="truncate text-sm font-medium text-[#2E2118]">{technique.name}</span>
+                            </div>
+                            {technique.key_points && <p className="mt-2 line-clamp-2 text-xs leading-6 text-stone-500">{technique.key_points}</p>}
+                            <div className="mt-2 text-xs font-semibold text-[#8B5A21]">查看动作详情</div>
+                          </div>
+                        </Link>
                       ))}
                     </div>
                   </div>
