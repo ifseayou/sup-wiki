@@ -33,7 +33,13 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params
     );
     const [items] = await pool.execute<RowDataPacket[]>(
-      `SELECT s.*, u.nickname, u.email, e.name AS matched_event_name
+      `SELECT
+         s.*,
+         COALESCE(s.batch_id, CONCAT('legacy-', s.submission_id)) AS batch_id,
+         COALESCE(s.batch_file_index, 1) AS batch_file_index,
+         COALESCE(s.batch_total, 1) AS batch_total,
+         COALESCE(s.batch_label, s.event_name) AS batch_label,
+         u.nickname, u.email, e.name AS matched_event_name
        FROM sup_event_result_submissions s
        INNER JOIN sup_users u ON u.user_id = s.user_id
        LEFT JOIN sup_events e ON e.event_id = s.event_id

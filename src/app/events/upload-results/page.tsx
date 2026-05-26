@@ -12,7 +12,7 @@ function UploadResultsForm() {
   const [eventDate, setEventDate] = useState('');
   const [location, setLocation] = useState('');
   const [note, setNote] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -36,7 +36,7 @@ function UploadResultsForm() {
     form.set('user_note', note);
     const eventId = searchParams.get('event_id');
     if (eventId) form.set('event_id', eventId);
-    if (file) form.set('file', file);
+    files.forEach((file) => form.append('files', file));
 
     try {
       const res = await fetch('/api/user/event-result-submissions', {
@@ -49,8 +49,8 @@ function UploadResultsForm() {
         setError(data.error || '提交失败，请稍后重试');
         return;
       }
-      setMessage('成绩册已提交，等待整理录入。遇到问题可联系客服微信：i_add_u');
-      setFile(null);
+      setMessage(`已提交 ${data.file_count || files.length || 1} 份成绩册，等待整理录入。遇到问题可联系客服微信：i_add_u`);
+      setFiles([]);
       setNote('');
     } catch {
       setError('网络错误，请稍后重试');
@@ -131,10 +131,24 @@ function UploadResultsForm() {
                 type="file"
                 accept="application/pdf,.pdf"
                 required
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                multiple
+                onChange={(e) => setFiles(Array.from(e.target.files || []))}
                 className="rounded-lg border border-dashed border-[#C4A882] bg-[#FFF8EE] px-3 py-4 text-sm text-stone-700 file:mr-4 file:rounded-md file:border-0 file:bg-[#6B3E1E] file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
               />
-              <span className="text-xs text-stone-400">仅支持 PDF，单个文件不超过 20MB。</span>
+              <span className="text-xs text-stone-400">仅支持 PDF，单个文件不超过 20MB，一次最多 10 个文件。</span>
+              {files.length > 0 && (
+                <div className="rounded-lg border border-[#E8DAC8] bg-white p-3">
+                  <div className="mb-2 text-xs font-semibold text-stone-500">本批次 {files.length} 份成绩册</div>
+                  <div className="grid gap-2">
+                    {files.map((item, index) => (
+                      <div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3 rounded-md bg-[#FAF6EF] px-3 py-2 text-xs text-stone-600">
+                        <span className="min-w-0 truncate">第 {index + 1} 份 · {item.name}</span>
+                        <span className="shrink-0 text-stone-400">{(item.size / 1024 / 1024).toFixed(1)} MB</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </label>
             <label className="grid gap-2">
               <span className="text-sm font-semibold text-stone-700">备注</span>
