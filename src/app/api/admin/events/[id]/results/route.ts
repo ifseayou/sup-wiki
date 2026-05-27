@@ -74,12 +74,21 @@ export const GET = withAdmin(async (request: NextRequest, _ctx) => {
       [id]
     );
 
+    const [sources] = await pool.execute<RowDataPacket[]>(
+      `SELECT source_id, file_name, source_url, original_path, parser_status, extracted_rows, imported_rows, parser_note, updated_at
+       FROM sup_event_result_sources
+       WHERE event_id = ?
+       ORDER BY CASE WHEN source_url IS NULL OR source_url = '' THEN 1 ELSE 0 END, source_id ASC`,
+      [id]
+    );
+
     return NextResponse.json({
       items: results.map((row) => ({
         ...row,
         is_verified: Boolean(row.is_verified),
       })),
       point_standings: pointStandings,
+      sources,
     });
   } catch (error) {
     console.error('获取赛事成绩失败:', error);

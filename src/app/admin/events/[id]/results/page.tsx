@@ -62,6 +62,17 @@ interface AdminPointStandingRow {
   source_file_url?: string | null;
 }
 
+interface AdminResultSourceRow {
+  source_id: number;
+  file_name: string;
+  source_url?: string | null;
+  original_path?: string | null;
+  parser_status?: string | null;
+  extracted_rows?: number | null;
+  imported_rows?: number | null;
+  parser_note?: string | null;
+}
+
 const emptyTemplate = [
   {
     athlete_name: '示例运动员',
@@ -100,6 +111,7 @@ export default function EventResultsAdminPage() {
   const [event, setEvent] = useState<AdminEvent | null>(null);
   const [results, setResults] = useState<AdminEventResultRow[]>([]);
   const [pointStandings, setPointStandings] = useState<AdminPointStandingRow[]>([]);
+  const [sources, setSources] = useState<AdminResultSourceRow[]>([]);
   const [jsonText, setJsonText] = useState(JSON.stringify(emptyTemplate, null, 2));
   const [resultStatus, setResultStatus] = useState('none');
   const [loading, setLoading] = useState(true);
@@ -125,6 +137,7 @@ export default function EventResultsAdminPage() {
       setEvent(eventData);
       setResults(resultsData.items || []);
       setPointStandings(resultsData.point_standings || []);
+      setSources(resultsData.sources || []);
       setJsonText(resultsData.items?.length ? formatResultsForTextarea(resultsData.items) : JSON.stringify(emptyTemplate, null, 2));
       setResultStatus(eventData.result_status || 'none');
     } catch (loadError) {
@@ -241,6 +254,45 @@ export default function EventResultsAdminPage() {
 
       {message && <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">{message}</div>}
       {error && <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+
+      <div className="rounded-xl border border-cream-200 bg-cream-50 p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-medium text-brown-700">成绩册来源</h2>
+            <p className="mt-1 text-sm text-warm-gray-500">该赛事下所有 PDF 成绩册来源，成绩明细会索引到具体文件和页码。</p>
+          </div>
+          <span className="rounded-full bg-cream-200 px-3 py-1 text-sm text-brown-600">{sources.length} 份</span>
+        </div>
+        {sources.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-cream-300 bg-white px-4 py-6 text-sm text-warm-gray-400">
+            当前赛事还没有挂接成绩册来源。
+          </div>
+        ) : (
+          <div className="grid gap-2 md:grid-cols-2">
+            {sources.map((source) => (
+              <div key={source.source_id} className="rounded-lg border border-cream-200 bg-white px-3 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    {source.source_url ? (
+                      <a href={source.source_url} target="_blank" rel="noopener noreferrer" className="block truncate text-sm font-medium text-brown-700 hover:text-brown-900" title={source.file_name}>
+                        {source.file_name}
+                      </a>
+                    ) : (
+                      <div className="truncate text-sm font-medium text-brown-700" title={source.file_name}>{source.file_name}</div>
+                    )}
+                    <div className="mt-1 text-xs text-warm-gray-400">
+                      source #{source.source_id} · 导入 {source.imported_rows ?? 0} / 解析 {source.extracted_rows ?? 0}
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-cream-100 px-2 py-0.5 text-xs text-warm-gray-500">
+                    {source.parser_status || 'pending'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="rounded-xl border border-cream-200 bg-cream-50 p-5">
         <div className="mb-3 flex items-center justify-between">

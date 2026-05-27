@@ -156,6 +156,7 @@ export const PATCH = withAdmin(async (request: NextRequest) => {
             `UPDATE sup_professionals
              SET user_id = COALESCE(user_id, ?),
                  avatar = COALESCE(avatar, ?),
+                 athlete_id = COALESCE(athlete_id, ?),
                  roles = ?,
                  primary_role = ?,
                  club_id = COALESCE(club_id, ?),
@@ -165,17 +166,18 @@ export const PATCH = withAdmin(async (request: NextRequest) => {
                  source_note = ?,
                  status = 'published'
              WHERE professional_id = ?`,
-            [submission.user_id, avatar, JSON.stringify(roles), role, clubId, sourceNote, professionalId]
+            [submission.user_id, avatar, submission.athlete_id || null, JSON.stringify(roles), role, clubId, sourceNote, professionalId]
           );
           createdProfessionalId = professionalId;
         } else {
           const [insert] = await conn.execute<ResultSetHeader>(
             `INSERT INTO sup_professionals (
-               user_id, name, avatar, roles, primary_role, club_id, bio,
+               user_id, athlete_id, name, avatar, roles, primary_role, club_id, bio,
                claim_status, verification_status, source_type, source_note, status
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, 'claimed', 'pending', 'industry_submission', ?, 'published')`,
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'claimed', 'pending', 'industry_submission', ?, 'published')`,
             [
               submission.user_id,
+              submission.athlete_id || null,
               matchName,
               avatar,
               JSON.stringify(roles),

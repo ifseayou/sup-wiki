@@ -16,7 +16,10 @@ test.describe('赛事成绩模块加载', () => {
     expect(anonymous.status()).toBe(401);
 
     const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) test.skip(true, '缺少 JWT_SECRET，跳过登录态接口验证');
+    if (!jwtSecret) {
+      test.skip(true, '缺少 JWT_SECRET，跳过登录态接口验证');
+      return;
+    }
 
     const headers = { Authorization: `Bearer ${userToken(jwtSecret)}` };
     const modulesRes = await request.get(`/api/events/${eventId}/results?section=modules`, { headers });

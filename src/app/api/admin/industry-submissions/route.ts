@@ -46,23 +46,26 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params.push(type);
     }
     if (search) {
-      conditions.push('(s.name LIKE ? OR s.club_name LIKE ? OR u.nickname LIKE ? OR u.email LIKE ?)');
+      conditions.push('(s.name LIKE ? OR s.club_name LIKE ? OR u.nickname LIKE ? OR u.email LIKE ? OR a.name LIKE ?)');
       const like = `%${search}%`;
-      params.push(like, like, like, like);
+      params.push(like, like, like, like, like);
     }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const [countRows] = await pool.execute<RowDataPacket[]>(
       `SELECT COUNT(*) AS total
        FROM sup_industry_submissions s
        LEFT JOIN sup_users u ON u.user_id = s.user_id
+       LEFT JOIN sup_athletes a ON a.athlete_id = s.athlete_id
        ${where}`,
       params
     );
     const total = Number(countRows[0]?.total || 0);
     const [rows] = await pool.execute<RowDataPacket[]>(
-      `SELECT s.*, u.nickname, u.email
+      `SELECT s.*, u.nickname, u.email,
+              a.name AS athlete_name, a.photo AS athlete_photo, a.province AS athlete_province, a.city AS athlete_city
        FROM sup_industry_submissions s
        LEFT JOIN sup_users u ON u.user_id = s.user_id
+       LEFT JOIN sup_athletes a ON a.athlete_id = s.athlete_id
        ${where}
        ORDER BY FIELD(s.status, 'pending', 'reviewing', 'approved', 'rejected'), s.created_at DESC
        LIMIT ${pageSize} OFFSET ${offset}`,

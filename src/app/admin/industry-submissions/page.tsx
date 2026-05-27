@@ -10,6 +10,11 @@ interface Submission {
   name: string;
   roles: string[];
   club_name: string | null;
+  athlete_id: number | null;
+  athlete_name: string | null;
+  athlete_photo: string | null;
+  athlete_province: string | null;
+  athlete_city: string | null;
   contact_info: string | null;
   location_note: string | null;
   profile_images: string[];
@@ -149,6 +154,16 @@ export default function AdminIndustrySubmissionsPage() {
                       <div>提交用户：{item.nickname || '-'} / {item.email || '-'}</div>
                       {item.roles?.length > 0 && <div>身份：{item.roles.map((role) => roleLabels[role] || role).join('、')}</div>}
                       {item.club_name && <div>所属俱乐部：{item.club_name}</div>}
+                      {item.athlete_name && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span>关联运动员：</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            {item.athlete_photo && <img src={item.athlete_photo} alt="" style={{ width: 24, height: 24, objectFit: 'cover', borderRadius: 999 }} />}
+                            {item.athlete_name} #{item.athlete_id}
+                            {[item.athlete_province, item.athlete_city].filter(Boolean).join(' / ') && <span style={{ color: '#9B9289' }}>({[item.athlete_province, item.athlete_city].filter(Boolean).join(' / ')})</span>}
+                          </span>
+                        </div>
+                      )}
                       {item.location_note && <div>城市/地址：{item.location_note}</div>}
                       {item.contact_info && <div>审核联系方式：{item.contact_info}</div>}
                       <div>提交时间：{item.created_at?.slice(0, 19).replace('T', ' ')}</div>

@@ -406,7 +406,7 @@ async function upsertEvent(connection, event) {
   );
   if (existing.length) return Number(existing[0].event_id);
 
-  const slug = slugify(name, startDate);
+  const slug = event.slug || slugify(name, startDate);
   const [insertResult] = await connection.execute(
     `INSERT INTO sup_events
       (name, slug, event_type, province, city, venue, start_date, end_date, description,

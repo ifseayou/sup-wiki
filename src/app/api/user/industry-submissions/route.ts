@@ -37,6 +37,13 @@ function cleanRoles(formData: FormData) {
   return Array.from(new Set(raw.map((item) => String(item)).filter((item) => PROFESSIONAL_ROLES.includes(item))));
 }
 
+function cleanPositiveInt(value: FormDataEntryValue | null) {
+  const text = cleanText(value, 30);
+  if (!text) return null;
+  const next = Number(text);
+  return Number.isInteger(next) && next > 0 ? next : null;
+}
+
 function validateImageFiles(files: File[], label: string) {
   if (files.length > MAX_GROUP_FILES) return `${label}最多上传 ${MAX_GROUP_FILES} 张`;
   for (const file of files) {
@@ -90,19 +97,42 @@ export async function GET(request: NextRequest) {
 
   try {
     const [rows] = await pool.execute<RowDataPacket[]>(
-      `SELECT submission_id, submission_type, name, roles, club_name, status, admin_note,
-              created_club_id, created_professional_id, created_at, updated_at
-       FROM sup_industry_submissions
-       WHERE user_id = ?
-       ORDER BY created_at DESC
+      `SELECT s.submission_id, s.submission_type, s.name, s.roles, s.club_name, s.athlete_id,
+              s.status, s.admin_note, s.created_club_id, s.created_professional_id,
+              s.created_at, s.updated_at,
+              a.name AS athlete_name, a.photo AS athlete_photo
+       FROM sup_industry_submissions s
+       LEFT JOIN sup_athletes a ON a.athlete_id = s.athlete_id
+       WHERE s.user_id = ?
+       ORDER BY s.created_at DESC
        LIMIT 30`,
       [user.user_id]
     );
-    return NextResponse.json({ items: rows });
+    return NextResponse.json({
+      items: rows.map((row) => ({
+        ...row,
+        roles: (() => {
+          try {
+            return row.roles ? JSON.parse(String(row.roles)) : [];
+          } catch {
+            return [];
+          }
+        })(),
+      })),
+    });
   } catch (error) {
     console.error('获取行业入驻提交记录失败:', error);
     return NextResponse.json({ error: '获取入驻提交记录失败' }, { status: 500 });
   }
+}
+
+async function ensureAthleteExists(athleteId: number | null) {
+  if (!athleteId) return true;
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT athlete_id FROM sup_athletes WHERE athlete_id = ? AND status = "published" LIMIT 1',
+    [athleteId]
+  );
+  return rows.length > 0;
 }
 
 export async function POST(request: NextRequest) {
@@ -116,9 +146,11 @@ export async function POST(request: NextRequest) {
     const submissionType = cleanText(formData.get('submission_type'), 30);
     const name = cleanText(formData.get('name'), 200);
     const clubName = cleanText(formData.get('club_name'), 200);
+    const athleteId = cleanPositiveInt(formData.get('athlete_id'));
     const contactInfo = cleanText(formData.get('contact_info'), 255);
     const locationNote = cleanText(formData.get('location_note'), 255);
     const roles = cleanRoles(formData);
+    const role = roles[0] || '';
     const profileFiles = getFiles(formData, 'profile_images');
     const clubFiles = getFiles(formData, 'club_photos');
     const certificateFiles = getFiles(formData, 'certificate_images');
@@ -128,8 +160,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '请选择入驻类型' }, { status: 400 });
     }
     if (!name) return NextResponse.json({ error: submissionType === 'club' ? '请填写俱乐部名称' : '请填写姓名' }, { status: 400 });
-    if (submissionType === 'professional' && roles.length === 0) {
-      return NextResponse.json({ error: '请选择教练员、裁判员或俱乐部负责人身份' }, { status: 400 });
+    if (submissionType === 'professional' && roles.length !== 1) {
+      return NextResponse.json({ error: '专业人员身份只能选择 1 个' }, { status: 400 });
+    }
+    if (submissionType === 'professional' && athleteId && !(await ensureAthleteExists(athleteId))) {
+      return NextResponse.json({ error: '关联运动员不存在或未发布' }, { status: 400 });
+    }
+    if (submissionType === 'professional' && role === 'coach' && certificateFiles.length === 0) {
+      return NextResponse.json({ error: '教练员证为必传资料，请上传清晰证书照片' }, { status: 400 });
+    }
+    if (submissionType === 'professional' && role === 'referee' && certificateFiles.length === 0) {
+      return NextResponse.json({ error: '裁判员证或执裁证明为必传资料' }, { status: 400 });
+    }
+    if (submissionType === 'professional' && role === 'club_owner' && licenseFiles.length === 0) {
+      return NextResponse.json({ error: '俱乐部负责人证明为必传资料' }, { status: 400 });
     }
     if (submissionType === 'professional' && profileFiles.length + certificateFiles.length + licenseFiles.length === 0) {
       return NextResponse.json({ error: '请至少上传一张本人照片或证件照片' }, { status: 400 });
@@ -159,16 +203,17 @@ export async function POST(request: NextRequest) {
 
     const [result] = await pool.execute<ResultSetHeader>(
       `INSERT INTO sup_industry_submissions (
-         user_id, submission_type, name, roles, club_name, contact_info, location_note,
+         user_id, submission_type, name, roles, club_name, athlete_id, contact_info, location_note,
          profile_images, club_photos, certificate_images, license_images,
          ocr_status, ocr_text, ocr_result_json, status
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
       [
         user.user_id,
         submissionType,
         name,
         JSON.stringify(roles),
         clubName,
+        athleteId,
         contactInfo,
         locationNote,
         JSON.stringify(profileImages),

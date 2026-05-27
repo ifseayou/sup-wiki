@@ -38,6 +38,9 @@ interface EventRow extends RowDataPacket {
   source_count: number;
   primary_source_url: string | null;
   primary_source_name: string | null;
+  source_urls: string | null;
+  source_names: string | null;
+  source_ids: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -99,7 +102,10 @@ export const GET = withAdmin(async (request: NextRequest) => {
          COALESCE(r.linked_athletes_count, 0) AS linked_athletes_count,
          COALESCE(src.source_count, 0) AS source_count,
          SUBSTRING_INDEX(src.source_urls, CHAR(10), 1) AS primary_source_url,
-         SUBSTRING_INDEX(src.source_names, CHAR(10), 1) AS primary_source_name
+         SUBSTRING_INDEX(src.source_names, CHAR(10), 1) AS primary_source_name,
+         src.source_urls,
+         src.source_names,
+         src.source_ids
        FROM sup_events e
        LEFT JOIN (
          SELECT
@@ -113,6 +119,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
          SELECT
            event_id,
            COUNT(*) AS source_count,
+           GROUP_CONCAT(source_id ORDER BY CASE WHEN source_url IS NULL OR source_url = '' THEN 1 ELSE 0 END, source_id ASC SEPARATOR '\n') AS source_ids,
            GROUP_CONCAT(NULLIF(source_url, '') ORDER BY CASE WHEN source_url IS NULL OR source_url = '' THEN 1 ELSE 0 END, source_id ASC SEPARATOR '\n') AS source_urls,
            GROUP_CONCAT(COALESCE(NULLIF(file_name, ''), '成绩册') ORDER BY CASE WHEN source_url IS NULL OR source_url = '' THEN 1 ELSE 0 END, source_id ASC SEPARATOR '\n') AS source_names
          FROM sup_event_result_sources

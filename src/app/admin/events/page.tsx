@@ -24,6 +24,17 @@ function formatDateInput(value: unknown) {
   return match ? match[1] : '';
 }
 
+function sourceItems(row: Record<string, unknown>) {
+  const names = String(row.source_names || row.primary_source_name || '')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const urls = String(row.source_urls || row.primary_source_url || '')
+    .split('\n')
+    .map((item) => item.trim());
+  return names.map((name, index) => ({ name, url: urls[index] || '' }));
+}
+
 function EventForm({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
   const inp = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
@@ -207,7 +218,28 @@ const columns = [
       const sourceName = String(row.primary_source_name || '成绩册');
       const sourceCount = Number(row.source_count || 0);
       if (!sourceCount) return <span className="text-warm-gray-400">—</span>;
-      const label = `${sourceName}${sourceCount > 1 ? ` · ${sourceCount}份` : ''}`;
+      const items = sourceItems(row);
+      if (sourceCount > 1) {
+        return (
+          <details className="group max-w-[240px] text-xs text-warm-gray-600">
+            <summary className="cursor-pointer list-none text-brown-600 hover:text-brown-800">
+              {sourceCount} 份成绩册
+              <span className="ml-1 text-warm-gray-400 group-open:hidden">展开</span>
+              <span className="ml-1 hidden text-warm-gray-400 group-open:inline">收起</span>
+            </summary>
+            <div className="mt-2 space-y-1 rounded-lg border border-cream-200 bg-white p-2 shadow-sm">
+              {items.map((item, index) => item.url ? (
+                <a key={`${item.name}-${index}`} href={item.url} target="_blank" rel="noopener noreferrer" className="block truncate text-brown-600 hover:text-brown-800" title={item.name}>
+                  {index + 1}. {item.name}
+                </a>
+              ) : (
+                <div key={`${item.name}-${index}`} className="truncate text-warm-gray-500" title={item.name}>{index + 1}. {item.name}</div>
+              ))}
+            </div>
+          </details>
+        );
+      }
+      const label = sourceName;
       if (!sourceUrl) return <span className="text-xs text-warm-gray-500">{label}</span>;
       return (
         <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-brown-500 hover:text-brown-700">
