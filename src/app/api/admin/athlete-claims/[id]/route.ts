@@ -20,6 +20,16 @@ function parseJsonObject(value: unknown) {
   }
 }
 
+function getNestedString(source: Record<string, unknown>, path: string[]) {
+  let current: unknown = source;
+  for (const key of path) {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) return null;
+    current = (current as Record<string, unknown>)[key];
+  }
+  const value = typeof current === 'string' ? current.trim() : '';
+  return value || null;
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -69,10 +79,15 @@ export async function PATCH(
     }
 
     const socialLinks = parseJsonObject(claim.social_links);
+    const submittedProfile = parseJsonObject(claim.submitted_profile_json);
+    const hometownProvince = claim.submitted_hometown_province || getNestedString(submittedProfile, ['hometown', 'province']);
+    const hometownCity = claim.submitted_hometown_city || getNestedString(submittedProfile, ['hometown', 'city']);
     const publicProfile = {
       ...(parseJsonObject(socialLinks.public_profile)),
       birth_date: claim.submitted_birth_date || null,
       birth_year: claim.submitted_birth_year || null,
+      hometown_province: hometownProvince || null,
+      hometown_city: hometownCity || null,
       living_province: claim.submitted_living_province || null,
       living_city: claim.submitted_living_city || null,
       started_sup_year: claim.submitted_started_sup_year || null,
@@ -94,8 +109,8 @@ export async function PATCH(
       [
         claim.submitted_name,
         claim.submitted_avatar_url,
-        claim.submitted_hometown_province,
-        claim.submitted_hometown_city,
+        hometownProvince,
+        hometownCity,
         claim.submitted_intro,
         nextSocialLinks,
         claim.athlete_id,

@@ -19,6 +19,14 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT
          c.*,
+         COALESCE(
+           NULLIF(c.submitted_hometown_province, ''),
+           CASE WHEN JSON_VALID(c.submitted_profile_json) THEN JSON_UNQUOTE(JSON_EXTRACT(c.submitted_profile_json, '$.hometown.province')) ELSE NULL END
+         ) AS submitted_hometown_province,
+         COALESCE(
+           NULLIF(c.submitted_hometown_city, ''),
+           CASE WHEN JSON_VALID(c.submitted_profile_json) THEN JSON_UNQUOTE(JSON_EXTRACT(c.submitted_profile_json, '$.hometown.city')) ELSE NULL END
+         ) AS submitted_hometown_city,
          u.nickname, u.email, u.user_level, u.status AS user_status,
          a.name AS current_name, a.photo AS current_photo, a.province AS current_province,
          a.city AS current_city, a.bio AS current_bio,
