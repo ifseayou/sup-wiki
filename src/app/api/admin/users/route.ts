@@ -55,8 +55,8 @@ export const GET = withAdmin(async (request: NextRequest) => {
        ${where}
        GROUP BY u.user_id, today.query_count
        ORDER BY u.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
+       LIMIT ${pageSize} OFFSET ${offset}`,
+      params
     );
     const items = rows.map((row) => {
       const raw = String(row.owned_athletes_raw || '');

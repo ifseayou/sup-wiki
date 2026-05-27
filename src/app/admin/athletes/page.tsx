@@ -66,7 +66,6 @@ function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>;
 
 const columns = [
   { key: 'name', label: '姓名' },
-  { key: 'name_en', label: '英文名' },
   { key: 'nationality', label: '国籍' },
   { key: 'province', label: '籍贯', render: (_v: unknown, row: Record<string, unknown>) => [row.province, row.city].filter(Boolean).join(' / ') || '—' },
   { key: 'discipline', label: '项目', render: (v: unknown) => ({'race':'竞速','surf':'冲浪','distance':'长距离','technical':'技巧'}[String(v)] || String(v)) },
