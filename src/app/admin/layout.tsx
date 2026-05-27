@@ -54,6 +54,7 @@ const navGroups = [
     label: '行业组织',
     icon: '◌',
     items: [
+      { href: '/admin/industry-submissions', label: '入驻审核' },
       { href: '/admin/clubs', label: '俱乐部' },
       { href: '/admin/professionals', label: '专业人员' },
       { href: '/admin/professional-certificates', label: '证书资料' },

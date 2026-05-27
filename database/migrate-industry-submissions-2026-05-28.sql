@@ -1,0 +1,35 @@
+-- 行业入驻提交：俱乐部 / 教练员 / 裁判员 / 俱乐部负责人
+-- 用户侧只提交少量信息和清晰图片，后台审核通过后生成正式俱乐部或专业人员记录。
+
+CREATE TABLE IF NOT EXISTS sup_industry_submissions (
+  submission_id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  submission_type ENUM('professional','club') NOT NULL,
+  name VARCHAR(200) NOT NULL,
+  roles JSON NULL,
+  club_name VARCHAR(200) NULL,
+  contact_info VARCHAR(255) NULL,
+  location_note VARCHAR(255) NULL,
+  profile_images JSON NULL,
+  club_photos JSON NULL,
+  certificate_images JSON NULL,
+  license_images JSON NULL,
+  ocr_status ENUM('not_configured','completed','failed') NOT NULL DEFAULT 'not_configured',
+  ocr_text MEDIUMTEXT NULL,
+  ocr_result_json JSON NULL,
+  matched_club_id INT NULL,
+  matched_professional_id INT NULL,
+  created_club_id INT NULL,
+  created_professional_id INT NULL,
+  status ENUM('pending','reviewing','approved','rejected') NOT NULL DEFAULT 'pending',
+  admin_note VARCHAR(1000) NULL,
+  reviewed_at DATETIME NULL,
+  reviewer_user_id INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_sup_industry_submissions_status (status, created_at),
+  INDEX idx_sup_industry_submissions_user (user_id, created_at),
+  INDEX idx_sup_industry_submissions_type (submission_type, status),
+  INDEX idx_sup_industry_submissions_club (created_club_id),
+  INDEX idx_sup_industry_submissions_professional (created_professional_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -167,6 +167,9 @@ export default async function ProfessionalsPage({
               <p className="tracking-[0.34em] text-[#A78960]">PROFESSIONAL NETWORK</p>
               <h1 className="mt-3 font-[var(--font-display)] text-5xl font-semibold leading-none text-[#2E2118] sm:text-6xl">专业人员库</h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-[#655D56]">收录桨板教练员、裁判员、讲师、赛事组织者和安全救援人员，沉淀资质、课程、执裁与俱乐部关系。</p>
+              <div className="mt-6 hidden lg:flex">
+                <Link href="/join?type=professional" className="rounded-full bg-[#7A5530] px-5 py-3 text-sm font-semibold text-white no-underline shadow-[0_14px_32px_rgba(122,85,48,0.22)]">教练 / 裁判入驻</Link>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <StatCard label="总人数" value={Number(stats.total || 0)} />

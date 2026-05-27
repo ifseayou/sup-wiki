@@ -200,6 +200,9 @@ export default async function ClubsPage({
               <p className="tracking-[0.34em] text-[#C6A77D]">SUP CLUB NETWORK</p>
               <h1 className="mt-3 font-[var(--font-display)] text-5xl font-semibold leading-none text-white sm:text-6xl">俱乐部库</h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-[#E5D7C4]">查找身边的桨板训练基地、课程服务和组织战绩，把运动员、教练员、赛事成绩连接到同一个俱乐部主页。</p>
+              <div className="mt-6 hidden lg:flex">
+                <Link href="/join?type=club" className="rounded-full bg-[#F6E8D6] px-5 py-3 text-sm font-semibold text-[#5B3D23] no-underline shadow-[0_14px_32px_rgba(0,0,0,0.18)]">提交俱乐部资料</Link>
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <StatCard label="收录俱乐部" value={Number(stats.total || 0)} />
