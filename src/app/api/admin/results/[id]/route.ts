@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
 import { parseFinishTimeToSeconds, parseTeamMembersInput, syncAthleteRaceTimes } from '@/lib/event-results';
+import { normalizeClubTeamName, syncClubTeamAliasesForEvent } from '@/lib/club-team-normalization';
 import { getResultStatusLabel, normalizeResultStatusCode } from '@/lib/result-status';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
@@ -67,8 +68,8 @@ export const PUT = withAdmin(async (request: NextRequest) => {
 
     await connection.beginTransaction();
     const [beforeRows] = await connection.execute<RowDataPacket[]>(
-      `SELECT athlete_id FROM sup_event_results WHERE result_id = ?
-       UNION SELECT athlete_id FROM sup_event_result_members WHERE result_id = ? AND athlete_id IS NOT NULL`,
+      `SELECT athlete_id, event_id FROM sup_event_results WHERE result_id = ?
+       UNION SELECT athlete_id, NULL AS event_id FROM sup_event_result_members WHERE result_id = ? AND athlete_id IS NOT NULL`,
       [id, id]
     );
     const touched = new Set<number>(beforeRows.map((row) => Number(row.athlete_id)).filter(Number.isFinite));
@@ -93,6 +94,7 @@ export const PUT = withAdmin(async (request: NextRequest) => {
         time_seconds = ?,
         points = ?,
         team_name = ?,
+        team_name_normalized = ?,
         nationality_snapshot = ?,
         source_type = ?,
         source_id = ?,
@@ -109,7 +111,7 @@ export const PUT = withAdmin(async (request: NextRequest) => {
         discipline, textOrNull(body.board_class), textOrNull(body.round_label), rankPosition, textOrNull(body.result_label),
         finishTime, statusCode, textOrNull(body.result_status_note) || (statusCode ? getResultStatusLabel(statusCode) : null),
         parseFinishTimeToSeconds(finishTime), body.points === '' || body.points == null ? null : Number(body.points),
-        textOrNull(body.team_name) || '个人', textOrNull(body.nationality_snapshot), textOrNull(body.source_type) || 'official',
+        textOrNull(body.team_name) || '个人', normalizeClubTeamName(textOrNull(body.team_name) || '个人') || null, textOrNull(body.nationality_snapshot), textOrNull(body.source_type) || 'official',
         numberOrNull(body.source_id), textOrNull(body.source_title), textOrNull(body.source_locator), textOrNull(body.source_url),
         textOrNull(body.source_note), body.parse_confidence == null ? 1 : Number(body.parse_confidence),
         textOrNull(body.review_status) || 'confirmed', body.is_verified === false ? 0 : 1, id,
@@ -120,6 +122,8 @@ export const PUT = withAdmin(async (request: NextRequest) => {
       return NextResponse.json({ error: '成绩不存在' }, { status: 404 });
     }
     for (const memberId of await replaceMembers(connection, id, { ...body, athlete_name_snapshot: athleteName }, athleteId)) touched.add(memberId);
+    const targetEventId = numberOrNull(body.event_id) || Number(beforeRows[0]?.event_id || 0);
+    if (targetEventId) await syncClubTeamAliasesForEvent(connection, targetEventId);
     for (const athleteIdItem of touched) await syncAthleteRaceTimes(connection, athleteIdItem);
     await connection.commit();
     return NextResponse.json({ success: true });

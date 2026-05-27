@@ -1,6 +1,7 @@
 import type { PoolConnection } from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2';
 import { getResultStatusLabel, normalizeResultStatusCode } from '@/lib/result-status';
+import { normalizeClubTeamName, syncClubTeamAliasesForEvent } from '@/lib/club-team-normalization';
 
 export interface EventSourceLink {
   title: string;
@@ -377,9 +378,9 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
     await connection.execute(
       `INSERT INTO sup_event_results (
         event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
-        rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, nationality_snapshot,
+        rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized, nationality_snapshot,
         source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
         athleteId,
@@ -397,6 +398,7 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
         parseFinishTimeToSeconds(result.finish_time),
         typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
         result.team_name || '个人',
+        normalizeClubTeamName(result.team_name || '个人') || null,
         result.nationality_snapshot || null,
         result.source_type || 'official',
         result.source_id || null,
@@ -418,6 +420,8 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
     }
   }
 
+  await syncClubTeamAliasesForEvent(connection, eventId);
+
   for (const athleteId of touchedAthleteIds) {
     await syncAthleteRaceTimes(connection, athleteId);
   }
@@ -433,9 +437,9 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
     await connection.execute(
       `INSERT INTO sup_event_results (
         event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
-        rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, nationality_snapshot,
+        rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized, nationality_snapshot,
         source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         result_id = LAST_INSERT_ID(result_id),
         athlete_id = VALUES(athlete_id),
@@ -448,6 +452,7 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
         time_seconds = VALUES(time_seconds),
         points = VALUES(points),
         team_name = VALUES(team_name),
+        team_name_normalized = VALUES(team_name_normalized),
         source_id = VALUES(source_id),
         source_title = VALUES(source_title),
         source_locator = VALUES(source_locator),
@@ -473,6 +478,7 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
         parseFinishTimeToSeconds(result.finish_time),
         typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
         result.team_name || '个人',
+        normalizeClubTeamName(result.team_name || '个人') || null,
         result.nationality_snapshot || null,
         result.source_type || 'official',
         result.source_id || null,
@@ -493,6 +499,8 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
       }
     }
   }
+
+  await syncClubTeamAliasesForEvent(connection, eventId);
 
   for (const athleteId of touchedAthleteIds) {
     await syncAthleteRaceTimes(connection, athleteId);

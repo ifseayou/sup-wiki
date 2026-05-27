@@ -29,6 +29,22 @@ interface ClubRow extends RowDataPacket {
   event_count: number;
 }
 
+interface TeamAliasRow extends RowDataPacket {
+  alias_id: number;
+  team_name_raw: string;
+  result_count: number;
+  event_count: number;
+  athlete_count: number;
+  match_status: string;
+}
+
+interface ClubStats {
+  total: number;
+  verified: number;
+  claimed: number;
+  pending_teams: number;
+}
+
 function buildHref(current: Record<string, string | undefined>, next: Record<string, string | undefined | null>) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries({ ...current, ...next })) {
@@ -66,8 +82,8 @@ async function getClubs(params: { search?: string; city?: string; province?: str
          COALESCE(cm.member_count, 0) AS member_count,
          COALESCE(cm.athlete_count, 0) AS athlete_count,
          COALESCE(cm.professional_count, 0) AS professional_count,
-         COALESCE(rr.result_count, 0) AS result_count,
-         COALESCE(rr.event_count, 0) AS event_count
+         COALESCE(rr.result_count, 0) + COALESCE(ta.result_count, 0) AS result_count,
+         COALESCE(rr.event_count, 0) + COALESCE(ta.event_count, 0) AS event_count
        FROM sup_clubs c
        LEFT JOIN (
          SELECT club_id,
@@ -85,6 +101,12 @@ async function getClubs(params: { search?: string; city?: string; province?: str
          WHERE cm.status = 'published' AND cm.join_status = 'approved' AND cm.is_public = 1 AND r.is_verified = 1
          GROUP BY cm.club_id
        ) rr ON rr.club_id = c.club_id
+       LEFT JOIN (
+         SELECT club_id, SUM(result_count) AS result_count, SUM(event_count) AS event_count
+         FROM sup_club_team_aliases
+         WHERE club_id IS NOT NULL AND match_status = 'confirmed'
+         GROUP BY club_id
+       ) ta ON ta.club_id = c.club_id
        ${where}
        ORDER BY c.sort_order ASC, result_count DESC, c.club_id DESC
        LIMIT 60`,
@@ -97,19 +119,43 @@ async function getClubs(params: { search?: string; city?: string; province?: str
   }
 }
 
+async function getUnclaimedTeamAliases(params: { search?: string }) {
+  try {
+    const conditions = ["a.match_status = 'unmatched'", 'a.result_count > 0'];
+    const values: string[] = [];
+    if (params.search) {
+      conditions.push('(a.team_name_raw LIKE ? OR a.normalized_name LIKE ?)');
+      const like = `%${params.search}%`;
+      values.push(like, like);
+    }
+    const [rows] = await pool.execute<TeamAliasRow[]>(
+      `SELECT a.alias_id, a.team_name_raw, a.result_count, a.event_count, a.athlete_count, a.match_status
+       FROM sup_club_team_aliases a
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY a.result_count DESC, a.event_count DESC, a.updated_at DESC
+       LIMIT 12`,
+      values
+    );
+    return rows;
+  } catch (error) {
+    console.error('获取待认领队伍失败:', error);
+    return [];
+  }
+}
+
 async function getClubStats() {
   try {
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT
-         COUNT(*) AS total,
-         SUM(CASE WHEN verification_status = 'verified' THEN 1 ELSE 0 END) AS verified,
-         SUM(CASE WHEN claim_status = 'claimed' THEN 1 ELSE 0 END) AS claimed
-       FROM sup_clubs
-       WHERE status = 'published'`
+         (SELECT COUNT(*) FROM sup_clubs WHERE status = 'published') AS total,
+         (SELECT SUM(CASE WHEN verification_status = 'verified' THEN 1 ELSE 0 END) FROM sup_clubs WHERE status = 'published') AS verified,
+         (SELECT SUM(CASE WHEN claim_status = 'claimed' THEN 1 ELSE 0 END) FROM sup_clubs WHERE status = 'published') AS claimed,
+         (SELECT COUNT(*) FROM sup_club_team_aliases WHERE match_status = 'unmatched' AND result_count > 0) AS pending_teams
+       `
     );
-    return rows[0] || { total: 0, verified: 0, claimed: 0 };
+    return (rows[0] || { total: 0, verified: 0, claimed: 0, pending_teams: 0 }) as ClubStats;
   } catch {
-    return { total: 0, verified: 0, claimed: 0 };
+    return { total: 0, verified: 0, claimed: 0, pending_teams: 0 };
   }
 }
 
@@ -177,6 +223,26 @@ function ClubCard({ club }: { club: ClubRow }) {
   );
 }
 
+function TeamAliasCard({ alias }: { alias: TeamAliasRow }) {
+  return (
+    <div className="rounded-2xl border border-[#E3D6C6] bg-[#FEFCF9] p-5 shadow-[0_12px_28px_rgba(69,45,22,0.06)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <span className="rounded-full bg-[#F5E7D6] px-3 py-1 text-xs font-medium text-[#7A5530]">待认领队伍</span>
+          <h3 className="mt-3 text-lg font-semibold text-[#2E2118]">{alias.team_name_raw}</h3>
+          <p className="mt-2 text-sm leading-6 text-[#655D56]">这个队伍名来自已录入赛事成绩册，负责人认领后可合并到正式俱乐部主页。</p>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[#E8DDCE] pt-4 text-center">
+        <div><div className="text-lg font-semibold">{Number(alias.result_count || 0)}</div><div className="text-[11px] text-[#8A8078]">成绩</div></div>
+        <div><div className="text-lg font-semibold">{Number(alias.event_count || 0)}</div><div className="text-[11px] text-[#8A8078]">赛事</div></div>
+        <div><div className="text-lg font-semibold">{Number(alias.athlete_count || 0)}</div><div className="text-[11px] text-[#8A8078]">运动员</div></div>
+      </div>
+      <Link href={`/clubs/claim?alias_id=${alias.alias_id}&team_name=${encodeURIComponent(alias.team_name_raw)}`} className="mt-4 inline-flex w-full justify-center rounded-xl border border-[#B98545] bg-white px-4 py-3 text-sm font-semibold text-[#7A5530] no-underline">认领这个俱乐部</Link>
+    </div>
+  );
+}
+
 export default async function ClubsPage({
   searchParams,
 }: {
@@ -184,8 +250,9 @@ export default async function ClubsPage({
 }) {
   const params = await searchParams;
   const search = params.search?.trim();
-  const [clubs, stats, options] = await Promise.all([
+  const [clubs, teamAliases, stats, options] = await Promise.all([
     getClubs({ ...params, search }),
+    getUnclaimedTeamAliases({ search }),
     getClubStats(),
     getOptions(),
   ]);
@@ -199,15 +266,15 @@ export default async function ClubsPage({
             <div>
               <p className="tracking-[0.34em] text-[#C6A77D]">SUP CLUB NETWORK</p>
               <h1 className="mt-3 font-[var(--font-display)] text-5xl font-semibold leading-none text-white sm:text-6xl">俱乐部库</h1>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-[#E5D7C4]">查找身边的桨板训练基地、课程服务和组织战绩，把运动员、教练员、赛事成绩连接到同一个俱乐部主页。</p>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-[#E5D7C4]">查找身边的桨板训练基地、课程服务和组织战绩，把运动员、教练员、赛事成绩和成绩册里的队伍连接到同一个俱乐部主页。</p>
               <div className="mt-6 hidden lg:flex">
-                <Link href="/join?type=club" className="rounded-full bg-[#F6E8D6] px-5 py-3 text-sm font-semibold text-[#5B3D23] no-underline shadow-[0_14px_32px_rgba(0,0,0,0.18)]">提交俱乐部资料</Link>
+                <Link href="/clubs/claim" className="rounded-full bg-[#F6E8D6] px-5 py-3 text-sm font-semibold text-[#5B3D23] no-underline shadow-[0_14px_32px_rgba(0,0,0,0.18)]">认领俱乐部 / 队伍</Link>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <StatCard label="收录俱乐部" value={Number(stats.total || 0)} />
               <StatCard label="已认领" value={Number(stats.claimed || 0)} />
-              <StatCard label="已核验" value={Number(stats.verified || 0)} />
+              <StatCard label="待认领队伍" value={Number(stats.pending_teams || 0)} />
             </div>
           </div>
         </div>
@@ -237,6 +304,20 @@ export default async function ClubsPage({
             {(search || params.city || params.province || params.service) && <Link href="/clubs" className="rounded-full px-3 py-1.5 text-xs text-[#A08060] no-underline">清除筛选</Link>}
           </div>
         </section>
+        {teamAliases.length > 0 && (
+          <section className="mb-8">
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold">成绩册里的待认领队伍</h2>
+                <p className="mt-2 text-sm text-[#8A8078]">这些名称来自赛事成绩“队伍”字段，认领通过后会合并到正式俱乐部。</p>
+              </div>
+              <Link href="/clubs/claim" className="hidden rounded-xl border border-[#D8C8B6] px-4 py-2 text-sm font-semibold text-[#7A5530] no-underline sm:inline-flex">直接提交认领</Link>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {teamAliases.map((alias) => <TeamAliasCard key={alias.alias_id} alias={alias} />)}
+            </div>
+          </section>
+        )}
         {clubs.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {clubs.map((club) => <ClubCard key={club.club_id} club={club} />)}

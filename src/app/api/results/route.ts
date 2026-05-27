@@ -176,6 +176,8 @@ export async function GET(request: NextRequest) {
          er.result_id, er.event_id, er.athlete_id, er.athlete_name_snapshot, er.bib_number,
          er.gender_group, er.discipline, er.board_class, er.round_label, er.rank_position,
          er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name,
+         (SELECT c.slug FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_slug,
+         (SELECT c.name FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_name,
          er.source_title, er.source_url, er.source_locator, er.review_status,
          e.name AS event_name, e.start_date, e.city, e.province, e.star_level, e.score_coefficient,
          a.name AS athlete_name, a.photo AS athlete_photo,

@@ -24,6 +24,8 @@ interface EventResultRow {
   pace_display: string | null;
   is_long_distance: boolean;
   team_name: string | null;
+  team_club_slug?: string | null;
+  team_club_name?: string | null;
   team_members: unknown;
   athlete_name: string | null;
   athlete_photo: string | null;
@@ -100,6 +102,17 @@ function parseMembers(value: unknown) {
   } catch {
     return [];
   }
+}
+
+function TeamNameValue({ row }: { row: { team_name: string | null; team_club_slug?: string | null; team_club_name?: string | null } }) {
+  const name = row.team_name || '个人';
+  if (row.team_club_slug) {
+    return <Link href={`/clubs/${row.team_club_slug}`} className="font-semibold text-[#7A5530] no-underline hover:text-[#3A2B20]">{row.team_club_name || name}</Link>;
+  }
+  if (name !== '个人') {
+    return <Link href={`/clubs/claim?team_name=${encodeURIComponent(name)}`} className="text-[#655D56] underline decoration-[#D8C8B6] underline-offset-4 hover:text-[#7A5530]">{name}</Link>;
+  }
+  return <>{name}</>;
 }
 
 function numberValue(value: number | string | null | undefined) {
@@ -702,7 +715,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                             </td>
                             <td className="px-5 py-3 text-right font-bold text-[#8A612F]"><ResultValue row={row} /></td>
                             <td className="px-5 py-3 text-right font-semibold text-[#6F6255]"><ResultPaceValue row={row} /></td>
-                            <td className="px-5 py-3 text-[#655D56]">{row.team_name || '个人'}</td>
+                            <td className="px-5 py-3 text-[#655D56]"><TeamNameValue row={row} /></td>
                             <td className="px-5 py-3 text-[#655D56]">{row.result_label || '-'}</td>
                           </tr>
                         );
@@ -733,7 +746,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                           <div><div className="text-xs text-[#8A8078]">成绩</div><div className="mt-1 font-semibold text-[#8A612F]"><ResultValue row={row} /></div></div>
                           <div><div className="text-xs text-[#8A8078]">配速</div><div className="mt-1 text-[#655D56]"><ResultPaceValue row={row} /></div></div>
-                          <div><div className="text-xs text-[#8A8078]">队伍</div><div className="mt-1 text-[#655D56]">{row.team_name || '个人'}</div></div>
+                          <div><div className="text-xs text-[#8A8078]">队伍</div><div className="mt-1 text-[#655D56]"><TeamNameValue row={row} /></div></div>
                           <div><div className="text-xs text-[#8A8078]">说明</div><div className="mt-1 text-[#655D56]">{row.result_label || '-'}</div></div>
                         </div>
                       </div>
@@ -762,7 +775,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div><div className="text-xs text-[#8A8078]">成绩</div><div className="mt-1 font-semibold text-[#8A612F]"><ResultValue row={row} /></div></div>
                         <div><div className="text-xs text-[#8A8078]">配速</div><div className="mt-1 text-[#655D56]"><ResultPaceValue row={row} /></div></div>
-                        <div><div className="text-xs text-[#8A8078]">队伍</div><div className="mt-1 text-[#655D56]">{row.team_name || '个人'}</div></div>
+                        <div><div className="text-xs text-[#8A8078]">队伍</div><div className="mt-1 text-[#655D56]"><TeamNameValue row={row} /></div></div>
                         <div><div className="text-xs text-[#8A8078]">说明</div><div className="mt-1 text-[#655D56]">{row.result_label || '-'}</div></div>
                       </div>
                     </div>

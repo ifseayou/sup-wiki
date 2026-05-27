@@ -22,6 +22,8 @@ interface ResultRow {
   result_status_code: string | null;
   result_status_note: string | null;
   team_name: string | null;
+  team_club_slug?: string | null;
+  team_club_name?: string | null;
   team_members: unknown;
   event_name: string;
   start_date: string | null;
@@ -65,6 +67,17 @@ function parseMembers(value: unknown): string[] {
   } catch {
     return [];
   }
+}
+
+function TeamNameValue({ row }: { row: Pick<ResultRow, 'team_name' | 'team_club_slug' | 'team_club_name'> }) {
+  const name = row.team_name || '个人';
+  if (row.team_club_slug) {
+    return <Link href={`/clubs/${row.team_club_slug}`} className="font-semibold text-[#6B3E1E] hover:text-[#3B2110]">{row.team_club_name || name}</Link>;
+  }
+  if (name !== '个人') {
+    return <Link href={`/clubs/claim?team_name=${encodeURIComponent(name)}`} className="text-[#5B5148] underline decoration-[#D8C8B6] underline-offset-4 hover:text-[#6B3E1E]">{name}</Link>;
+  }
+  return <>{name}</>;
 }
 
 function Icon({ name }: { name: 'search' | 'user' | 'trophy' | 'timer' | 'calendar' | 'rotate' | 'star' | 'upload' | 'file' | 'check' | 'help' }) {
@@ -684,7 +697,7 @@ function ResultsContent() {
                           <Link href={`/events/${row.event_id}`} className="font-semibold text-[#6B3E1E] hover:text-[#3B2110]">{row.event_name}</Link>
                           <div className="mt-1 text-xs text-[#A09284]">{[row.province, row.city].filter(Boolean).join(' · ')} {row.start_date?.slice(0, 10)}</div>
                         </td>
-                        <td className="px-4 py-3 text-[#5B5148]">{row.team_name || '个人'}</td>
+                        <td className="px-4 py-3 text-[#5B5148]"><TeamNameValue row={row} /></td>
                       </tr>
                     );
                   })}

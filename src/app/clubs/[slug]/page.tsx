@@ -77,16 +77,41 @@ async function getResults(clubId: number) {
   try {
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT e.event_id, e.slug, e.name AS event_name, e.start_date,
-              COUNT(r.result_id) AS result_count,
+              COUNT(DISTINCT r.result_id) AS result_count,
               SUM(CASE WHEN r.rank_position BETWEEN 1 AND 3 THEN 1 ELSE 0 END) AS podium_count,
-              COUNT(DISTINCT r.athlete_id) AS athlete_count
-       FROM sup_club_members cm
-       JOIN sup_event_results r ON r.athlete_id = cm.athlete_id
-       JOIN sup_events e ON e.event_id = r.event_id
-       WHERE cm.club_id = ? AND cm.status = 'published' AND cm.join_status = 'approved' AND cm.is_public = 1 AND r.is_verified = 1
+              COUNT(DISTINCT COALESCE(r.athlete_id, r.athlete_name_snapshot)) AS athlete_count
+       FROM (
+         SELECT r.result_id
+         FROM sup_event_results r
+         INNER JOIN sup_club_members cm ON cm.athlete_id = r.athlete_id
+         WHERE cm.club_id = ? AND cm.status = 'published' AND cm.join_status = 'approved' AND cm.is_public = 1 AND r.is_verified = 1
+         UNION
+         SELECT r.result_id
+         FROM sup_event_results r
+         INNER JOIN sup_club_team_aliases a ON a.normalized_name = r.team_name_normalized
+         WHERE a.club_id = ? AND a.match_status = 'confirmed' AND r.is_verified = 1
+       ) linked
+       INNER JOIN sup_event_results r ON r.result_id = linked.result_id
+       INNER JOIN sup_events e ON e.event_id = r.event_id
        GROUP BY e.event_id, e.slug, e.name, e.start_date
        ORDER BY e.start_date DESC, result_count DESC
        LIMIT 8`,
+      [clubId, clubId]
+    );
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+async function getTeamAliases(clubId: number) {
+  try {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT alias_id, team_name_raw, result_count, event_count, athlete_count
+       FROM sup_club_team_aliases
+       WHERE club_id = ? AND match_status = 'confirmed'
+       ORDER BY result_count DESC, team_name_raw ASC
+       LIMIT 16`,
       [clubId]
     );
     return rows;
@@ -124,10 +149,11 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ slu
   const { slug } = await params;
   const club = await getClub(slug);
   if (!club) notFound();
-  const [members, courses, results] = await Promise.all([
+  const [members, courses, results, teamAliases] = await Promise.all([
     getMembers(club.club_id),
     getCourses(club.club_id),
     getResults(club.club_id),
+    getTeamAliases(club.club_id),
   ]);
   const services = parseJsonArray(club.services);
   const safety = parseJsonArray(club.safety_facilities);
@@ -149,6 +175,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ slu
                   {club.logo ? <img src={club.logo} alt="" className="h-full w-full object-contain p-2" /> : club.name.slice(0, 1)}
                 </div>
                 <span className="rounded-full bg-white/88 px-3 py-1 text-xs font-medium text-[#7A6145]">{statusLabel(club.verification_status, verificationLabels)}</span>
+                <span className="rounded-full bg-[#F6E8D6] px-3 py-1 text-xs font-medium text-[#7A5530]">{club.claim_status === 'claimed' ? '已认领' : '待认领'}</span>
               </div>
               <h1 className="font-[var(--font-display)] text-5xl font-semibold leading-none text-white sm:text-6xl">{club.name}</h1>
               <p className="mt-4 text-base text-[#E8D7C0]">{[club.province, club.city, club.district, club.water_area_name].filter(Boolean).join(' · ') || '位置待补充'}</p>
@@ -185,8 +212,25 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ slu
               <div><dt className="text-[#8A8078]">开放时间</dt><dd className="mt-1 font-medium">{club.opening_hours || '请联系俱乐部确认'}</dd></div>
               <div><dt className="text-[#8A8078]">联系方式</dt><dd className="mt-1 font-medium">{club.contact_method || '待认领后公开'}</dd></div>
             </dl>
+            {club.claim_status !== 'claimed' && (
+              <Link href={`/clubs/claim?club_id=${club.club_id}&club_name=${encodeURIComponent(club.name)}`} className="mt-5 inline-flex w-full justify-center rounded-xl bg-[#7A5530] px-4 py-3 text-sm font-semibold text-white no-underline">认领这个俱乐部</Link>
+            )}
           </aside>
         </div>
+
+        {teamAliases.length > 0 && (
+          <section className="mt-8 rounded-2xl border border-[#E2D5C5] bg-white/78 p-6">
+            <h2 className="text-2xl font-semibold">关联队伍名</h2>
+            <p className="mt-2 text-sm text-[#8A8078]">以下队伍名来自赛事成绩册，已确认归属到本俱乐部。</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {teamAliases.map((alias) => (
+                <span key={String(alias.alias_id)} className="rounded-full bg-[#F2E8D9] px-3 py-1.5 text-xs text-[#7A6145]">
+                  {alias.team_name_raw} · {Number(alias.result_count || 0)} 条成绩
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
 
         {courses.length > 0 && (
           <section className="mt-8">

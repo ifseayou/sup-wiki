@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 const fs = require('fs');
 const path = require('path');
@@ -266,6 +267,103 @@ function normalizedName(name) {
   return String(name || '').replace(/\s+/g, '').toLowerCase();
 }
 
+function normalizeClubTeamName(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(/[（［【]/g, '(')
+    .replace(/[）］】]/g, ')')
+    .replace(/\s+/g, '')
+    .replace(/[·•]/g, '')
+    .toLowerCase();
+}
+
+function cleanClubTeamName(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(/[（［【]/g, '(')
+    .replace(/[）］】]/g, ')')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+}
+
+function isClaimableClubTeamName(value) {
+  const clean = cleanClubTeamName(value);
+  const personal = new Set(['', '-', '--', '/', '个人', '无', '无队伍', '个人参赛', '个人报名', '独立参赛', '暂无', '未知']);
+  if (!clean || personal.has(clean)) return false;
+  const normalized = normalizeClubTeamName(clean);
+  return normalized.length >= 2 && !personal.has(normalized);
+}
+
+async function findExactClubByNormalizedName(connection, normalizedTeamName) {
+  const [rows] = await connection.execute(
+    `SELECT club_id
+     FROM sup_clubs
+     WHERE LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, ' ', ''), '　', ''), '（', '('), '）', ')'), '·', ''), '•', '')) = ?
+     ORDER BY status = 'published' DESC, club_id ASC
+     LIMIT 1`,
+    [normalizedTeamName]
+  );
+  return rows[0] ? Number(rows[0].club_id) : null;
+}
+
+async function syncClubTeamAliasesForEvent(connection, eventId) {
+  const [rows] = await connection.execute(
+    `SELECT
+       team_name,
+       COUNT(*) AS result_count,
+       COUNT(DISTINCT event_id) AS event_count,
+       COUNT(DISTINCT COALESCE(athlete_id, athlete_name_snapshot)) AS athlete_count
+     FROM sup_event_results
+     WHERE event_id = ? AND team_name IS NOT NULL AND team_name <> ''
+     GROUP BY team_name`,
+    [eventId]
+  );
+  let touched = 0;
+  for (const row of rows) {
+    if (!isClaimableClubTeamName(row.team_name)) continue;
+    const raw = cleanClubTeamName(row.team_name);
+    const normalized = normalizeClubTeamName(raw);
+    const clubId = await findExactClubByNormalizedName(connection, normalized);
+    await connection.execute(
+      `INSERT INTO sup_club_team_aliases (
+         team_name_raw, normalized_name, club_id, match_status, confidence,
+         result_count, event_count, athlete_count, first_seen_event_id, last_seen_event_id, source_type
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'event_result_team')
+       ON DUPLICATE KEY UPDATE
+         team_name_raw = VALUES(team_name_raw),
+         club_id = CASE
+           WHEN sup_club_team_aliases.match_status IN ('confirmed', 'ignored', 'rejected') THEN sup_club_team_aliases.club_id
+           ELSE VALUES(club_id)
+         END,
+         match_status = CASE
+           WHEN sup_club_team_aliases.match_status IN ('confirmed', 'ignored', 'rejected') THEN sup_club_team_aliases.match_status
+           ELSE VALUES(match_status)
+         END,
+         confidence = GREATEST(sup_club_team_aliases.confidence, VALUES(confidence)),
+         result_count = GREATEST(sup_club_team_aliases.result_count, VALUES(result_count)),
+         event_count = GREATEST(sup_club_team_aliases.event_count, VALUES(event_count)),
+         athlete_count = GREATEST(sup_club_team_aliases.athlete_count, VALUES(athlete_count)),
+         last_seen_event_id = VALUES(last_seen_event_id),
+         updated_at = NOW()`,
+      [
+        raw,
+        normalized,
+        clubId,
+        clubId ? 'confirmed' : 'unmatched',
+        clubId ? 1 : 0.6,
+        Number(row.result_count || 0),
+        Number(row.event_count || 0),
+        Number(row.athlete_count || 0),
+        eventId,
+        eventId,
+      ]
+    );
+    touched += 1;
+  }
+  return touched;
+}
+
 async function resolveAthleteId(connection, result, athleteCache) {
   if (result.athlete_id) return Number(result.athlete_id);
   const name = String(result.athlete_name_snapshot || result.athlete_name || '').trim();
@@ -492,9 +590,9 @@ async function insertResultRow(connection, eventId, sourceId, source, result, at
   const [inserted] = await connection.execute(
     `INSERT INTO sup_event_results (
       event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
-      rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, nationality_snapshot,
+      rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized, nationality_snapshot,
       source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'official', ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'official', ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       result_id = LAST_INSERT_ID(result_id),
       athlete_id = VALUES(athlete_id),
@@ -507,6 +605,7 @@ async function insertResultRow(connection, eventId, sourceId, source, result, at
       time_seconds = VALUES(time_seconds),
       points = VALUES(points),
       team_name = VALUES(team_name),
+      team_name_normalized = VALUES(team_name_normalized),
       source_id = VALUES(source_id),
       source_title = VALUES(source_title),
       source_locator = VALUES(source_locator),
@@ -532,6 +631,7 @@ async function insertResultRow(connection, eventId, sourceId, source, result, at
       parseTimeToSeconds(result.finish_time),
       typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
       result.team_name || '个人',
+      normalizeClubTeamName(result.team_name || '个人') || null,
       result.nationality_snapshot || null,
       sourceId,
       result.source_title || source.file_name || null,
@@ -572,6 +672,7 @@ function normalizeResultForDb(result, eventId, sourceId, source, athleteId) {
       parseTimeToSeconds(result.finish_time),
       typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
       result.team_name || '个人',
+      normalizeClubTeamName(result.team_name || '个人') || null,
       result.nationality_snapshot || null,
       sourceId,
       result.source_title || source.file_name || null,
@@ -621,10 +722,10 @@ async function insertResultRowsBatch(connection, eventId, sourceId, source, resu
 
   const sqlPrefix = `INSERT INTO sup_event_results (
     event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
-    rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, nationality_snapshot,
+    rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized, nationality_snapshot,
     source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
   ) VALUES `;
-  const valuePlaceholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "official", ?, ?, ?, ?, ?, ?, ?, ?)';
+  const valuePlaceholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "official", ?, ?, ?, ?, ?, ?, ?, ?)';
   const updateSql = ` ON DUPLICATE KEY UPDATE
     athlete_id = VALUES(athlete_id),
     bib_number = VALUES(bib_number),
@@ -636,6 +737,7 @@ async function insertResultRowsBatch(connection, eventId, sourceId, source, resu
     time_seconds = VALUES(time_seconds),
     points = VALUES(points),
     team_name = VALUES(team_name),
+    team_name_normalized = VALUES(team_name_normalized),
     source_id = VALUES(source_id),
     source_title = VALUES(source_title),
     source_locator = VALUES(source_locator),
@@ -684,6 +786,7 @@ async function importPayload(connection, payload, args, athleteCache) {
     const touchedAthletes = new Set(
       await insertResultRowsBatch(connection, eventId, sourceId, payload.source || {}, results, athleteCache, args.resultBatchSize)
     );
+    const teamAliases = await syncClubTeamAliasesForEvent(connection, eventId);
     await connection.execute(
       `UPDATE sup_events
        SET result_status = CASE WHEN ? > 0 THEN 'extended_complete' ELSE result_status END,
@@ -693,7 +796,7 @@ async function importPayload(connection, payload, args, athleteCache) {
       [results.length, payload.source?.file_name || '本地成绩册导入', results.length, eventId]
     );
     await connection.commit();
-    return { eventId, sourceId, results: results.length, athletes: touchedAthletes.size, athleteIds: [...touchedAthletes] };
+    return { eventId, sourceId, results: results.length, athletes: touchedAthletes.size, athleteIds: [...touchedAthletes], teamAliases };
   } catch (error) {
     await connection.rollback();
     throw error;

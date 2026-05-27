@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
 import { parseFinishTimeToSeconds, parseTeamMembersInput, syncAthleteRaceTimes } from '@/lib/event-results';
+import { normalizeClubTeamName, syncClubTeamAliasesForEvent } from '@/lib/club-team-normalization';
 import { getResultStatusLabel, normalizeResultStatusCode } from '@/lib/result-status';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
@@ -119,16 +120,16 @@ export const POST = withAdmin(async (request: NextRequest) => {
     const [inserted] = await connection.execute<ResultSetHeader>(
       `INSERT INTO sup_event_results (
         event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
-        rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name,
+        rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized,
         nationality_snapshot, source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence,
         review_status, is_verified
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId, athleteId, athleteName, textOrNull(body.bib_number), textOrNull(body.gender_group) || '公开组',
         discipline, textOrNull(body.board_class), textOrNull(body.round_label), rankPosition, textOrNull(body.result_label),
         finishTime, statusCode, textOrNull(body.result_status_note) || (statusCode ? getResultStatusLabel(statusCode) : null),
         parseFinishTimeToSeconds(finishTime), body.points === '' || body.points == null ? null : Number(body.points),
-        textOrNull(body.team_name) || '个人', textOrNull(body.nationality_snapshot), textOrNull(body.source_type) || 'official',
+        textOrNull(body.team_name) || '个人', normalizeClubTeamName(textOrNull(body.team_name) || '个人') || null, textOrNull(body.nationality_snapshot), textOrNull(body.source_type) || 'official',
         numberOrNull(body.source_id), textOrNull(body.source_title), textOrNull(body.source_locator), textOrNull(body.source_url),
         textOrNull(body.source_note), body.parse_confidence == null ? 1 : Number(body.parse_confidence),
         textOrNull(body.review_status) || 'confirmed', body.is_verified === false ? 0 : 1,
@@ -136,6 +137,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
     );
     const touched = new Set<number>(athleteId ? [athleteId] : []);
     for (const id of await replaceMembers(connection, inserted.insertId, { ...body, athlete_name_snapshot: athleteName }, athleteId)) touched.add(id);
+    await syncClubTeamAliasesForEvent(connection, eventId);
     for (const id of touched) await syncAthleteRaceTimes(connection, id);
     await connection.commit();
     return NextResponse.json({ success: true, result_id: inserted.insertId }, { status: 201 });
