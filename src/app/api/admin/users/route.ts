@@ -6,6 +6,9 @@ import type { RowDataPacket } from 'mysql2';
 export const GET = withAdmin(async (request: NextRequest) => {
   try {
     const search = request.nextUrl.searchParams.get('search')?.trim() || '';
+    const page = Math.max(1, Number(request.nextUrl.searchParams.get('page') || 1) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(request.nextUrl.searchParams.get('pageSize') || 20) || 20));
+    const offset = (page - 1) * pageSize;
     const conditions: string[] = [];
     const params: (string | number)[] = [];
     if (search) {
@@ -14,6 +17,12 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params.push(like, like);
     }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const [countRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT COUNT(*) AS total FROM sup_users u ${where}`,
+      params
+    );
+    const total = Number(countRows[0]?.total || 0);
 
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT
@@ -46,8 +55,8 @@ export const GET = withAdmin(async (request: NextRequest) => {
        ${where}
        GROUP BY u.user_id, today.query_count
        ORDER BY u.created_at DESC
-       LIMIT 200`,
-      params
+       LIMIT ? OFFSET ?`,
+      [...params, pageSize, offset]
     );
     const items = rows.map((row) => {
       const raw = String(row.owned_athletes_raw || '');
@@ -67,7 +76,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
       const { owned_athletes_raw: _raw, ...rest } = row;
       return { ...rest, owned_athletes };
     });
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
   } catch (error) {
     console.error('获取用户列表失败:', error);
     return NextResponse.json({ error: '获取用户列表失败' }, { status: 500 });

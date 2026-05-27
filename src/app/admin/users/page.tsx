@@ -45,28 +45,43 @@ export default function AdminUsersPage() {
   const { token } = useAdminAuth();
   const [items, setItems] = useState<UserRow[]>([]);
   const [search, setSearch] = useState('');
+  const [submittedSearch, setSubmittedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  function load() {
+  function load(nextPage = page, nextSearch = submittedSearch) {
     setLoading(true);
     setError('');
-    const params = new URLSearchParams();
-    if (search) params.set('search', search);
+    const params = new URLSearchParams({ page: String(nextPage), pageSize: String(pageSize) });
+    if (nextSearch) params.set('search', nextSearch);
     fetch(`/api/admin/users?${params}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '加载失败');
         setItems(data.items || []);
+        setTotal(Number(data.total || 0));
+        setPage(Number(data.page || nextPage));
+        setTotalPages(Math.max(1, Number(data.totalPages || 1)));
       })
       .catch((err) => setError(err instanceof Error ? err.message : '加载失败'))
       .finally(() => setLoading(false));
   }
 
   useEffect(() => {
-    load();
+    load(page, submittedSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, page, submittedSearch]);
+
+  function submitSearch() {
+    const nextSearch = search.trim();
+    setSubmittedSearch(nextSearch);
+    setPage(1);
+    if (page === 1 && submittedSearch === nextSearch) load(1, nextSearch);
+  }
 
   function updateLocal(userId: number, key: keyof UserRow, value: unknown) {
     setItems((prev) => prev.map((item) => item.user_id === userId ? { ...item, [key]: value } : item));
@@ -94,7 +109,7 @@ export default function AdminUsersPage() {
       alert(data.error || '保存失败');
       return;
     }
-    load();
+    load(page, submittedSearch);
   }
 
   return (
@@ -107,13 +122,16 @@ export default function AdminUsersPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') load(); }} placeholder="搜索昵称 / 邮箱" style={{ height: 36, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 10px' }} />
-          <button onClick={load} style={{ height: 36, border: '1px solid #8B7355', borderRadius: 8, background: '#8B7355', color: '#fff', padding: '0 14px' }}>查询</button>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }} placeholder="搜索昵称 / 邮箱" style={{ height: 36, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 10px' }} />
+          <button onClick={submitSearch} style={{ height: 36, border: '1px solid #8B7355', borderRadius: 8, background: '#8B7355', color: '#fff', padding: '0 14px' }}>查询</button>
         </div>
       </div>
 
       {error && <div style={{ marginBottom: 12, border: '1px solid #F2C4C4', background: '#FFF5F5', color: '#9B2C2C', borderRadius: 8, padding: 12 }}>{error}</div>}
-      {loading && <div style={{ color: '#8B8580', marginBottom: 12 }}>加载中...</div>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12, color: '#8B8580', fontSize: 13 }}>
+        <span>{loading ? '加载中...' : `共 ${total} 位用户，每页 ${pageSize} 条`}</span>
+        <span>第 {page} / {totalPages} 页</span>
+      </div>
 
       <div style={{ overflowX: 'auto', border: '1px solid #E0D8CC', borderRadius: 12, background: '#FEFCF9' }}>
         <table style={{ width: '100%', minWidth: 1080, borderCollapse: 'collapse', fontSize: 13 }}>
@@ -208,6 +226,25 @@ export default function AdminUsersPage() {
           </tbody>
         </table>
       </div>
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16 }}>
+          <button
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={loading || page <= 1}
+            style={{ height: 34, border: '1px solid #D8CDBE', borderRadius: 8, background: '#fff', color: '#6F5B42', padding: '0 12px', opacity: loading || page <= 1 ? 0.45 : 1 }}
+          >
+            上一页
+          </button>
+          <span style={{ color: '#8B8580', fontSize: 13 }}>{page} / {totalPages}</span>
+          <button
+            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+            disabled={loading || page >= totalPages}
+            style={{ height: 34, border: '1px solid #D8CDBE', borderRadius: 8, background: '#fff', color: '#6F5B42', padding: '0 12px', opacity: loading || page >= totalPages ? 0.45 : 1 }}
+          >
+            下一页
+          </button>
+        </div>
+      )}
     </div>
   );
 }
