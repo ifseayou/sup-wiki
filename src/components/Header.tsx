@@ -7,11 +7,13 @@ import { useUser } from '@/components/UserContext';
 
 const navLinks = [
   { href: '/results', label: '成绩查询' },
-  { href: '/athletes', label: '运动员' },
   { href: '/events', label: '赛事' },
+  { href: '/athletes', label: '运动员' },
+  { href: '/clubs', label: '俱乐部' },
+  { href: '/professionals', label: '专业人员' },
   { href: '/learn', label: '学习' },
-  { href: '/shop', label: '商城' },
   { href: '/courses', label: '课程' },
+  { href: '/shop', label: '商城' },
 ];
 
 export default function Header() {

@@ -50,6 +50,17 @@ const navGroups = [
     ],
   },
   {
+    key: 'industry',
+    label: '行业组织',
+    icon: '◌',
+    items: [
+      { href: '/admin/clubs', label: '俱乐部' },
+      { href: '/admin/professionals', label: '专业人员' },
+      { href: '/admin/professional-certificates', label: '证书资料' },
+      { href: '/admin/club-members', label: '成员关系' },
+    ],
+  },
+  {
     key: 'content',
     label: '内容资料',
     icon: '▤',
