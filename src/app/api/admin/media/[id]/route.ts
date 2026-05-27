@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
 import crypto from 'crypto';
+import { normalizeMediaModule } from '@/lib/media-modules';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
 const OSS_AK = process.env.OSS_ACCESS_KEY_ID || '';
@@ -130,11 +131,18 @@ export const PUT = withAdmin(async (request: NextRequest) => {
   try {
     const id = Number(new URL(request.url).pathname.split('/').at(-1));
     const body = await request.json();
-    const allowed = ['folder', 'filename', 'alt_text', 'source_context', 'status'];
+    const allowed = ['folder', 'module', 'filename', 'alt_text', 'source_context', 'status'];
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
     for (const field of allowed) {
       if (body[field] !== undefined) {
+        if (field === 'module') {
+          const mediaModule = normalizeMediaModule(body[field]);
+          if (!mediaModule) return NextResponse.json({ error: '图片模块无效' }, { status: 400 });
+          fields.push('module = ?');
+          values.push(mediaModule);
+          continue;
+        }
         fields.push(`${field} = ?`);
         values.push(body[field] === '' ? null : body[field]);
       }

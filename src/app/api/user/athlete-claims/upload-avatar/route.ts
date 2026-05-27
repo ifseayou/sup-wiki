@@ -52,9 +52,9 @@ export async function POST(request: NextRequest) {
     const url = `https://${OSS_ENDPOINT}/${ossKey}`;
     try {
       await pool.execute<ResultSetHeader>(
-        `INSERT INTO sup_media_assets (url, folder, filename, mime_type, size_bytes, source_context, status)
-         VALUES (?, 'athletes', ?, ?, ?, 'athlete_claim', 'active')
-         ON DUPLICATE KEY UPDATE status = 'active', source_context = 'athlete_claim'`,
+        `INSERT INTO sup_media_assets (url, folder, module, filename, mime_type, size_bytes, source_context, status)
+         VALUES (?, 'athletes', 'athlete', ?, ?, ?, 'athlete_claim', 'active')
+         ON DUPLICATE KEY UPDATE status = 'active', module = 'athlete', source_context = 'athlete_claim'`,
         [url, file.name, file.type, file.size]
       );
     } catch (dbError) {

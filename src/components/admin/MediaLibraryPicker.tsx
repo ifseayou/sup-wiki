@@ -6,6 +6,7 @@ export interface MediaAsset {
   asset_id: number;
   url: string;
   folder: string | null;
+  module?: string | null;
   filename: string | null;
   alt_text: string | null;
   mime_type: string | null;

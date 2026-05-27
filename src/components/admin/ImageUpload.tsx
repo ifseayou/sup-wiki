@@ -6,11 +6,12 @@ interface ImageUploadProps {
   value: string;
   onChange: (url: string) => void;
   folder?: string;
+  module?: string;
   token: string;
   label?: string;
 }
 
-export default function ImageUpload({ value, onChange, folder = 'misc', token, label = '照片' }: ImageUploadProps) {
+export default function ImageUpload({ value, onChange, folder = 'misc', module, token, label = '照片' }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState(false);
@@ -23,6 +24,7 @@ export default function ImageUpload({ value, onChange, folder = 'misc', token, l
       const formData = new FormData();
       formData.append('file', file);
       formData.append('folder', folder);
+      if (module) formData.append('module', module);
 
       const res = await fetch('/api/admin/upload', {
         method: 'POST',
@@ -40,7 +42,7 @@ export default function ImageUpload({ value, onChange, folder = 'misc', token, l
     } finally {
       setUploading(false);
     }
-  }, [folder, token, onChange]);
+  }, [folder, module, token, onChange]);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -168,6 +170,7 @@ interface MultiImageUploadProps {
   values: string[];
   onChange: (urls: string[]) => void;
   folder?: string;
+  module?: string;
   token: string;
   label?: string;
   max?: number;
@@ -178,6 +181,7 @@ export function MultiImageUpload({
   values,
   onChange,
   folder = 'misc',
+  module,
   token,
   label = '图片',
   max = 10,
@@ -194,6 +198,7 @@ export function MultiImageUpload({
       const formData = new FormData();
       formData.append('file', file);
       formData.append('folder', folder);
+      if (module) formData.append('module', module);
       const res = await fetch('/api/admin/upload', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -210,7 +215,7 @@ export function MultiImageUpload({
     } finally {
       setUploading(false);
     }
-  }, [folder, token, onChange, values]);
+  }, [folder, module, token, onChange, values]);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

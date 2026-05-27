@@ -3,6 +3,37 @@ import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 
+function parseJsonArray(value: unknown) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseJsonObject(value: unknown) {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeAthlete(row: RowDataPacket) {
+  return {
+    ...row,
+    photos: parseJsonArray(row.photos),
+    achievements: parseJsonArray(row.achievements),
+    social_links: parseJsonObject(row.social_links),
+  };
+}
+
 export const GET = withAdmin(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
@@ -25,7 +56,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
       `SELECT athlete_id, name, name_en, nationality, province, city, photo, photos, bio, discipline, icf_ranking, achievements, social_links, status, updated_at FROM sup_athletes ${where} ORDER BY CASE status WHEN 'published' THEN 0 ELSE 1 END, updated_at DESC LIMIT ${pageSize} OFFSET ${offset}`,
       params
     );
-    return NextResponse.json({ items: athletes, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
+    return NextResponse.json({ items: athletes.map(normalizeAthlete), total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
   } catch (error) {
     console.error('获取运动员列表失败:', error);
     return NextResponse.json({ error: '获取运动员列表失败' }, { status: 500 });

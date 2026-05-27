@@ -30,6 +30,26 @@ function getNestedString(source: Record<string, unknown>, path: string[]) {
   return value || null;
 }
 
+function parseUrlArray(value: unknown) {
+  const source = Array.isArray(value) ? value : [];
+  return Array.from(new Set(source.map((item) => String(item || '').trim()).filter(Boolean)));
+}
+
+function mergePhotoUrls(existing: unknown, incoming: string[]) {
+  const existingList = Array.isArray(existing)
+    ? existing
+    : (() => {
+        if (!existing) return [];
+        try {
+          const parsed = JSON.parse(String(existing));
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      })();
+  return Array.from(new Set(existingList.concat(incoming).map((item) => String(item || '').trim()).filter(Boolean)));
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -50,7 +70,7 @@ export async function PATCH(
   try {
     await conn.beginTransaction();
     const [claimRows] = await conn.execute<RowDataPacket[]>(
-      `SELECT c.*, a.social_links
+      `SELECT c.*, a.social_links, a.photos AS current_photos
        FROM sup_athlete_profile_claims c
        INNER JOIN sup_athletes a ON a.athlete_id = c.athlete_id
        WHERE c.claim_id = ?
@@ -80,6 +100,8 @@ export async function PATCH(
 
     const socialLinks = parseJsonObject(claim.social_links);
     const submittedProfile = parseJsonObject(claim.submitted_profile_json);
+    const submittedSupPhotoUrls = parseUrlArray(submittedProfile.sup_photos || submittedProfile.photos);
+    const mergedPhotos = mergePhotoUrls(claim.current_photos, submittedSupPhotoUrls);
     const hometownProvince = claim.submitted_hometown_province || getNestedString(submittedProfile, ['hometown', 'province']);
     const hometownCity = claim.submitted_hometown_city || getNestedString(submittedProfile, ['hometown', 'city']);
     const publicProfile = {
@@ -101,6 +123,7 @@ export async function PATCH(
        SET
          name = COALESCE(NULLIF(?, ''), name),
          photo = COALESCE(NULLIF(?, ''), photo),
+         photos = ?,
          province = COALESCE(NULLIF(?, ''), province),
          city = COALESCE(NULLIF(?, ''), city),
          bio = COALESCE(NULLIF(?, ''), bio),
@@ -109,6 +132,7 @@ export async function PATCH(
       [
         claim.submitted_name,
         claim.submitted_avatar_url,
+        JSON.stringify(mergedPhotos),
         hometownProvince,
         hometownCity,
         claim.submitted_intro,

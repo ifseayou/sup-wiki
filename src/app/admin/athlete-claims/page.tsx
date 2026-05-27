@@ -24,6 +24,8 @@ interface ClaimRow {
   submitted_started_sup_year: number | null;
   submitted_intro_short: string | null;
   submitted_intro: string | null;
+  submitted_sup_photo_urls?: string[];
+  submitted_photo_urls?: string[];
   event_name: string | null;
   discipline: string | null;
   gender_group: string | null;
@@ -83,6 +85,10 @@ export default function AdminAthleteClaimsPage() {
     load();
   }
 
+  function preview(url: string) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', marginBottom: 18 }}>
@@ -131,7 +137,7 @@ export default function AdminAthleteClaimsPage() {
                 <div style={{ color: '#8B8580', fontSize: 12, marginBottom: 6 }}>头像对比</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {[item.current_photo, item.submitted_avatar_url].map((url, index) => (
-                    <div key={index} style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', background: '#EFE7DC', border: '1px solid #E0D8CC' }}>
+                    <div key={index} onClick={() => url && preview(url)} style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', background: '#EFE7DC', border: '1px solid #E0D8CC', cursor: url ? 'pointer' : 'default' }}>
                       {url ? <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
                     </div>
                   ))}
@@ -153,6 +159,18 @@ export default function AdminAthleteClaimsPage() {
                 <div><strong>提交时间：</strong>{item.created_at?.slice(0, 19).replace('T', ' ')}</div>
               </div>
             </div>
+            {(item.submitted_sup_photo_urls || []).length > 0 && (
+              <div style={{ marginTop: 12, borderTop: '1px solid #EDE5D8', paddingTop: 12 }}>
+                <div style={{ color: '#8B8580', fontSize: 12, marginBottom: 8 }}>提交的桨板照片（审核通过后进入运动员更多照片）</div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {(item.submitted_sup_photo_urls || []).map((url, index) => (
+                    <button key={`${url}-${index}`} onClick={() => preview(url)} style={{ width: 120, height: 90, padding: 0, borderRadius: 10, overflow: 'hidden', border: '1px solid #E0D8CC', background: '#F7F1E8', cursor: 'pointer' }}>
+                      <img src={url} alt={`桨板照片 ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {item.submitted_intro && <div style={{ marginTop: 12, borderTop: '1px solid #EDE5D8', paddingTop: 12, fontSize: 13, color: '#5D5348', lineHeight: 1.7 }}>{item.submitted_intro}</div>}
           </section>
         ))}

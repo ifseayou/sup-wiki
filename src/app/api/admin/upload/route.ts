@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { extractToken, verifyToken, isAdmin } from '@/lib/auth';
 import pool from '@/lib/db';
 import crypto from 'crypto';
+import { inferMediaModule, normalizeMediaModule } from '@/lib/media-modules';
 import type { ResultSetHeader } from 'mysql2';
 
 const OSS_AK = process.env.OSS_ACCESS_KEY_ID || '';
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const folder = (formData.get('folder') as string) || 'misc';
+    const mediaModule = normalizeMediaModule(formData.get('module')) || inferMediaModule(folder, 'admin_upload');
 
     if (!file) return NextResponse.json({ error: '请选择文件' }, { status: 400 });
     if (!ALLOWED_TYPES.includes(file.type)) return NextResponse.json({ error: '仅支持 JPG/PNG/WebP/GIF' }, { status: 400 });
@@ -60,21 +62,23 @@ export async function POST(request: NextRequest) {
     let asset = null;
     try {
       const [result] = await pool.execute<ResultSetHeader>(
-        `INSERT INTO sup_media_assets (url, folder, filename, mime_type, size_bytes, source_context, status)
-         VALUES (?, ?, ?, ?, ?, ?, 'active')
+        `INSERT INTO sup_media_assets (url, folder, module, filename, mime_type, size_bytes, source_context, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
          ON DUPLICATE KEY UPDATE
            folder = VALUES(folder),
+           module = VALUES(module),
            filename = VALUES(filename),
            mime_type = VALUES(mime_type),
            size_bytes = VALUES(size_bytes),
            source_context = VALUES(source_context),
            status = 'active'`,
-        [url, folder, file.name, file.type, file.size, 'admin_upload']
+        [url, folder, mediaModule, file.name, file.type, file.size, 'admin_upload']
       );
       asset = {
         asset_id: result.insertId || undefined,
         url,
         folder,
+        module: mediaModule,
         filename: file.name,
         mime_type: file.type,
         size_bytes: file.size,

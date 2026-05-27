@@ -3,6 +3,32 @@ import pool from '@/lib/db';
 import { withAdmin } from '@/lib/admin';
 import type { RowDataPacket } from 'mysql2';
 
+function parseJsonObject(value: unknown) {
+  if (!value) return {};
+  if (typeof value === 'object') return value as Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function parseUrlArray(value: unknown) {
+  const source = Array.isArray(value) ? value : [];
+  return Array.from(new Set(source.map((item) => String(item || '').trim()).filter(Boolean)));
+}
+
+function normalizeClaimRow(row: RowDataPacket) {
+  const submittedProfile = parseJsonObject(row.submitted_profile_json);
+  const submittedSupPhotoUrls = parseUrlArray(submittedProfile.sup_photos || submittedProfile.photos);
+  return {
+    ...row,
+    submitted_sup_photo_urls: submittedSupPhotoUrls,
+    submitted_photo_urls: Array.from(new Set([row.submitted_avatar_url, ...submittedSupPhotoUrls].filter(Boolean))),
+  };
+}
+
 export const GET = withAdmin(async (request: NextRequest) => {
   try {
     const status = request.nextUrl.searchParams.get('status') || 'pending';
@@ -43,7 +69,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params
     );
 
-    return NextResponse.json({ items: rows });
+    return NextResponse.json({ items: rows.map(normalizeClaimRow) });
   } catch (error) {
     console.error('获取运动员资料审批列表失败:', error);
     return NextResponse.json({ error: '获取运动员资料审批列表失败' }, { status: 500 });

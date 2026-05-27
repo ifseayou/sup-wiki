@@ -347,6 +347,7 @@ CREATE TABLE IF NOT EXISTS sup_media_assets (
     asset_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     url VARCHAR(700) NOT NULL,
     folder VARCHAR(100) DEFAULT 'misc',
+    module VARCHAR(40) NOT NULL DEFAULT 'system',
     filename VARCHAR(255),
     mime_type VARCHAR(100),
     size_bytes INT,
@@ -357,6 +358,7 @@ CREATE TABLE IF NOT EXISTS sup_media_assets (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_media_url (url),
     INDEX idx_media_folder (folder),
+    INDEX idx_media_module_status_created (module, status, created_at, asset_id),
     INDEX idx_media_status (status),
     INDEX idx_media_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -70,11 +70,12 @@ async function uploadImageToOss(file: File, userId: number, submissionType: stri
 
   const url = `https://${OSS_ENDPOINT}/${ossKey}`;
   try {
+    const mediaModule = submissionType === 'club' ? 'club' : 'professional';
     await pool.execute<ResultSetHeader>(
-      `INSERT INTO sup_media_assets (url, folder, filename, mime_type, size_bytes, source_context, status)
-       VALUES (?, ?, ?, ?, ?, 'industry_submission', 'active')
-       ON DUPLICATE KEY UPDATE status = 'active', source_context = 'industry_submission'`,
-      [url, `industry-submissions/${submissionType}/${group}`, file.name, file.type, file.size]
+      `INSERT INTO sup_media_assets (url, folder, module, filename, mime_type, size_bytes, source_context, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'industry_submission', 'active')
+       ON DUPLICATE KEY UPDATE status = 'active', module = VALUES(module), source_context = 'industry_submission'`,
+      [url, `industry-submissions/${submissionType}/${group}`, mediaModule, file.name, file.type, file.size]
     );
   } catch (error) {
     console.error('行业入驻图片写入图片库失败:', error);
