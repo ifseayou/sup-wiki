@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     const [events] = await pool.execute<EventRow[]>(
       `SELECT event_id, name, name_en, slug, event_type, location, province, city, venue,
               start_date, end_date, registration_deadline, organizer, description,
-              images, disciplines, price_range, star_level, score_coefficient, result_status,
+              images, disciplines, price_range, star_level, score_coefficient, NULL AS result_status,
               COALESCE(r.results_count, 0) AS results_count,
               status, event_status, created_at
        FROM sup_events
