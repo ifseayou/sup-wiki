@@ -59,6 +59,7 @@ const navGroups = [
       { href: '/admin/club-claims', label: '俱乐部认领' },
       { href: '/admin/club-team-aliases', label: '队伍映射' },
       { href: '/admin/clubs', label: '俱乐部' },
+      { href: '/admin/coach-certificate-checks', label: '教练员线索' },
       { href: '/admin/professionals', label: '专业人员' },
       { href: '/admin/professional-certificates', label: '证书资料' },
       { href: '/admin/club-members', label: '成员关系' },
