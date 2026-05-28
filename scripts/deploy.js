@@ -17,6 +17,7 @@ if (!service) {
 }
 
 const dryRun = process.argv.includes("--dry-run");
+const archiveMode = process.argv.includes("--archive");
 const migrationIndex = process.argv.indexOf("--migration");
 const migrationFile = migrationIndex >= 0 ? process.argv[migrationIndex + 1] : "";
 const remote = config.server.includes("@")
@@ -56,6 +57,8 @@ function shellQuote(value) {
 }
 
 const commit = capture("git", ["rev-parse", "--short", "HEAD"]);
+const branch = config.branch || capture("git", ["branch", "--show-current"]) || "main";
+const repoUrl = capture("git", ["remote", "get-url", "origin"]);
 const archiveName = `sup-wiki-${commit}.tar`;
 const localArchive = `/tmp/${archiveName}`;
 const remoteArchive = `/tmp/${archiveName}`;
@@ -67,10 +70,27 @@ const migrationCommand = migrationFile
   : "echo 'No database migration requested'";
 const healthCommand = `ok=0; for i in 1 2 3 4 5 6; do status=$(curl -s -o /dev/null -w "%{http_code}" ${shellQuote(healthUrl)} || true); echo "Health ${healthUrl}: $status"; case "$status" in 2*|3*) ok=1; break ;; esac; sleep 3; done; test "$ok" = "1"`;
 
-run("git", ["archive", "HEAD", "-o", localArchive]);
-run("scp", [localArchive, `${remote}:${remoteArchive}`]);
+if (archiveMode) {
+  run("git", ["archive", "HEAD", "-o", localArchive]);
+  run("scp", [localArchive, `${remote}:${remoteArchive}`]);
+}
 
-const remoteCommand = [
+const gitDeployCommand = [
+  "set -e",
+  `if [ ! -d ${shellQuote(`${config.deployPath}/.git`)} ]; then rm -rf ${shellQuote(config.deployPath)} && git clone ${shellQuote(repoUrl)} ${shellQuote(config.deployPath)}; fi`,
+  `cd ${shellQuote(config.deployPath)}`,
+  `git fetch origin ${shellQuote(branch)}`,
+  `git reset --hard origin/${branch}`,
+  `${config.packageManager || "npm"} install`,
+  migrationCommand,
+  "rm -rf .next",
+  config.buildCommand,
+  `${config.processManager} restart ${service.name}`,
+  `${config.processManager} status ${service.name} --no-color`,
+  healthCommand,
+].join(" && ");
+
+const archiveDeployCommand = [
   "set -e",
   `rm -rf ${shellQuote(remoteReleaseDir)}`,
   `mkdir -p ${shellQuote(remoteReleaseDir)} ${shellQuote(config.deployPath)}`,
@@ -87,14 +107,14 @@ const remoteCommand = [
   `rm -rf ${shellQuote(remoteArchive)} ${shellQuote(remoteReleaseDir)}`,
 ].join(" && ");
 
-run("ssh", [remote, remoteCommand]);
+run("ssh", [remote, archiveMode ? archiveDeployCommand : gitDeployCommand]);
 
-if (!dryRun) {
+if (!dryRun && archiveMode) {
   rmSync(localArchive, { force: true });
 }
 
 console.log(
   dryRun
     ? "\nDry run completed."
-    : `\nDeploy completed: ${service.name} -> ${remote}:${config.deployPath} @ ${commit}`
+    : `\nDeploy completed: ${service.name} -> ${remote}:${config.deployPath} @ ${commit} (${archiveMode ? "archive" : "git"})`
 );
