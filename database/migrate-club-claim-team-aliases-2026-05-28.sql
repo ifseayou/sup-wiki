@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS sup_club_team_aliases (
   INDEX idx_sup_club_team_aliases_status_count (match_status, result_count),
   INDEX idx_sup_club_team_aliases_raw (team_name_raw),
   CONSTRAINT fk_sup_club_team_aliases_club FOREIGN KEY (club_id) REFERENCES sup_clubs(club_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE IF NOT EXISTS sup_club_claims (
   claim_id BIGINT AUTO_INCREMENT PRIMARY KEY,

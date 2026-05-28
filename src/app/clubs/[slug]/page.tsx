@@ -88,7 +88,7 @@ async function getResults(clubId: number) {
          UNION
          SELECT r.result_id
          FROM sup_event_results r
-         INNER JOIN sup_club_team_aliases a ON a.normalized_name = r.team_name_normalized
+         INNER JOIN sup_club_team_aliases a ON a.normalized_name COLLATE utf8mb4_0900_ai_ci = r.team_name_normalized
          WHERE a.club_id = ? AND a.match_status = 'confirmed' AND r.is_verified = 1
        ) linked
        INNER JOIN sup_event_results r ON r.result_id = linked.result_id
