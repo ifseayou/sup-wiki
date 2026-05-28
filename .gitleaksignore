@@ -1,0 +1,22 @@
+# gitleaks false positives — all triggered by the `generic-api-key` rule
+# matching business field names like `normalized_key: 'distance_3km'` in race
+# result / annual points code. These are not real secrets.
+# Format: <commit>:<file>:<rule>:<line>
+
+0500daae09d0688dcdcaa654f705a5d0718e54d6:src/app/api/admin/annual-points/route.ts:generic-api-key:37
+eff2d8136473cbdcc19a6a99de696ab1df239d5f:src/lib/annual-point-events.ts:generic-api-key:122
+0500daae09d0688dcdcaa654f705a5d0718e54d6:src/lib/annual-points.ts:generic-api-key:5
+0500daae09d0688dcdcaa654f705a5d0718e54d6:scripts/sync-annual-points-2025.js:generic-api-key:10
+4208918beb562796669a75e52fcf34e79a5cb7b7:scripts/parse-nanxun-2024-results.py:generic-api-key:143
+4208918beb562796669a75e52fcf34e79a5cb7b7:scripts/result-normalization.test.js:generic-api-key:47
+4208918beb562796669a75e52fcf34e79a5cb7b7:scripts/result-normalization.test.js:generic-api-key:48
+4208918beb562796669a75e52fcf34e79a5cb7b7:scripts/result-normalization.test.js:generic-api-key:49
+4208918beb562796669a75e52fcf34e79a5cb7b7:scripts/result-normalization.test.js:generic-api-key:50
+4208918beb562796669a75e52fcf34e79a5cb7b7:scripts/result-normalization.test.js:generic-api-key:51
+4208918beb562796669a75e52fcf34e79a5cb7b7:scripts/result-normalization.test.js:generic-api-key:52
+4208918beb562796669a75e52fcf34e79a5cb7b7:src/lib/result-normalization.ts:generic-api-key:89
+4208918beb562796669a75e52fcf34e79a5cb7b7:src/lib/result-normalization.ts:generic-api-key:99
+4208918beb562796669a75e52fcf34e79a5cb7b7:src/lib/result-normalization.ts:generic-api-key:109
+4208918beb562796669a75e52fcf34e79a5cb7b7:src/lib/result-normalization.ts:generic-api-key:118
+4208918beb562796669a75e52fcf34e79a5cb7b7:src/lib/result-normalization.ts:generic-api-key:226
+fb341c87e976d02c45d79ab9ad11a6da39f66220:scripts/parse-changzhou-2025-results.py:generic-api-key:341
