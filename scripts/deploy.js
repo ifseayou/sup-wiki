@@ -17,7 +17,11 @@ if (!service) {
 }
 
 const dryRun = process.argv.includes("--dry-run");
-const archiveMode = process.argv.includes("--archive");
+// Archive mode is the default: the production server cannot reach GitHub
+// reliably (git fetch times out), so we tar + scp from the local Mac instead.
+// Pass --git to opt into server-side `git fetch` when the deploy host has a
+// working route to the origin.
+const archiveMode = !process.argv.includes("--git");
 const migrationIndex = process.argv.indexOf("--migration");
 const migrationFile = migrationIndex >= 0 ? process.argv[migrationIndex + 1] : "";
 const remote = config.server.includes("@")
@@ -70,6 +74,20 @@ const migrationCommand = migrationFile
   : "echo 'No database migration requested'";
 const healthCommand = `ok=0; for i in 1 2 3 4 5 6; do status=$(curl -s -o /dev/null -w "%{http_code}" ${shellQuote(healthUrl)} || true); echo "Health ${healthUrl}: $status"; case "$status" in 2*|3*) ok=1; break ;; esac; sleep 3; done; test "$ok" = "1"`;
 
+// Install deps only if package-lock.json hash changed (or node_modules missing).
+// Persists the resolved hash to .deploy-lock-hash so subsequent deploys can skip.
+// Wrapped in a sub-shell so the inner `;` separators don't mix with the outer
+// `&& chain` formed by join(" && ").
+const installCommand = `( hash_now=$(sha1sum package-lock.json | awk '{print $1}'); hash_old=$(cat .deploy-lock-hash 2>/dev/null || echo none); if [ "$hash_now" != "$hash_old" ] || [ ! -d node_modules ]; then echo "[deps] lockfile $hash_old -> $hash_now, running npm ci"; npm ci && echo "$hash_now" > .deploy-lock-hash; else echo "[deps] lockfile unchanged ($hash_now), skipping install"; fi )`;
+
+// Clear stale build artefacts but preserve .next/cache (webpack incremental cache).
+// Restoring this cache speeds repeat builds 5-10x. Wrapped in a sub-shell so the
+// inner `|| true` is contained and doesn't swallow failures from earlier steps.
+const cleanBuildCommand = `( test -d .next && find .next -mindepth 1 -maxdepth 1 ! -name cache -exec rm -rf {} + || true )`;
+
+// Give Node a larger heap so Next.js builds don't thrash on the 3.4G server.
+const buildCommand = `NODE_OPTIONS='--max-old-space-size=3072' ${config.buildCommand}`;
+
 if (archiveMode) {
   run("tar", [
     "--exclude=.git",
@@ -89,12 +107,12 @@ const gitDeployCommand = [
   "set -e",
   `test -d ${shellQuote(`${config.deployPath}/.git`)}`,
   `cd ${shellQuote(config.deployPath)}`,
-  `git fetch origin ${shellQuote(branch)}`,
+  `git fetch --depth=1 origin ${shellQuote(branch)}`,
   `git reset --hard origin/${branch}`,
-  `${config.packageManager || "npm"} install`,
+  installCommand,
   migrationCommand,
-  "rm -rf .next",
-  config.buildCommand,
+  cleanBuildCommand,
+  buildCommand,
   `${config.processManager} restart ${service.name}`,
   `${config.processManager} status ${service.name} --no-color`,
   healthCommand,
@@ -107,10 +125,10 @@ const archiveDeployCommand = [
   `tar -xf ${shellQuote(remoteArchive)} -C ${shellQuote(remoteReleaseDir)}`,
   `rsync -a --delete --exclude .env.local --exclude node_modules --exclude .next --exclude public/result-books ${shellQuote(`${remoteReleaseDir}/`)} ${shellQuote(`${config.deployPath}/`)}`,
   `cd ${config.deployPath}`,
-  `${config.packageManager || "npm"} install`,
+  installCommand,
   migrationCommand,
-  "rm -rf .next",
-  config.buildCommand,
+  cleanBuildCommand,
+  buildCommand,
   `${config.processManager} restart ${service.name}`,
   `${config.processManager} status ${service.name} --no-color`,
   healthCommand,

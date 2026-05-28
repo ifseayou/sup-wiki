@@ -270,19 +270,28 @@ mysql -h 8.217.233.65 -u root -p sport_hacker < database/seed-events.sql
 
 | 项目 | 值 |
 |------|----|
-| 部署路径 | `/www/wwwroot/sup-wiki` |
+| 部署路径 | `/root/sup-wiki`（与 `.claude/deploy.json` 一致；PM2 的 cwd 也是这里） |
 | 端口 | 3107 |
 | 进程管理 | PM2（进程名 `sup-wiki`） |
 | Nginx 配置 | `/etc/nginx/sites-enabled/sup.iaddu.cn` |
 | SSL 证书 | Let's Encrypt，有效至 2026-07-01（自动续期） |
 
-**部署命令（服务器不能直接访问 GitHub，用文件传输方式）：**
+**部署命令：**
 ```bash
-git archive HEAD | ssh hz_aliyun_ecs "tar -xf - -C /www/wwwroot/sup-wiki"
-ssh hz_aliyun_ecs "cd /www/wwwroot/sup-wiki && rm -rf .next && npm run build && pm2 restart sup-wiki"
+npm run deploy            # 默认：本地 tar 打包 → scp 到服务器 → rsync 同步 → 增量构建
+npm run deploy -- --git   # 备用：服务器端 git fetch（需要服务器到 GitHub 通畅，当前生产机不通）
 ```
 
-**注意：必须先 `rm -rf .next` 再 build，否则 pm2 restart 会使用旧构建产物。**
+**为什么默认走 archive 而不是 git pull：**
+生产服务器（hz_aliyun_ecs，中国大陆机房）到 GitHub 的网络极差——`git ls-remote` 5s 超时，`curl github.com` 也要 10s。所以无法可靠地用 `git fetch` 拉代码。archive 模式从本地 Mac 打 tar、scp 到服务器，走阿里云骨干稳定快速。
+
+**部署脚本（`scripts/deploy.js`）关键优化：**
+- **保留 `.next/cache`**：只删除 `.next` 下除 `cache` 外的产物，保留 webpack 增量缓存，二次构建快 5–10 倍。
+- **lockfile 哈希跳过安装**：`package-lock.json` SHA-1 哈希存到 `.deploy-lock-hash`，未变就跳过依赖安装；变了走 `npm ci`。
+- **build 用 3GB Node 堆**：`NODE_OPTIONS=--max-old-space-size=3072`，避免 3.4G 内存机器构建抖动。
+- **rsync 同步而非整目录覆盖**：保留服务器上的 `node_modules`、`.next/cache`、`public/result-books`，仅同步真正变化的源文件。
+
+**注意：不要再手动 `rm -rf .next` 整个目录**——会清空 webpack 缓存导致每次都是冷构建。如需强制全量重建，删除 `.next/cache` 后再 build。
 
 ## Lessons Learned
 
@@ -291,10 +300,10 @@ ssh hz_aliyun_ecs "cd /www/wwwroot/sup-wiki && rm -rf .next && npm run build && 
 - **Root cause:** mysql2 3.x 对 MySQL JSON 类型列可能返回已解析的 JS 对象，与 TEXT 列存储 JSON 的行为不同。
 - **Correct approach:** 始终用防御性写法：`Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : [])`
 
-### 服务器部署必须删除旧 .next 目录
-- **What went wrong:** `git archive | tar` 传输源文件后重启 PM2，服务器仍使用旧的 `.next` 构建目录。
-- **Root cause:** `git archive` 只传输源文件，不清除旧构建产物；PM2 restart 不会自动重新构建。
-- **Correct approach:** 传输后先 `rm -rf .next`，再 `npm run build`，最后 `pm2 restart`。
+### 服务器部署必须清理旧构建产物（但保留 webpack 缓存）
+- **What went wrong:** 早期 `git archive | tar` 传输源文件后直接 PM2 restart，服务器仍使用旧 `.next` 构建产物。后来加了 `rm -rf .next` 又把 `.next/cache/webpack`（~370MB）一并删了，每次都是冷构建，部署变得极慢。
+- **Root cause:** `git archive` / git fetch 只更新源文件，PM2 restart 不会重建；而 `rm -rf .next` 又过度激进，把 Next.js 的 webpack 增量缓存也清掉了。
+- **Correct approach:** 部署脚本只删除 `.next` 下除 `cache` 之外的内容：`find .next -mindepth 1 -maxdepth 1 ! -name cache -exec rm -rf {} +`。保留 `.next/cache` 让二次构建 5–10× 提速。`scripts/deploy.js` 中的 `cleanBuildCommand` 已实现该逻辑。
 
 ### MySQL LIMIT ? OFFSET ? 参数化问题
 - **What went wrong:** `pool.execute(sql, [...params, pageSize, offset])` 报 `ER_WRONG_ARGUMENTS` 错误。
