@@ -71,13 +71,23 @@ const migrationCommand = migrationFile
 const healthCommand = `ok=0; for i in 1 2 3 4 5 6; do status=$(curl -s -o /dev/null -w "%{http_code}" ${shellQuote(healthUrl)} || true); echo "Health ${healthUrl}: $status"; case "$status" in 2*|3*) ok=1; break ;; esac; sleep 3; done; test "$ok" = "1"`;
 
 if (archiveMode) {
-  run("git", ["archive", "HEAD", "-o", localArchive]);
+  run("tar", [
+    "--exclude=.git",
+    "--exclude=.env.local",
+    "--exclude=.env",
+    "--exclude=.next",
+    "--exclude=node_modules",
+    "--exclude=public/result-books",
+    "-cf",
+    localArchive,
+    ".",
+  ]);
   run("scp", [localArchive, `${remote}:${remoteArchive}`]);
 }
 
 const gitDeployCommand = [
   "set -e",
-  `if [ ! -d ${shellQuote(`${config.deployPath}/.git`)} ]; then rm -rf ${shellQuote(config.deployPath)} && git clone ${shellQuote(repoUrl)} ${shellQuote(config.deployPath)}; fi`,
+  `test -d ${shellQuote(`${config.deployPath}/.git`)}`,
   `cd ${shellQuote(config.deployPath)}`,
   `git fetch origin ${shellQuote(branch)}`,
   `git reset --hard origin/${branch}`,
@@ -95,7 +105,7 @@ const archiveDeployCommand = [
   `rm -rf ${shellQuote(remoteReleaseDir)}`,
   `mkdir -p ${shellQuote(remoteReleaseDir)} ${shellQuote(config.deployPath)}`,
   `tar -xf ${shellQuote(remoteArchive)} -C ${shellQuote(remoteReleaseDir)}`,
-  `rsync -a --delete --exclude .env.local --exclude node_modules --exclude .next ${shellQuote(`${remoteReleaseDir}/`)} ${shellQuote(`${config.deployPath}/`)}`,
+  `rsync -a --delete --exclude .env.local --exclude node_modules --exclude .next --exclude public/result-books ${shellQuote(`${remoteReleaseDir}/`)} ${shellQuote(`${config.deployPath}/`)}`,
   `cd ${config.deployPath}`,
   `${config.packageManager || "npm"} install`,
   migrationCommand,
