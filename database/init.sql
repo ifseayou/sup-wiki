@@ -254,6 +254,77 @@ CREATE TABLE IF NOT EXISTS sup_event_point_standings (
     CONSTRAINT fk_point_standings_athlete FOREIGN KEY (athlete_id) REFERENCES sup_athletes(athlete_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS sup_annual_point_sources (
+    source_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    source_key VARCHAR(80) NOT NULL,
+    year INT NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    source_url VARCHAR(500) NOT NULL,
+    form_token VARCHAR(80) NOT NULL,
+    open_search_id VARCHAR(80) NOT NULL,
+    parser_name VARCHAR(100) NULL,
+    sync_status ENUM('idle','syncing','imported','failed') DEFAULT 'idle',
+    total_records INT DEFAULT 0,
+    imported_records INT DEFAULT 0,
+    group_counts JSON NULL,
+    raw_config JSON NULL,
+    error_message TEXT NULL,
+    last_synced_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_annual_point_source_key (source_key),
+    INDEX idx_annual_point_sources_year (year),
+    INDEX idx_annual_point_sources_status (sync_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sup_annual_point_standings (
+    standing_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    source_id BIGINT NOT NULL,
+    year INT NOT NULL,
+    group_code VARCHAR(40) NOT NULL,
+    group_name VARCHAR(100) NOT NULL,
+    rank_position INT NULL,
+    athlete_id BIGINT NULL,
+    athlete_name_snapshot VARCHAR(100) NOT NULL,
+    total_points DECIMAL(12,3) NULL,
+    endurance_points DECIMAL(12,3) NULL,
+    sprint_points DECIMAL(12,3) NULL,
+    technical_points DECIMAL(12,3) NULL,
+    base_detail_text TEXT NULL,
+    adjustment_detail_text TEXT NULL,
+    source_record_id VARCHAR(80) NOT NULL,
+    source_token VARCHAR(120) NULL,
+    raw_json JSON NULL,
+    identity_link_id BIGINT NULL,
+    match_status ENUM('unmatched','candidate','confirmed','conflict') DEFAULT 'unmatched',
+    match_confidence DECIMAL(4,3) DEFAULT 0.500,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_annual_points_record (source_id, source_record_id),
+    INDEX idx_annual_points_year_group_rank (year, group_code, rank_position),
+    INDEX idx_annual_points_name (athlete_name_snapshot),
+    INDEX idx_annual_points_athlete (athlete_id),
+    INDEX idx_annual_points_match (match_status),
+    CONSTRAINT fk_annual_points_source FOREIGN KEY (source_id) REFERENCES sup_annual_point_sources(source_id) ON DELETE CASCADE,
+    CONSTRAINT fk_annual_points_athlete FOREIGN KEY (athlete_id) REFERENCES sup_athletes(athlete_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sup_annual_point_breakdowns (
+    breakdown_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    standing_id BIGINT NOT NULL,
+    detail_type ENUM('base','adjustment') NOT NULL,
+    event_name VARCHAR(260) NULL,
+    star_level INT NULL,
+    endurance_points DECIMAL(12,3) NULL,
+    sprint_points DECIMAL(12,3) NULL,
+    technical_points DECIMAL(12,3) NULL,
+    raw_text TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_annual_point_breakdowns_standing (standing_id),
+    INDEX idx_annual_point_breakdowns_event (event_name),
+    CONSTRAINT fk_annual_point_breakdowns_standing FOREIGN KEY (standing_id) REFERENCES sup_annual_point_standings(standing_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS sup_athlete_identity_links (
     link_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     athlete_id BIGINT NULL,

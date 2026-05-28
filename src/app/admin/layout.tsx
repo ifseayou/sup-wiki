@@ -33,6 +33,7 @@ const navGroups = [
     items: [
       { href: '/admin/events', label: '赛事' },
       { href: '/admin/results', label: '成绩明细' },
+      { href: '/admin/annual-points', label: '年度积分' },
       { href: '/admin/event-result-submissions', label: '成绩册提交' },
       { href: '/admin/result-sources', label: '成绩来源' },
     ],
