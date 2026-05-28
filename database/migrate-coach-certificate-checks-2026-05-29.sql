@@ -28,4 +28,4 @@ CREATE TABLE IF NOT EXISTS sup_coach_certificate_checks (
   INDEX idx_coach_check_athlete (athlete_id),
   INDEX idx_coach_check_professional (professional_id),
   CONSTRAINT fk_coach_check_athlete FOREIGN KEY (athlete_id) REFERENCES sup_athletes(athlete_id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
