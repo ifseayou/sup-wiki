@@ -1,6 +1,6 @@
-# gitleaks false positives — all triggered by the `generic-api-key` rule
-# matching business field names like `normalized_key: 'distance_3km'` in race
-# result / annual points code. These are not real secrets.
+# gitleaks false positives — generic-api-key rule misfires on business
+# field names (normalized keys, event keys, etc.) in race result and
+# annual points code. None of the matches below are real secrets.
 # Format: <commit>:<file>:<rule>:<line>
 
 0500daae09d0688dcdcaa654f705a5d0718e54d6:src/app/api/admin/annual-points/route.ts:generic-api-key:37
@@ -20,3 +20,4 @@ eff2d8136473cbdcc19a6a99de696ab1df239d5f:src/lib/annual-point-events.ts:generic-
 4208918beb562796669a75e52fcf34e79a5cb7b7:src/lib/result-normalization.ts:generic-api-key:118
 4208918beb562796669a75e52fcf34e79a5cb7b7:src/lib/result-normalization.ts:generic-api-key:226
 fb341c87e976d02c45d79ab9ad11a6da39f66220:scripts/parse-changzhou-2025-results.py:generic-api-key:341
+0d064961dde31ac2483adaab1ce0ed545218f62d:.gitleaksignore:generic-api-key:2
