@@ -86,6 +86,12 @@ function normalizedName(name) {
   return String(name || '').replace(/\s+/g, '').toLowerCase();
 }
 
+function chunkArray(items, size = 500) {
+  const chunks = [];
+  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
+  return chunks;
+}
+
 function numberOrNull(value) {
   const raw = String(value ?? '').trim();
   if (!raw || raw === '-') return null;
@@ -231,8 +237,79 @@ async function matchAthlete(conn, row) {
   return { athleteId: null, identityLinkId: null, matchStatus: 'unmatched', confidence: 0.3 };
 }
 
-async function upsert(conn, sourceId, row) {
-  const match = await matchAthlete(conn, row);
+async function createMatcher(conn, rows) {
+  const names = Array.from(new Set(rows.map((row) => row.athleteName).filter(Boolean)));
+  const normalizedKeys = Array.from(new Set(names.map((name) => normalizedName(name)).filter(Boolean)));
+  const confirmedByKey = new Map();
+  const athletesByName = new Map();
+  const candidatesByKey = new Map();
+
+  for (const chunk of chunkArray(normalizedKeys)) {
+    if (!chunk.length) continue;
+    const placeholders = chunk.map(() => '?').join(',');
+    const [confirmed] = await conn.execute(
+      `SELECT link_id, athlete_id, normalized_name, confidence
+       FROM sup_athlete_identity_links
+       WHERE normalized_name IN (${placeholders}) AND status = 'confirmed' AND athlete_id IS NOT NULL
+       ORDER BY confidence DESC, link_id ASC`,
+      chunk
+    );
+    for (const item of confirmed) {
+      const key = String(item.normalized_name || '');
+      if (confirmedByKey.has(key)) continue;
+      confirmedByKey.set(key, { athleteId: Number(item.athlete_id), identityLinkId: Number(item.link_id), matchStatus: 'confirmed', confidence: Number(item.confidence || 0.95) });
+    }
+  }
+
+  for (const chunk of chunkArray(names)) {
+    if (!chunk.length) continue;
+    const placeholders = chunk.map(() => '?').join(',');
+    const [athletes] = await conn.execute(
+      `SELECT athlete_id, name, status
+       FROM sup_athletes
+       WHERE name IN (${placeholders})
+       ORDER BY CASE status WHEN 'published' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END, athlete_id ASC`,
+      chunk
+    );
+    for (const athlete of athletes) {
+      const name = String(athlete.name || '');
+      const current = athletesByName.get(name) || [];
+      current.push({ athleteId: Number(athlete.athlete_id), status: String(athlete.status || '') });
+      athletesByName.set(name, current);
+    }
+  }
+
+  return async (row) => {
+    const key = normalizedName(row.athleteName);
+    if (confirmedByKey.has(key)) return confirmedByKey.get(key);
+
+    const athletes = athletesByName.get(row.athleteName) || [];
+    if (athletes.length === 1) {
+      const candidateKey = `${key}|${row.athleteName}|${row.groupName}`;
+      if (candidatesByKey.has(candidateKey)) return candidatesByKey.get(candidateKey);
+
+      const athleteId = Number(athletes[0].athleteId);
+      await conn.execute(
+        `INSERT IGNORE INTO sup_athlete_identity_links
+          (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
+         VALUES (?, ?, ?, ?, NULL, '中国', 0.850, 'pending', '2025年度积分同步生成的待确认候选')`,
+        [athleteId, key, row.athleteName, row.groupName]
+      );
+      const [links] = await conn.execute(
+        'SELECT link_id FROM sup_athlete_identity_links WHERE normalized_name = ? AND display_name = ? AND gender_hint = ? AND athlete_id = ? ORDER BY link_id DESC LIMIT 1',
+        [key, row.athleteName, row.groupName, athleteId]
+      );
+      const result = { athleteId, identityLinkId: links.length ? Number(links[0].link_id) : null, matchStatus: 'candidate', confidence: 0.85 };
+      candidatesByKey.set(candidateKey, result);
+      return result;
+    }
+
+    if (athletes.length > 1) return { athleteId: null, identityLinkId: null, matchStatus: 'conflict', confidence: 0.45 };
+    return { athleteId: null, identityLinkId: null, matchStatus: 'unmatched', confidence: 0.3 };
+  };
+}
+
+async function upsert(conn, sourceId, row, match) {
   await conn.execute(
     `INSERT INTO sup_annual_point_standings
       (source_id, year, group_code, group_name, rank_position, athlete_id, athlete_name_snapshot,
@@ -294,9 +371,10 @@ async function main() {
   let imported = 0;
   try {
     sourceId = await ensureSource(conn);
+    const matcher = await createMatcher(conn, fetched.flatMap((item) => item.rows));
     for (const groupData of fetched) {
       for (const row of groupData.rows) {
-        await upsert(conn, sourceId, row);
+        await upsert(conn, sourceId, row, await matcher(row));
         imported += 1;
       }
     }

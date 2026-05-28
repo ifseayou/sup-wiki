@@ -93,6 +93,8 @@ interface MatchResult {
   matchConfidence: number;
 }
 
+type AthleteMatcher = (standing: NormalizedStanding) => Promise<MatchResult>;
+
 export interface AnnualPointsSyncOptions {
   groupCode?: string;
   limit?: number;
@@ -111,6 +113,12 @@ export interface AnnualPointsSyncResult {
 
 function normalizeName(name: string) {
   return String(name || '').replace(/\s+/g, '').toLowerCase();
+}
+
+function chunkArray<T>(items: T[], size = 500) {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
+  return chunks;
 }
 
 function parseNumber(value: unknown) {
@@ -327,8 +335,98 @@ async function resolveAthleteMatch(connection: PoolConnection, standing: Normali
   return { athleteId: null, identityLinkId: null, matchStatus: 'unmatched', matchConfidence: 0.3 };
 }
 
-async function upsertStanding(connection: PoolConnection, sourceId: number, standing: NormalizedStanding) {
-  const match = await resolveAthleteMatch(connection, standing);
+async function createAthleteMatcher(connection: PoolConnection, standings: NormalizedStanding[]): Promise<AthleteMatcher> {
+  const names = Array.from(new Set(standings.map((item) => item.athleteName).filter(Boolean)));
+  const normalizedKeys = Array.from(new Set(names.map((name) => normalizeName(name)).filter(Boolean)));
+  const confirmedByKey = new Map<string, MatchResult>();
+  const athletesByName = new Map<string, Array<{ athleteId: number; status: string }>>();
+  const candidateByKey = new Map<string, MatchResult>();
+
+  for (const chunk of chunkArray(normalizedKeys)) {
+    if (!chunk.length) continue;
+    const placeholders = chunk.map(() => '?').join(',');
+    const [rows] = await connection.execute<RowDataPacket[]>(
+      `SELECT link_id, athlete_id, normalized_name, confidence
+       FROM sup_athlete_identity_links
+       WHERE normalized_name IN (${placeholders}) AND status = 'confirmed' AND athlete_id IS NOT NULL
+       ORDER BY confidence DESC, link_id ASC`,
+      chunk
+    );
+    for (const row of rows) {
+      const key = String(row.normalized_name || '');
+      if (confirmedByKey.has(key)) continue;
+      confirmedByKey.set(key, {
+        athleteId: Number(row.athlete_id),
+        identityLinkId: Number(row.link_id),
+        matchStatus: 'confirmed',
+        matchConfidence: Number(row.confidence || 0.95),
+      });
+    }
+  }
+
+  for (const chunk of chunkArray(names)) {
+    if (!chunk.length) continue;
+    const placeholders = chunk.map(() => '?').join(',');
+    const [rows] = await connection.execute<RowDataPacket[]>(
+      `SELECT athlete_id, name, status
+       FROM sup_athletes
+       WHERE name IN (${placeholders})
+       ORDER BY CASE status WHEN 'published' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END, athlete_id ASC`,
+      chunk
+    );
+    for (const row of rows) {
+      const name = String(row.name || '');
+      const current = athletesByName.get(name) || [];
+      current.push({ athleteId: Number(row.athlete_id), status: String(row.status || '') });
+      athletesByName.set(name, current);
+    }
+  }
+
+  return async (standing: NormalizedStanding) => {
+    const normalized = normalizeName(standing.athleteName);
+    const confirmed = confirmedByKey.get(normalized);
+    if (confirmed) return confirmed;
+
+    const athleteRows = athletesByName.get(standing.athleteName) || [];
+    if (athleteRows.length === 1) {
+      const candidateKey = `${normalized}|${standing.athleteName}|${standing.groupName}`;
+      const cached = candidateByKey.get(candidateKey);
+      if (cached) return cached;
+
+      const athleteId = athleteRows[0].athleteId;
+      await connection.execute(
+        `INSERT IGNORE INTO sup_athlete_identity_links
+          (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
+         VALUES (?, ?, ?, ?, NULL, '中国', 0.850, 'pending', '2025年度积分同步生成的待确认候选')`,
+        [athleteId, normalized, standing.athleteName, standing.groupName]
+      );
+      const [linkRows] = await connection.execute<RowDataPacket[]>(
+        `SELECT link_id
+         FROM sup_athlete_identity_links
+         WHERE normalized_name = ? AND display_name = ? AND gender_hint = ? AND athlete_id = ?
+         ORDER BY link_id DESC
+         LIMIT 1`,
+        [normalized, standing.athleteName, standing.groupName, athleteId]
+      );
+      const result: MatchResult = {
+        athleteId,
+        identityLinkId: linkRows.length ? Number(linkRows[0].link_id) : null,
+        matchStatus: 'candidate',
+        matchConfidence: 0.85,
+      };
+      candidateByKey.set(candidateKey, result);
+      return result;
+    }
+
+    if (athleteRows.length > 1) {
+      return { athleteId: null, identityLinkId: null, matchStatus: 'conflict', matchConfidence: 0.45 };
+    }
+
+    return { athleteId: null, identityLinkId: null, matchStatus: 'unmatched', matchConfidence: 0.3 };
+  };
+}
+
+async function upsertStanding(connection: PoolConnection, sourceId: number, standing: NormalizedStanding, match: MatchResult) {
   await connection.execute<ResultSetHeader>(
     `INSERT INTO sup_annual_point_standings
       (source_id, year, group_code, group_name, rank_position, athlete_id, athlete_name_snapshot,
@@ -415,9 +513,10 @@ export async function syncAnnualPoints2025(options: AnnualPointsSyncOptions = {}
   try {
     sourceId = await ensureSource(connection);
     result.sourceId = sourceId;
+    const athleteMatcher = await createAthleteMatcher(connection, fetchedByGroup.flatMap((groupRows) => groupRows.standings));
     for (const groupRows of fetchedByGroup) {
       for (const standing of groupRows.standings) {
-        await upsertStanding(connection, sourceId, standing);
+        await upsertStanding(connection, sourceId, standing, await athleteMatcher(standing));
         result.imported += 1;
       }
     }
