@@ -29,6 +29,24 @@ const statusLabels: Record<string, string> = {
   reviewing: '处理中',
   imported: '已入库',
   rejected: '已驳回',
+  ignored: '不录入',
+};
+
+const tabs = [
+  { value: 'todo', label: '待录入' },
+  { value: 'reviewing', label: '处理中' },
+  { value: 'imported', label: '已入库' },
+  { value: 'ignored', label: '不录入' },
+  { value: 'rejected', label: '已驳回' },
+  { value: '', label: '全部' },
+];
+
+const statusTone: Record<string, string> = {
+  pending: 'bg-amber-50 text-amber-700 border-amber-100',
+  reviewing: 'bg-blue-50 text-blue-700 border-blue-100',
+  imported: 'bg-green-50 text-green-700 border-green-100',
+  rejected: 'bg-red-50 text-red-600 border-red-100',
+  ignored: 'bg-stone-100 text-stone-500 border-stone-200',
 };
 
 function formatSize(size: number) {
@@ -63,7 +81,10 @@ interface SubmissionBatch {
 export default function EventResultSubmissionsAdminPage() {
   const { token } = useAdminAuth();
   const [items, setItems] = useState<SubmissionRow[]>([]);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(() => {
+    if (typeof window === 'undefined') return 'todo';
+    return new URLSearchParams(window.location.search).get('status') || 'todo';
+  });
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -139,6 +160,12 @@ export default function EventResultSubmissionsAdminPage() {
     )));
   }
 
+  function ignoreSubmission(item: SubmissionRow) {
+    const note = window.prompt('移出待录入原因（会写入管理员备注）', item.admin_note || '不需要录入');
+    if (note === null) return;
+    updateSubmission(item, 'ignored', note.trim() || '不需要录入');
+  }
+
   async function downloadFile(url: string, fallback: string) {
     setMessage('');
     try {
@@ -177,11 +204,23 @@ export default function EventResultSubmissionsAdminPage() {
         </div>
         <div className="flex gap-2">
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索赛事 / 文件 / 用户" className="h-10 rounded-lg border border-cream-300 bg-cream-50 px-3 text-sm" />
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-10 rounded-lg border border-cream-300 bg-cream-50 px-3 text-sm">
-            <option value="">全部状态</option>
-            {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
         </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.value || 'all'}
+            onClick={() => setStatus(tab.value)}
+            className={`rounded-full border px-4 py-2 text-sm transition ${
+              status === tab.value
+                ? 'border-brown-500 bg-brown-700 text-white shadow-sm'
+                : 'border-cream-300 bg-cream-50 text-brown-500 hover:border-brown-400'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {message && <div className="mb-4 rounded-lg border border-cream-200 bg-white px-4 py-3 text-sm text-brown-700">{message}</div>}
@@ -203,7 +242,7 @@ export default function EventResultSubmissionsAdminPage() {
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {Object.entries(statusCounts).map(([key, value]) => (
-                      <span key={key} className="rounded-full border border-cream-200 bg-white px-2 py-0.5 text-[11px] text-warm-gray-500">
+                      <span key={key} className={`rounded-full border px-2 py-0.5 text-[11px] ${statusTone[key] || 'border-cream-200 bg-white text-warm-gray-500'}`}>
                         {statusLabels[key] || key} {value}
                       </span>
                     ))}
@@ -233,7 +272,7 @@ export default function EventResultSubmissionsAdminPage() {
                       {item.user_note && <div className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-warm-gray-500">用户备注：{item.user_note}</div>}
                     </div>
                     <div>
-                      <span className="rounded-full bg-cream-100 px-2 py-1 text-xs text-brown-700">{statusLabels[item.status] || item.status}</span>
+                      <span className={`rounded-full border px-2 py-1 text-xs ${statusTone[item.status] || 'border-cream-200 bg-cream-100 text-brown-700'}`}>{statusLabels[item.status] || item.status}</span>
                       <div className="mt-2 text-xs text-warm-gray-400">{new Date(item.created_at).toLocaleString('zh-CN')}</div>
                     </div>
                     <textarea
@@ -252,6 +291,7 @@ export default function EventResultSubmissionsAdminPage() {
                       <button onClick={() => downloadFile(`/api/admin/event-result-submissions/${item.submission_id}/download`, item.original_filename)} className="rounded-lg border border-cream-300 px-3 py-2 text-xs text-brown-500 hover:border-brown-400">下载</button>
                       <button onClick={() => updateSubmission(item, 'reviewing')} className="rounded-lg border border-cream-300 px-3 py-2 text-xs text-brown-500 hover:border-brown-400">处理中</button>
                       <button onClick={() => updateSubmission(item, 'imported')} className="rounded-lg border border-green-200 px-3 py-2 text-xs text-green-700 hover:border-green-400">已入库</button>
+                      <button onClick={() => ignoreSubmission(item)} className="rounded-lg border border-stone-200 px-3 py-2 text-xs text-stone-500 hover:border-stone-400">不录入</button>
                       <button onClick={() => updateSubmission(item, 'rejected')} className="rounded-lg border border-red-200 px-3 py-2 text-xs text-red-500 hover:border-red-400">驳回</button>
                     </div>
                   </div>

@@ -367,6 +367,8 @@ CREATE TABLE IF NOT EXISTS sup_event_result_sources (
     source_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     event_id BIGINT NULL,
     asset_id BIGINT NULL,
+    result_submission_id BIGINT NULL,
+    result_submission_batch_id VARCHAR(40) NULL,
     original_path VARCHAR(700) NULL,
     file_name VARCHAR(255) NOT NULL,
     file_type ENUM('pdf','excel','image','text','unknown') DEFAULT 'unknown',
@@ -383,6 +385,8 @@ CREATE TABLE IF NOT EXISTS sup_event_result_sources (
     INDEX idx_result_sources_event (event_id),
     INDEX idx_result_sources_status (parser_status),
     INDEX idx_result_sources_type (file_type),
+    INDEX idx_result_sources_submission (result_submission_id),
+    INDEX idx_result_sources_submission_batch (result_submission_batch_id),
     CONSTRAINT fk_result_sources_event FOREIGN KEY (event_id) REFERENCES sup_events(event_id) ON DELETE SET NULL,
     CONSTRAINT fk_result_sources_asset FOREIGN KEY (asset_id) REFERENCES sup_media_assets(asset_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

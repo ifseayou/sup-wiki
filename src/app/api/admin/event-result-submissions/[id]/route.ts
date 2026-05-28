@@ -3,7 +3,7 @@ import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
 import type { ResultSetHeader } from 'mysql2';
 
-const STATUSES = new Set(['pending', 'reviewing', 'imported', 'rejected']);
+const STATUSES = new Set(['pending', 'reviewing', 'imported', 'rejected', 'ignored']);
 
 export const PATCH = withAdmin(async (request: NextRequest) => {
   try {

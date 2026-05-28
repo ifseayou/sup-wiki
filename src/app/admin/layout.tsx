@@ -35,7 +35,6 @@ const navGroups = [
       { href: '/admin/results', label: '成绩明细' },
       { href: '/admin/event-result-submissions', label: '成绩册提交' },
       { href: '/admin/result-sources', label: '成绩来源' },
-      { href: '/admin/import', label: '批量导入' },
     ],
   },
   {
@@ -219,10 +218,6 @@ function AdminShell({
     Object.fromEntries(navGroups.map(group => [group.key, group.key === activeGroupKey || group.key === 'results']))
   );
 
-  useEffect(() => {
-    setOpenGroups(prev => ({ ...prev, [activeGroupKey]: true }));
-  }, [activeGroupKey]);
-
   // Derive current page title
   const currentNav = navItems.find(item => isNavActive(pathname, item)) || navItems[0];
 
@@ -307,7 +302,7 @@ function AdminShell({
           <nav style={{ flex: 1, padding: '12px 8px', overflowY: 'auto' }}>
             {navGroups.map(group => {
               const groupActive = group.items.some(item => isNavActive(pathname, item));
-              const isOpen = openGroups[group.key] ?? false;
+              const isOpen = groupActive || (openGroups[group.key] ?? false);
               return (
                 <div key={group.key} style={{ marginBottom: 8 }}>
                   <button

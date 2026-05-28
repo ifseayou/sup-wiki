@@ -26,6 +26,10 @@ interface ClaimRow {
   submitted_intro: string | null;
   submitted_sup_photo_urls?: string[];
   submitted_photo_urls?: string[];
+  diffs?: {
+    againstCurrent?: ClaimDiffField[];
+    againstPreviousSubmission?: ClaimDiffField[];
+  };
   event_name: string | null;
   discipline: string | null;
   gender_group: string | null;
@@ -35,12 +39,61 @@ interface ClaimRow {
   created_at: string;
 }
 
+interface ClaimDiffField {
+  key: string;
+  label: string;
+  before: string | string[] | null;
+  after: string | string[] | null;
+  change: 'added' | 'changed' | 'removed';
+}
+
 const statusLabels: Record<string, string> = {
   pending: '待审核',
   approved: '已通过',
   rejected: '已拒绝',
   all: '全部',
 };
+
+const changeLabels: Record<ClaimDiffField['change'], string> = {
+  added: '新增',
+  changed: '修改',
+  removed: '删除',
+};
+
+function formatDiffValue(value: string | string[] | null) {
+  if (Array.isArray(value)) return value.length ? `${value.length} 张图片` : '-';
+  return value || '-';
+}
+
+function DiffPanel({ title, items }: { title: string; items: ClaimDiffField[] }) {
+  return (
+    <div style={{ border: '1px solid #EDE5D8', borderRadius: 10, background: '#FFFDF9', padding: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#4B4238' }}>{title}</div>
+        <span style={{ fontSize: 12, color: '#8B8580' }}>{items.length ? `${items.length} 项变化` : '无变化'}</span>
+      </div>
+      {items.length ? (
+        <div style={{ display: 'grid', gap: 8 }}>
+          {items.map((diff) => (
+            <div key={`${title}-${diff.key}`} style={{ display: 'grid', gridTemplateColumns: '80px 48px 1fr', gap: 8, alignItems: 'start', fontSize: 12, color: '#5D5348' }}>
+              <strong style={{ color: '#2A2118' }}>{diff.label}</strong>
+              <span style={{ borderRadius: 999, background: diff.change === 'removed' ? '#FFF5F5' : '#F7F1E8', color: diff.change === 'removed' ? '#9B2C2C' : '#6B4A24', padding: '2px 7px', textAlign: 'center' }}>
+                {changeLabels[diff.change]}
+              </span>
+              <span>
+                <span style={{ color: '#9B9288' }}>{formatDiffValue(diff.before)}</span>
+                <span style={{ margin: '0 6px', color: '#B49B7B' }}>→</span>
+                <span style={{ color: '#2A2118' }}>{formatDiffValue(diff.after)}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: '#8B8580' }}>这次提交与对比对象没有可见字段差异。</div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminAthleteClaimsPage() {
   const { token } = useAdminAuth();
@@ -130,6 +183,10 @@ export default function AdminAthleteClaimsPage() {
                   </>
                 )}
               </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 14 }}>
+              <DiffPanel title="相对当前主页" items={item.diffs?.againstCurrent || []} />
+              <DiffPanel title="相对上次提交" items={item.diffs?.againstPreviousSubmission || []} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr', gap: 14 }}>

@@ -29,7 +29,6 @@ const todoCards = [
   { key: 'pendingResultSubmissions', label: '成绩册提交', desc: '用户上传等待处理', href: '/admin/event-result-submissions?status=pending', tone: 'brown' },
   { key: 'pendingIdentityLinks', label: '身份匹配', desc: '成绩姓名与运动员档案', href: '/admin/athlete-identities', tone: 'blue' },
   { key: 'needsReviewResults', label: '待核验成绩', desc: '需要人工复核的成绩', href: '/admin/results?review_status=needs_review', tone: 'red' },
-  { key: 'draftContentTotal', label: '草稿内容', desc: '未发布的内容资料', href: '/admin/import', tone: 'gray' },
 ];
 
 const quickActions = [
@@ -37,7 +36,6 @@ const quickActions = [
   { label: '处理成绩册', href: '/admin/event-result-submissions?status=pending', icon: '📄' },
   { label: '资料审批', href: '/admin/athlete-claims', icon: '✓' },
   { label: '用户管理', href: '/admin/users', icon: '👤' },
-  { label: '批量导入', href: '/admin/import', icon: '↥' },
 ];
 
 const draftLabels: Record<string, string> = {
@@ -88,7 +86,7 @@ export default function AdminDashboard() {
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         {todoCards.map(card => {
           const count = data?.todos[card.key as keyof DashboardData['todos']];
           return (
@@ -113,7 +111,7 @@ export default function AdminDashboard() {
               <p className="mt-1 text-xs text-warm-gray-400">高频维护入口集中在这里。</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {quickActions.map(action => (
               <Link
                 key={action.href}

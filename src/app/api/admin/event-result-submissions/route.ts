@@ -14,7 +14,9 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const conditions: string[] = [];
     const params: (string | number)[] = [];
 
-    if (status) {
+    if (status === 'todo') {
+      conditions.push("s.status IN ('pending', 'reviewing')");
+    } else if (status) {
       conditions.push('s.status = ?');
       params.push(status);
     }

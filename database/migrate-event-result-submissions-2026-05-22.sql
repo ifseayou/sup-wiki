@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS sup_event_result_submissions (
   mime_type VARCHAR(100) NOT NULL DEFAULT 'application/pdf',
   size_bytes INT NOT NULL DEFAULT 0,
   user_note TEXT NULL,
-  status ENUM('pending','reviewing','imported','rejected') NOT NULL DEFAULT 'pending',
+  status ENUM('pending','reviewing','imported','rejected','ignored') NOT NULL DEFAULT 'pending',
   admin_note TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

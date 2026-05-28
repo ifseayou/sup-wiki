@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
 import { appendEventResults, normalizeEventResultsInput } from '@/lib/event-results';
-import type { ResultSetHeader, RowDataPacket } from 'mysql2';
+import type { PoolConnection, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 
 function slugify(input: string, fallback: string) {
   const ascii = input
@@ -12,6 +12,47 @@ function slugify(input: string, fallback: string) {
     .replace(/\s+/g, '-')
     .toLowerCase();
   return ascii || fallback;
+}
+
+function normalizeSubmissionId(value: unknown) {
+  const id = Number(value || 0);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function normalizeBatchId(value: unknown) {
+  const text = String(value || '').trim();
+  return text ? text.slice(0, 40) : null;
+}
+
+async function markSubmissionImported(
+  connection: PoolConnection,
+  sourceInput: Record<string, unknown>,
+  imported: number,
+) {
+  if (!imported) return;
+  const submissionId = normalizeSubmissionId(sourceInput.result_submission_id);
+  const batchId = normalizeBatchId(sourceInput.result_submission_batch_id);
+  const note = `导入完成：${sourceInput.file_name || '成绩册'}，${imported} 条成绩`;
+  if (submissionId) {
+    await connection.execute(
+      `UPDATE sup_event_result_submissions
+       SET status = 'imported',
+           admin_note = TRIM(CONCAT(COALESCE(admin_note, ''), CASE WHEN COALESCE(admin_note, '') = '' THEN '' ELSE '\n' END, ?))
+       WHERE submission_id = ?`,
+      [note, submissionId]
+    );
+    return;
+  }
+  if (batchId) {
+    await connection.execute(
+      `UPDATE sup_event_result_submissions
+       SET status = 'imported',
+           admin_note = TRIM(CONCAT(COALESCE(admin_note, ''), CASE WHEN COALESCE(admin_note, '') = '' THEN '' ELSE '\n' END, ?))
+      WHERE batch_id = ?
+         AND (file_url = ? OR original_filename = ?)`,
+      [note, batchId, String(sourceInput.source_url || ''), String(sourceInput.file_name || '')]
+    );
+  }
 }
 
 export const POST = withAdmin(async (request: NextRequest) => {
@@ -65,6 +106,8 @@ export const POST = withAdmin(async (request: NextRequest) => {
     const sourceMetadata = {
       ...(sourceInput.metadata || {}),
       source_kind: sourceInput.source_kind || sourceInput.metadata?.source_kind || 'local_result_book',
+      result_submission_id: normalizeSubmissionId(sourceInput.result_submission_id),
+      result_submission_batch_id: normalizeBatchId(sourceInput.result_submission_batch_id),
     };
     const [existingSource] = await connection.execute<RowDataPacket[]>(
       `SELECT source_id FROM sup_event_result_sources
@@ -76,10 +119,13 @@ export const POST = withAdmin(async (request: NextRequest) => {
     if (sourceId) {
       await connection.execute(
         `UPDATE sup_event_result_sources
-         SET source_url = ?, parser_name = ?, parser_status = ?, parser_note = ?, extracted_rows = ?, imported_rows = ?, metadata = ?
+         SET source_url = ?, result_submission_id = ?, result_submission_batch_id = ?,
+             parser_name = ?, parser_status = ?, parser_note = ?, extracted_rows = ?, imported_rows = ?, metadata = ?
          WHERE source_id = ?`,
         [
           sourceInput.source_url || null,
+          normalizeSubmissionId(sourceInput.result_submission_id),
+          normalizeBatchId(sourceInput.result_submission_batch_id),
           sourceInput.parser_name || 'local-race-results-import',
           results.length ? 'imported' : (sourceInput.parser_status || 'pending_review'),
           sourceInput.parser_note || null,
@@ -92,14 +138,17 @@ export const POST = withAdmin(async (request: NextRequest) => {
     } else {
       const [sourceResult] = await connection.execute<ResultSetHeader>(
         `INSERT INTO sup_event_result_sources
-          (event_id, original_path, file_name, file_type, source_url, parser_name, parser_status, parser_note, extracted_rows, imported_rows, metadata)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (event_id, original_path, file_name, file_type, source_url, result_submission_id, result_submission_batch_id,
+           parser_name, parser_status, parser_note, extracted_rows, imported_rows, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
         sourceInput.original_path || null,
         sourceInput.file_name,
         sourceInput.file_type || 'unknown',
         sourceInput.source_url || null,
+        normalizeSubmissionId(sourceInput.result_submission_id),
+        normalizeBatchId(sourceInput.result_submission_batch_id),
         sourceInput.parser_name || 'local-race-results-import',
         results.length ? 'imported' : (sourceInput.parser_status || 'pending_review'),
         sourceInput.parser_note || null,
@@ -120,6 +169,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
 
     if (hydratedResults.length) {
       await appendEventResults(connection, eventId, hydratedResults);
+      await markSubmissionImported(connection, sourceInput, hydratedResults.length);
       await connection.execute(
         `UPDATE sup_events
          SET result_status = 'extended_complete', result_source_note = COALESCE(result_source_note, ?), result_last_verified_at = NOW()
