@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "deploy": "node scripts/deploy.js",
+    "coach-certs:sync": "node scripts/sync-coach-certificate-checks.js",
     "race-results:parse": "python3 scripts/parse-race-results.py /Users/xhl/Downloads/桨板赛事 -o .cache/race-results-import.json --copy-to-public public",
     "race-results:import": "node scripts/import-local-race-results.js --input .cache/race-results-import.json",
     "lint": "eslint",

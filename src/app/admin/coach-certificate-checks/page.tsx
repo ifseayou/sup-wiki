@@ -79,6 +79,8 @@ export default function CoachCertificateChecksPage() {
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncLimit, setSyncLimit] = useState(20);
   const pageSize = 30;
 
   const query = useMemo(() => {
@@ -205,6 +207,27 @@ export default function CoachCertificateChecksPage() {
     }
   }
 
+  async function syncWjxRows() {
+    setSyncBusy(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin/coach-certificate-checks/sync-wjx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ limit: syncLimit, statuses: queryStatus ? [queryStatus] : ['queued', 'not_found', 'error'] }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '同步失败');
+      const summary = data.summary || {};
+      setMessage(`问卷星同步完成：处理 ${summary.total || 0} 条，命中 ${summary.hit || 0}，未命中 ${summary.not_found || 0}，重名 ${summary.ambiguous || 0}，被限制 ${summary.blocked || 0}，失败 ${summary.error || 0}`);
+      refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '同步失败');
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
@@ -216,6 +239,9 @@ export default function CoachCertificateChecksPage() {
           <Link href="/admin/professionals?primary_role=coach" className="rounded-lg border border-cream-300 px-4 py-2 text-sm text-brown-600 hover:border-brown-400">
             查看正式教练员
           </Link>
+          <button onClick={syncWjxRows} disabled={syncBusy} className="rounded-lg border border-brown-300 px-4 py-2 text-sm text-brown-700 hover:border-brown-500 disabled:opacity-50">
+            {syncBusy ? '同步中...' : '同步问卷星公示'}
+          </button>
           <button onClick={() => setShowImport((value) => !value)} className="rounded-lg bg-brown-500 px-4 py-2 text-sm text-white hover:bg-brown-600">
             导入公示结果
           </button>
@@ -241,8 +267,19 @@ export default function CoachCertificateChecksPage() {
           <button onClick={() => { setSearch(''); setQueryStatus(''); setMatchStatus(''); setPage(1); }} className="rounded-lg border border-cream-300 px-4 py-2 text-sm text-warm-gray-600 hover:border-brown-400">
             清空筛选
           </button>
+          <label className="flex items-center gap-2 text-sm text-warm-gray-500">
+            同步数量
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={syncLimit}
+              onChange={(e) => setSyncLimit(Math.min(100, Math.max(1, Number(e.target.value) || 20)))}
+              className={`${inputClass} w-24`}
+            />
+          </label>
         </div>
-        <div className="mt-3 text-sm text-warm-gray-500">共 {total} 条线索，每页 {pageSize} 条。</div>
+        <div className="mt-3 text-sm text-warm-gray-500">共 {total} 条线索，每页 {pageSize} 条。问卷星同步默认处理待查询、未命中、失败状态；选择查询状态后会只同步当前状态。</div>
       </div>
 
       {showImport && (

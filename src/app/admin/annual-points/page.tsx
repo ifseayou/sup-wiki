@@ -14,6 +14,7 @@ interface PointRow {
   group_name: string;
   rank_position: number | null;
   athlete_name_snapshot: string;
+  team_name: string | null;
   athlete_id: number | null;
   athlete_name: string | null;
   athlete_status: string | null;
@@ -35,6 +36,7 @@ interface SourceRow {
   imported_records: number;
   last_synced_at: string | null;
   error_message: string | null;
+  source_count?: number;
 }
 
 const matchLabels: Record<string, string> = {
@@ -68,6 +70,8 @@ export default function AnnualPointsAdminPage() {
   const [items, setItems] = useState<PointRow[]>([]);
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [source, setSource] = useState<SourceRow | null>(null);
+  const [years, setYears] = useState<Array<{ year: number; total: number }>>([]);
+  const [year, setYear] = useState(2025);
   const [groupCode, setGroupCode] = useState('');
   const [matchStatus, setMatchStatus] = useState('');
   const [search, setSearch] = useState('');
@@ -78,12 +82,12 @@ export default function AnnualPointsAdminPage() {
   const [message, setMessage] = useState('');
 
   const query = useMemo(() => {
-    const params = new URLSearchParams({ page: String(page), pageSize: '50' });
+    const params = new URLSearchParams({ page: String(page), pageSize: '50', year: String(year) });
     if (groupCode) params.set('group_code', groupCode);
     if (matchStatus) params.set('match_status', matchStatus);
     if (search) params.set('search', search);
     return params.toString();
-  }, [groupCode, matchStatus, page, search]);
+  }, [groupCode, matchStatus, page, search, year]);
 
   async function load() {
     setLoading(true);
@@ -94,6 +98,7 @@ export default function AnnualPointsAdminPage() {
       setItems(data.items || []);
       setGroups(data.groups || []);
       setSource(data.source || null);
+      setYears(data.years || []);
       setTotal(Number(data.total || 0));
     } finally {
       setLoading(false);
@@ -135,8 +140,8 @@ export default function AnnualPointsAdminPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-brown-400">Annual Points</div>
-            <h1 className="mt-1 text-2xl font-semibold text-brown-800">2025 年度积分数据</h1>
-            <p className="mt-2 text-sm text-warm-gray-500">从金数据公开查询页低频同步，保留原始记录，用于后续运动员年度积分榜和档案集成。</p>
+            <h1 className="mt-1 text-2xl font-semibold text-brown-800">年度积分数据</h1>
+            <p className="mt-2 text-sm text-warm-gray-500">2025 从金数据同步；2022-2024 来自微信公众号历史公示 OCR 清洗，保留原始来源。</p>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div className="rounded-xl border border-cream-200 bg-white px-4 py-3">
@@ -146,6 +151,10 @@ export default function AnnualPointsAdminPage() {
             <div className="rounded-xl border border-cream-200 bg-white px-4 py-3">
               <div className="text-xs text-warm-gray-400">已入库</div>
               <div className="mt-1 font-semibold text-brown-800">{source?.total_records || 0}</div>
+            </div>
+            <div className="rounded-xl border border-cream-200 bg-white px-4 py-3">
+              <div className="text-xs text-warm-gray-400">来源</div>
+              <div className="mt-1 font-semibold text-brown-800">{source?.source_count || 0}</div>
             </div>
             <div className="rounded-xl border border-cream-200 bg-white px-4 py-3">
               <div className="text-xs text-warm-gray-400">本页筛选</div>
@@ -161,7 +170,13 @@ export default function AnnualPointsAdminPage() {
       </section>
 
       <section className="rounded-2xl border border-cream-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_auto_auto] lg:items-end">
+        <div className="grid gap-3 lg:grid-cols-[0.7fr_1.2fr_1fr_1fr_auto_auto] lg:items-end">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-warm-gray-500">年份</span>
+            <select value={year} onChange={(e) => { setYear(Number(e.target.value)); setGroupCode(''); setPage(1); }} className="h-10 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-sm outline-none focus:border-brown-300">
+              {[...new Set([2025, 2024, 2023, 2022, ...years.map((item) => Number(item.year))])].map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-warm-gray-500">姓名 / 记录 ID</span>
             <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="h-10 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-sm outline-none focus:border-brown-300" placeholder="搜索运动员姓名" />
@@ -180,8 +195,8 @@ export default function AnnualPointsAdminPage() {
               {Object.entries(matchLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          <button onClick={() => sync(true)} disabled={syncing} className="h-10 rounded-lg border border-cream-300 px-4 text-sm font-medium text-brown-700 disabled:opacity-50">试抓 10 条</button>
-          <button onClick={() => sync(false)} disabled={syncing} className="h-10 rounded-lg bg-brown-600 px-4 text-sm font-medium text-white disabled:opacity-50">{syncing ? '同步中…' : '同步入库'}</button>
+          <button onClick={() => sync(true)} disabled={syncing || year !== 2025} className="h-10 rounded-lg border border-cream-300 px-4 text-sm font-medium text-brown-700 disabled:opacity-50">试抓 10 条</button>
+          <button onClick={() => sync(false)} disabled={syncing || year !== 2025} className="h-10 rounded-lg bg-brown-600 px-4 text-sm font-medium text-white disabled:opacity-50">{syncing ? '同步中…' : '同步入库'}</button>
         </div>
         {message && <div className="mt-3 rounded-lg bg-cream-100 px-3 py-2 text-sm text-brown-700">{message}</div>}
       </section>
@@ -192,6 +207,7 @@ export default function AnnualPointsAdminPage() {
             <tr>
               <th className="px-4 py-3">组别 / 排名</th>
               <th className="px-4 py-3">运动员</th>
+              <th className="px-4 py-3">队伍</th>
               <th className="px-4 py-3 text-right">总积分</th>
               <th className="px-4 py-3 text-right">耐力</th>
               <th className="px-4 py-3 text-right">冲刺</th>
@@ -211,6 +227,7 @@ export default function AnnualPointsAdminPage() {
                   <div className="font-medium text-brown-800">{item.athlete_name_snapshot}</div>
                   <div className="text-xs text-warm-gray-400">{item.athlete_id ? `已关联 #${item.athlete_id}` : '未关联运动员档案'}</div>
                 </td>
+                <td className="px-4 py-3 text-warm-gray-600">{item.team_name || '—'}</td>
                 <td className="px-4 py-3 text-right font-semibold text-brown-800">{formatPoint(item.total_points)}</td>
                 <td className="px-4 py-3 text-right text-warm-gray-600">{formatPoint(item.endurance_points)}</td>
                 <td className="px-4 py-3 text-right text-warm-gray-600">{formatPoint(item.sprint_points)}</td>
@@ -226,7 +243,7 @@ export default function AnnualPointsAdminPage() {
               </tr>
             ))}
             {!loading && !items.length && (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-warm-gray-400">暂无年度积分数据</td></tr>
+              <tr><td colSpan={9} className="px-4 py-10 text-center text-warm-gray-400">暂无年度积分数据</td></tr>
             )}
           </tbody>
         </table>

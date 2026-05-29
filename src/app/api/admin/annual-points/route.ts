@@ -10,12 +10,13 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const page = Math.max(1, Number(searchParams.get('page') || 1));
     const pageSize = Math.min(100, Math.max(10, Number(searchParams.get('pageSize') || 30)));
     const offset = (page - 1) * pageSize;
+    const year = Number(searchParams.get('year') || 2025);
     const groupCode = searchParams.get('group_code') || '';
     const matchStatus = searchParams.get('match_status') || '';
     const search = searchParams.get('search') || '';
 
-    const conditions: string[] = ['s.year = 2025'];
-    const params: (string | number)[] = [];
+    const conditions: string[] = ['s.year = ?'];
+    const params: (string | number)[] = [year];
     if (groupCode) {
       conditions.push('s.group_code = ?');
       params.push(groupCode);
@@ -32,10 +33,18 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const where = `WHERE ${conditions.join(' AND ')}`;
 
     const [sourceRows] = await pool.execute<RowDataPacket[]>(
-      `SELECT *
+      `SELECT
+         year,
+         MIN(sync_status) AS sync_status,
+         SUM(total_records) AS total_records,
+         SUM(imported_records) AS imported_records,
+         MAX(last_synced_at) AS last_synced_at,
+         GROUP_CONCAT(NULLIF(error_message, '') SEPARATOR '；') AS error_message,
+         COUNT(*) AS source_count
        FROM sup_annual_point_sources
-       WHERE source_key = 'jinshuju-2025-sup-race-points'
-       LIMIT 1`
+       WHERE year = ?
+       GROUP BY year`,
+      [year]
     );
 
     const [countRows] = await pool.execute<RowDataPacket[]>(
@@ -59,22 +68,35 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const [groupRows] = await pool.execute<RowDataPacket[]>(
       `SELECT group_code, group_name, COUNT(*) AS total, MIN(rank_position) AS best_rank, MAX(total_points) AS top_points
        FROM sup_annual_point_standings
-       WHERE year = 2025
+       WHERE year = ?
        GROUP BY group_code, group_name
-       ORDER BY group_name ASC`
+       ORDER BY group_name ASC`,
+      [year]
     );
 
     const [matchRows] = await pool.execute<RowDataPacket[]>(
       `SELECT match_status, COUNT(*) AS total
        FROM sup_annual_point_standings
-       WHERE year = 2025
-       GROUP BY match_status`
+       WHERE year = ?
+       GROUP BY match_status`,
+      [year]
+    );
+
+    const [yearRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT year, COUNT(*) AS total
+       FROM sup_annual_point_standings
+       GROUP BY year
+       ORDER BY year DESC`
     );
 
     const total = Number(countRows[0]?.total || 0);
     return NextResponse.json({
       source: sourceRows[0] || null,
-      groups: ANNUAL_POINTS_GROUPS,
+      years: yearRows,
+      year,
+      groups: groupRows.length
+        ? groupRows.map((row) => ({ code: row.group_code, label: row.group_name }))
+        : (year === 2025 ? ANNUAL_POINTS_GROUPS : []),
       groupStats: groupRows,
       matchStats: matchRows,
       items,
@@ -92,6 +114,10 @@ export const GET = withAdmin(async (request: NextRequest) => {
 export const POST = withAdmin(async (request: NextRequest) => {
   try {
     const body = await request.json().catch(() => ({}));
+    const year = Number(body.year || 2025);
+    if (year !== 2025) {
+      return NextResponse.json({ error: '历史年度积分请使用离线归档导入脚本' }, { status: 400 });
+    }
     const result = await syncAnnualPoints2025({
       groupCode: body.group_code || undefined,
       limit: Number(body.limit || 0) || undefined,

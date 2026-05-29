@@ -119,11 +119,14 @@ export async function analyzeAnnualPointEvents(connection: PoolConnection = pool
   const [sourceRows] = await connection.execute<RowDataPacket[]>(
     `SELECT source_id, year
      FROM sup_annual_point_sources
-     WHERE source_key = 'jinshuju-2025-sup-race-points'
-     LIMIT 1`
+     WHERE sync_status = 'imported'
+     ORDER BY year ASC, source_id ASC`
   );
-  const source = sourceRows[0];
-  if (!source) throw new Error('请先同步 2025 年度积分数据');
+  if (!sourceRows.length) throw new Error('请先同步或导入年度积分数据');
+  const sourceIds = sourceRows.map((row) => Number(row.source_id)).filter(Boolean);
+  const sourceYears = Array.from(new Set(sourceRows.map((row) => Number(row.year)).filter(Boolean)));
+  const sourcePlaceholders = sourceIds.map(() => '?').join(',');
+  const yearPlaceholders = sourceYears.map(() => '?').join(',');
 
   const [pointEvents] = await connection.execute<PointEventAggregate[]>(
     `SELECT
@@ -136,9 +139,9 @@ export async function analyzeAnnualPointEvents(connection: PoolConnection = pool
        SUM(COALESCE(b.endurance_points, 0) + COALESCE(b.sprint_points, 0) + COALESCE(b.technical_points, 0)) AS total_point_sum
      FROM sup_annual_point_breakdowns b
      INNER JOIN sup_annual_point_standings s ON s.standing_id = b.standing_id
-     WHERE s.source_id = ? AND b.detail_type = 'base' AND b.event_name IS NOT NULL AND b.event_name <> ''
+     WHERE s.source_id IN (${sourcePlaceholders}) AND b.detail_type = 'base' AND b.event_name IS NOT NULL AND b.event_name <> ''
      GROUP BY s.source_id, s.year, b.event_name`,
-    [source.source_id]
+    sourceIds
   );
 
   const [events] = await connection.execute<LocalEvent[]>(
@@ -149,13 +152,15 @@ export async function analyzeAnnualPointEvents(connection: PoolConnection = pool
        FROM sup_event_results
        GROUP BY event_id
      ) r ON r.event_id = e.event_id
-     WHERE e.event_type = 'race' AND (YEAR(e.start_date) = 2025 OR e.start_date IS NULL)
-     ORDER BY e.start_date DESC, e.event_id DESC`
+     WHERE e.event_type = 'race' AND (YEAR(e.start_date) IN (${yearPlaceholders}) OR e.start_date IS NULL)
+     ORDER BY e.start_date DESC, e.event_id DESC`,
+    sourceYears
   );
 
   let analyzed = 0;
   for (const item of pointEvents) {
     const candidates = events
+      .filter((event) => !event.start_date || new Date(event.start_date).getFullYear() === Number(item.year))
       .map((event) => {
         const scored = scoreCandidate(item.point_event_name, event);
         return {
