@@ -46,6 +46,23 @@ interface RaceTime {
   event_id?: number;
 }
 
+interface AnnualPointSummary extends RowDataPacket {
+  year: number;
+  group_code: string | null;
+  group_name: string | null;
+  rank_position: number | null;
+  athlete_id: number | null;
+  athlete_name_snapshot: string;
+  team_name: string | null;
+  total_points: number | string | null;
+  endurance_points: number | string | null;
+  sprint_points: number | string | null;
+  technical_points: number | string | null;
+  source_title: string | null;
+  source_url: string | null;
+  match_level: 'confirmed' | 'candidate';
+}
+
 const distanceLabels: Record<string, { label: string; icon: string; order: number }> = {
   '200m':  { label: '200 米竞速',    icon: '⚡', order: 1 },
   '500m':  { label: '500 米竞速',    icon: '⚡', order: 2 },
@@ -101,6 +118,60 @@ async function getAthlete(id: number) {
   }
 }
 
+async function getAthleteAnnualPointSummary(athleteId: number, athleteName: string) {
+  try {
+    const completedYear = new Date().getFullYear() - 1;
+    const [yearRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT MAX(year) AS year
+       FROM sup_annual_point_standings
+       WHERE year <= ?
+         AND (athlete_id = ? OR athlete_name_snapshot = ?)`,
+      [completedYear, athleteId, athleteName]
+    );
+    let year = Number(yearRows[0]?.year || 0);
+    if (!year) {
+      const [fallbackRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT MAX(year) AS year
+         FROM sup_annual_point_standings
+         WHERE athlete_id = ? OR athlete_name_snapshot = ?`,
+        [athleteId, athleteName]
+      );
+      year = Number(fallbackRows[0]?.year || 0);
+    }
+    if (!year) return null;
+
+    const [rows] = await pool.execute<AnnualPointSummary[]>(
+      `SELECT
+         s.year, s.group_code, s.group_name, s.rank_position, s.athlete_id,
+         s.athlete_name_snapshot, s.team_name, s.total_points, s.endurance_points,
+         s.sprint_points, s.technical_points, src.title AS source_title, src.source_url,
+         CASE WHEN s.athlete_id = ? THEN 'confirmed' ELSE 'candidate' END AS match_level
+       FROM sup_annual_point_standings s
+       INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
+       WHERE s.year = ?
+         AND (s.athlete_id = ? OR s.athlete_name_snapshot = ?)
+       ORDER BY
+         CASE WHEN s.athlete_id = ? THEN 0 ELSE 1 END,
+         COALESCE(s.rank_position, 999999) ASC,
+         s.total_points DESC,
+         s.standing_id ASC
+       LIMIT 1`,
+      [athleteId, year, athleteId, athleteName, athleteId]
+    );
+    return rows[0] || null;
+  } catch (error) {
+    console.error('获取运动员年度积分失败:', error);
+    return null;
+  }
+}
+
+function formatAnnualPoint(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === '') return '-';
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(value);
+  return num.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+}
+
 marked.setOptions({ breaks: true });
 
 export default async function AthleteDetailPage({
@@ -117,6 +188,7 @@ export default async function AthleteDetailPage({
 
   const athlete = await getAthlete(athleteId);
   if (!athlete) notFound();
+  const annualPoint = await getAthleteAnnualPointSummary(athleteId, athlete.name);
 
   const rawAchievements = Array.isArray(athlete.achievements)
     ? athlete.achievements
@@ -235,20 +307,45 @@ export default async function AthleteDetailPage({
             <div className="flex justify-start lg:justify-end">
               <AthleteClaimEntry athleteId={athleteId} />
             </div>
-            <div className="rounded-xl border border-cream-200 bg-white/72 p-5 shadow-[0_14px_34px_rgba(68,51,35,0.05)]">
-              <div className="text-sm text-warm-gray-500">运动员等级</div>
-              <div className="mt-5 flex items-center gap-4">
-                <span className="grid size-14 place-items-center rounded-full bg-[#F4D986] text-2xl text-brown-700">奖</span>
-                <div>
-                  <div className="text-xl font-bold text-brown-800">{profileLevel}</div>
-                  <div className="mt-1 text-sm text-brown-400">{profileCompleteness} 分</div>
+            {annualPoint ? (
+              <div className="rounded-xl border border-cream-200 bg-white/72 p-5 shadow-[0_14px_34px_rgba(68,51,35,0.05)]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm text-warm-gray-500">{annualPoint.year} 年度积分</div>
+                  {annualPoint.match_level === 'candidate' && <span className="rounded-full border border-[#E8D9C4] bg-[#FFF8ED] px-2 py-0.5 text-[11px] font-semibold text-[#8A6A45]">待核验</span>}
+                </div>
+                <div className="mt-5 flex items-center gap-4">
+                  <span className="grid size-14 place-items-center rounded-full bg-[#F4D986] text-2xl font-bold text-brown-700">{annualPoint.rank_position || '-'}</span>
+                  <div>
+                    <div className="text-xl font-bold text-brown-800">{annualPoint.group_name || '年度榜单'}</div>
+                    <div className="mt-1 text-sm text-brown-400">第 {annualPoint.rank_position || '-'} 名 · {formatAnnualPoint(annualPoint.total_points)} 分</div>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="rounded-lg bg-cream-100 px-2 py-2 text-warm-gray-500"><div className="font-bold text-brown-700">{formatAnnualPoint(annualPoint.endurance_points)}</div><div>耐力</div></div>
+                  <div className="rounded-lg bg-cream-100 px-2 py-2 text-warm-gray-500"><div className="font-bold text-brown-700">{formatAnnualPoint(annualPoint.sprint_points)}</div><div>竞速</div></div>
+                  <div className="rounded-lg bg-cream-100 px-2 py-2 text-warm-gray-500"><div className="font-bold text-brown-700">{formatAnnualPoint(annualPoint.technical_points)}</div><div>技巧</div></div>
+                </div>
+                <div className="mt-4 text-xs text-warm-gray-400">{annualPoint.team_name || '个人'}</div>
+                <Link href={`/results?tab=points&year=${annualPoint.year}&athlete=${encodeURIComponent(athlete.name)}`} className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-cream-300 bg-white px-3 py-2 text-sm font-semibold text-brown-700 no-underline hover:bg-cream-50">
+                  查看积分明细
+                </Link>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-cream-200 bg-white/72 p-5 shadow-[0_14px_34px_rgba(68,51,35,0.05)]">
+                <div className="text-sm text-warm-gray-500">运动员等级</div>
+                <div className="mt-5 flex items-center gap-4">
+                  <span className="grid size-14 place-items-center rounded-full bg-[#F4D986] text-2xl text-brown-700">奖</span>
+                  <div>
+                    <div className="text-xl font-bold text-brown-800">{profileLevel}</div>
+                    <div className="mt-1 text-sm text-brown-400">{profileCompleteness} 分</div>
+                  </div>
+                </div>
+                <div className="mt-4 text-xs text-warm-gray-400">资料完整度 {profileCompleteness}%</div>
+                <div className="mt-2 h-2 rounded-full bg-cream-200">
+                  <div className="h-full rounded-full bg-brown-500" style={{ width: `${profileCompleteness}%` }} />
                 </div>
               </div>
-              <div className="mt-4 text-xs text-warm-gray-400">资料完整度 {profileCompleteness}%</div>
-              <div className="mt-2 h-2 rounded-full bg-cream-200">
-                <div className="h-full rounded-full bg-brown-500" style={{ width: `${profileCompleteness}%` }} />
-              </div>
-            </div>
+            )}
           </aside>
         </div>
       </section>
@@ -274,7 +371,7 @@ export default async function AthleteDetailPage({
         </div>
       )}
 
-      <AthleteResultsPanel athleteId={athleteId} />
+      <AthleteResultsPanel athleteId={athleteId} athleteName={athlete.name} />
 
       {/* ── 关键项目耗时 ──────────────────────────────────── */}
       {distanceKeys.length > 0 && (

@@ -5,6 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
 import ResultStatusBadge from '@/components/ResultStatusBadge';
+import Tooltip from '@/components/Tooltip';
 import type { ReactNode } from 'react';
 
 interface ResultRow {
@@ -44,6 +45,41 @@ interface FilterOption {
   meta?: string | null;
 }
 
+interface AnnualPointRow {
+  standing_id: number;
+  year: number;
+  group_code?: string | null;
+  group_name?: string | null;
+  rank_position: number | null;
+  athlete_id?: number | null;
+  athlete_name_snapshot?: string | null;
+  athlete_name?: string | null;
+  athlete_photo?: string | null;
+  team_name?: string | null;
+  club_id?: number | null;
+  club_name_snapshot?: string | null;
+  club_name?: string | null;
+  club_slug?: string | null;
+  club_status?: string | null;
+  total_points: number | string | null;
+  endurance_points?: number | string | null;
+  sprint_points?: number | string | null;
+  technical_points?: number | string | null;
+  source_title?: string | null;
+  source_url?: string | null;
+}
+
+interface AnnualPointGroup {
+  group_code: string | null;
+  group_name: string;
+  total: number | string;
+}
+
+interface AnnualPointYear {
+  year: number;
+  total: number | string;
+}
+
 interface MemberLike {
   name?: unknown;
   member_name?: unknown;
@@ -54,6 +90,13 @@ const rankOptions: FilterOption[] = [
   { value: '3', label: '前三名' },
   { value: '10', label: '前十名' },
   { value: '30', label: '前三十名' },
+];
+
+const pointRankOptions = [
+  { value: '', label: '全部排名' },
+  { value: '10', label: '前 10' },
+  { value: '30', label: '前 30' },
+  { value: '100', label: '前 100' },
 ];
 
 const pageSize = 20;
@@ -255,6 +298,26 @@ function AthleteCell({ row, members }: { row: ResultRow; members: string[] }) {
   return <Link href={`/athletes/${row.athlete_id}`} className="block no-underline">{body}</Link>;
 }
 
+function AnnualAthleteCell({ row }: { row: AnnualPointRow }) {
+  const name = row.athlete_name || row.athlete_name_snapshot || '-';
+  const avatar = row.athlete_photo ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={row.athlete_photo} alt={name} className="h-full w-full object-cover" loading="lazy" />
+  ) : (
+    <span className="text-sm font-black text-[#7A4B22]">{name.slice(0, 1)}</span>
+  );
+  const body = (
+    <span className="flex min-w-0 items-center gap-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E1D2BF] bg-[#F6EBDD] shadow-[0_5px_12px_rgba(86,63,38,0.12)]">
+        {avatar}
+      </span>
+      <span className="block truncate text-base font-bold text-[#3A2B20]">{name}</span>
+    </span>
+  );
+  if (!row.athlete_id) return body;
+  return <Link href={`/athletes/${row.athlete_id}`} className="block no-underline">{body}</Link>;
+}
+
 function LockedScoreValue({ align = 'right' }: { align?: 'right' | 'left' }) {
   return (
     <span className={`inline-flex items-center gap-2 rounded-full border border-[#E1D0B8] bg-[#FFF8ED] px-3 py-1.5 text-xs font-semibold text-[#8A6A45] ${align === 'right' ? 'justify-end' : ''}`}>
@@ -404,13 +467,236 @@ function NoResultsUploadGuide({
   );
 }
 
+function formatPoint(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === '') return '-';
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(value);
+  return num.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+}
+
+function AnnualPointsPanel({ token, loading }: { token: string | null; loading: boolean }) {
+  const searchParams = useSearchParams();
+  const [type, setType] = useState<'athlete' | 'club'>('athlete');
+  const [year, setYear] = useState(searchParams.get('year') || '');
+  const [groupCode, setGroupCode] = useState('');
+  const [search, setSearch] = useState(searchParams.get('athlete') || '');
+  const [rankMax, setRankMax] = useState('');
+  const [page, setPage] = useState(1);
+  const [jumpPage, setJumpPage] = useState('1');
+  const [items, setItems] = useState<AnnualPointRow[]>([]);
+  const [years, setYears] = useState<AnnualPointYear[]>([]);
+  const [groups, setGroups] = useState<AnnualPointGroup[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [fetching, setFetching] = useState(false);
+  const [error, setError] = useState('');
+  const [previewLocked, setPreviewLocked] = useState(false);
+
+  const query = useMemo(() => {
+    const params = new URLSearchParams({ type, page: String(page), pageSize: String(pageSize) });
+    if (year) params.set('year', year);
+    if (type === 'athlete' && groupCode) params.set('group_code', groupCode);
+    if (search.trim()) params.set('search', search.trim());
+    if (rankMax) params.set('rank_max', rankMax);
+    return params.toString();
+  }, [groupCode, page, rankMax, search, type, year]);
+
+  useEffect(() => {
+    if (loading) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setFetching(true);
+      setError('');
+      fetch(`/api/annual-points?${query}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined)
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || '年度积分查询失败');
+          if (cancelled) return;
+          setItems(data.items || []);
+          setYears(data.years || []);
+          setGroups(data.groups || []);
+          setTotal(Number(data.total || 0));
+          setTotalPages(Math.max(1, Number(data.totalPages || 1)));
+          setPreviewLocked(Boolean(data.preview_locked));
+          if (!year && data.year) setYear(String(data.year));
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setItems([]);
+            setPreviewLocked(false);
+            setError(err instanceof Error ? err.message : '年度积分查询失败');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setFetching(false);
+        });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, query, token, year]);
+
+  useEffect(() => {
+    queueMicrotask(() => setJumpPage(String(page)));
+  }, [page]);
+
+  function resetAnd(run?: () => void) {
+    if (run) run();
+    setPage(1);
+  }
+
+  function jumpToPointPage() {
+    const next = Math.min(totalPages, Math.max(1, Number(jumpPage) || 1));
+    setPage(next);
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="border border-[#E2D4C0] bg-white/88 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.2fr_1fr_1fr_auto]">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">榜单类型</label>
+            <select value={type} onChange={(event) => resetAnd(() => { setType(event.target.value === 'club' ? 'club' : 'athlete'); setYear(''); setGroupCode(''); })} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none focus:border-[#8B5A2B]">
+              <option value="athlete">运动员积分</option>
+              <option value="club">俱乐部积分</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">年份</label>
+            <select value={year} onChange={(event) => resetAnd(() => { setYear(event.target.value); setGroupCode(''); })} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none focus:border-[#8B5A2B]">
+              {years.map((item) => <option key={item.year} value={item.year}>{item.year} 年</option>)}
+              {!years.length && <option value="">暂无年份</option>}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">年度组别</label>
+            <select disabled={type === 'club'} value={groupCode} onChange={(event) => resetAnd(() => setGroupCode(event.target.value))} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none disabled:bg-[#F5EFE6] disabled:text-[#A6998B] focus:border-[#8B5A2B]">
+              <option value="">{type === 'club' ? '俱乐部积分无组别' : '全部组别'}</option>
+              {groups.filter((group) => group.group_code).map((group) => (
+                <option key={group.group_code || group.group_name} value={group.group_code || ''}>{group.group_name} · {group.total} 人</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">搜索</label>
+            <input value={search} onChange={(event) => resetAnd(() => setSearch(event.target.value))} placeholder={type === 'club' ? '俱乐部名' : '运动员 / 队伍'} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none placeholder:text-[#B5AA9C] focus:border-[#8B5A2B]" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">排名</label>
+            <select value={rankMax} onChange={(event) => resetAnd(() => setRankMax(event.target.value))} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none focus:border-[#8B5A2B]">
+              {pointRankOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button type="button" onClick={() => { setSearch(''); setGroupCode(''); setRankMax(''); setPage(1); }} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-[#CDBAA4] bg-white px-5 text-sm font-semibold text-[#6B3E1E] transition hover:bg-[#F8EFE4]">
+              <Icon name="rotate" />重置
+            </button>
+          </div>
+        </div>
+        <div className="mt-4 text-sm text-[#8A7B6B]">当前筛选命中 {total} 条年度积分</div>
+      </div>
+
+      {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {previewLocked && (
+        <div className="flex flex-col gap-3 rounded-md border border-[#DFC7A7] bg-[#FFF8EA] px-4 py-3 text-sm text-[#6B4A24] sm:flex-row sm:items-center sm:justify-between">
+          <span>未登录用户可预览前 3 条年度积分。登录后可查看完整榜单与分页。</span>
+          <Link href={`/login?redirect=${encodeURIComponent('/results?tab=points')}`} className="inline-flex shrink-0 rounded-md bg-[#6B3E1E] px-4 py-2 text-sm font-semibold text-white no-underline">
+            登录查看全部
+          </Link>
+        </div>
+      )}
+
+      <div className="overflow-hidden border border-[#E2D4C0] bg-white shadow-[0_18px_42px_rgba(91,68,43,0.08)]">
+        <div className="overflow-x-auto">
+          {type === 'club' ? (
+            <table className="w-full min-w-[840px] text-sm">
+              <thead className="border-b border-[#E8DCCA] bg-[#F4EDDF] text-left text-xs font-semibold uppercase tracking-wide text-[#746556]">
+                <tr><th className="px-4 py-4 text-center">排名</th><th className="px-4 py-4">俱乐部</th><th className="px-4 py-4 text-right">总积分</th><th className="px-4 py-4">来源</th></tr>
+              </thead>
+              <tbody>
+                {items.map((row) => (
+                  <tr key={row.standing_id} className="border-b border-[#EFE5D8] transition hover:bg-[#FFF8EE]">
+                    <td className="px-4 py-3 text-center"><RankBadge rank={Number(row.rank_position || 0)} /></td>
+                    <td className="px-4 py-3 text-base font-bold text-[#3A2B20]">
+                      {row.club_slug && row.club_status === 'published' ? (
+                        <Link href={`/clubs/${row.club_slug}`} className="text-[#3A2B20] no-underline hover:text-[#6B3E1E]">
+                          {row.club_name || row.club_name_snapshot || '-'}
+                        </Link>
+                      ) : (
+                        row.club_name || row.club_name_snapshot || '-'
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right text-base font-bold text-[#634325]">{formatPoint(row.total_points)}</td>
+                    <td className="px-4 py-3 text-[#6F6255]">{row.source_url ? <a href={row.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#6B3E1E] hover:text-[#3B2110]">{row.source_title || '原文来源'}</a> : (row.source_title || '-')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full min-w-[1180px] text-sm">
+              <thead className="border-b border-[#E8DCCA] bg-[#F4EDDF] text-left text-xs font-semibold uppercase tracking-wide text-[#746556]">
+                <tr>
+                  <th className="px-4 py-4 text-center">排名</th><th className="px-4 py-4">运动员</th><th className="px-4 py-4">组别</th><th className="px-4 py-4">队伍</th>
+                  <th className="px-4 py-4 text-right">总积分</th><th className="px-4 py-4 text-right">耐力</th><th className="px-4 py-4 text-right">竞速</th><th className="px-4 py-4 text-right">技巧</th><th className="px-4 py-4">来源</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((row) => {
+                  return (
+                    <tr key={row.standing_id} className="border-b border-[#EFE5D8] transition hover:bg-[#FFF8EE]">
+                      <td className="px-4 py-3 text-center"><RankBadge rank={Number(row.rank_position || 0)} /></td>
+                      <td className="px-4 py-3 font-semibold text-[#3A2B20]"><AnnualAthleteCell row={row} /></td>
+                      <td className="px-4 py-3 text-[#5B5148]">{row.group_name || '-'}</td>
+                      <td className="px-4 py-3 text-[#5B5148]">{row.team_name || '个人'}</td>
+                      <td className="px-4 py-3 text-right text-base font-bold text-[#634325]">{formatPoint(row.total_points)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{formatPoint(row.endurance_points)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{formatPoint(row.sprint_points)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{formatPoint(row.technical_points)}</td>
+                      <td className="px-4 py-3 text-[#6F6255]">{row.source_url ? <a href={row.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#6B3E1E] hover:text-[#3B2110]">{row.source_title || '原文来源'}</a> : (row.source_title || '-')}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          {!items.length && !fetching && <div className="px-4 py-12 text-center text-sm text-[#9B8A76]">当前年份或筛选条件下暂无年度积分数据</div>}
+        </div>
+        {fetching && <div className="border-t border-[#EEE4D8] px-4 py-4 text-center text-sm text-[#9B8A76]">加载中...</div>}
+      </div>
+
+      <div className="flex flex-col gap-3 border border-[#E2D4C0] bg-white px-4 py-3 text-sm text-[#746556] sm:flex-row sm:items-center sm:justify-between">
+        <span>共 {total} 条记录，第 {page} / {totalPages} 页</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button disabled={page <= 1 || previewLocked} onClick={() => setPage((v) => Math.max(1, v - 1))} className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#D8CDBE] bg-white disabled:opacity-40">‹</button>
+          {pageItems(page, totalPages).map((item, index) => item === 'gap' ? (
+            <span key={`point-gap-${index}`} className="px-2 text-[#A09284]">...</span>
+          ) : (
+            <button key={item} disabled={previewLocked} onClick={() => setPage(item)} className={`h-10 min-w-10 rounded-md border px-3 disabled:opacity-40 ${item === page ? 'border-[#6B3E1E] bg-[#6B3E1E] text-white' : 'border-[#D8CDBE] bg-white hover:bg-[#F8EFE4]'}`}>{item}</button>
+          ))}
+          <button disabled={page >= totalPages || previewLocked} onClick={() => setPage((v) => Math.min(totalPages, v + 1))} className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[#D8CDBE] bg-white disabled:opacity-40">›</button>
+          <input aria-label="跳转页码" disabled={previewLocked} value={jumpPage} onChange={(e) => setJumpPage(e.target.value.replace(/[^\d]/g, ''))} onKeyDown={(e) => { if (e.key === 'Enter') jumpToPointPage(); }} className="h-10 w-20 rounded-md border border-[#D8CDBE] bg-white px-3 text-center outline-none disabled:opacity-40 focus:border-[#8B5A2B]" />
+          <button disabled={previewLocked} onClick={jumpToPointPage} className="h-10 rounded-md border border-[#D8CDBE] bg-white px-3 hover:bg-[#F8EFE4] disabled:opacity-40">跳转</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ResultsContent() {
   const searchParams = useSearchParams();
   const { token, loading } = useUser();
+  const activeTab = searchParams.get('tab') === 'points' ? 'points' : 'results';
   const filtersPanelRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<ResultRow[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState({ resultCount: 0, athleteCount: 0, eventCount: 0 });
+  const [siteStats, setSiteStats] = useState({
+    resultCount: 0,
+    pointCount: 0,
+    resultAthleteCount: 0,
+    pointAthleteCount: 0,
+  });
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [jumpPage, setJumpPage] = useState('1');
@@ -433,6 +719,25 @@ function ResultsContent() {
     star_level: '',
     star_label: '',
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/site-stats')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setSiteStats({
+          resultCount: Number(data.resultCount || 0),
+          pointCount: Number(data.pointCount || 0),
+          resultAthleteCount: Number(data.resultAthleteCount || 0),
+          pointAthleteCount: Number(data.pointAthleteCount || 0),
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const athleteId = searchParams.get('athlete_id') || '';
@@ -460,6 +765,10 @@ function ResultsContent() {
 
   useEffect(() => {
     if (loading) return;
+    if (activeTab === 'points') {
+      setFetching(false);
+      return;
+    }
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
@@ -493,7 +802,7 @@ function ResultsContent() {
     return () => {
       cancelled = true;
     };
-  }, [loading, token, query]);
+  }, [activeTab, loading, token, query]);
 
   useEffect(() => {
     queueMicrotask(() => setJumpPage(String(page)));
@@ -568,17 +877,18 @@ function ResultsContent() {
         <div className="relative mx-auto flex max-w-7xl flex-col gap-8 px-4 py-12 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div className="max-w-3xl">
             <p className="mb-3 text-xs uppercase tracking-[0.32em] text-[#D8AE69]">Race Intelligence</p>
-            <h1 className="text-4xl font-bold tracking-tight md:text-6xl">桨板成绩查询</h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-[#E5D8C6]">记录你的每一次成长与进步</p>
+            <h1 className="text-4xl font-bold tracking-tight md:text-6xl">查成绩</h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-[#E5D8C6]">查询比赛成绩，也查看年度积分排名</p>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             {([
-              ['成绩数', stats.resultCount, 'timer'],
-              ['参赛运动员数', stats.athleteCount, 'user'],
-              ['比赛数', stats.eventCount, 'trophy'],
-            ] as const).map(([label, value, icon]) => (
+              ['成绩数', siteStats.resultCount || stats.resultCount, 'timer', '已收录并公开展示的赛事成绩记录总数。'],
+              ['积分数', siteStats.pointCount, 'star', '已收录的年度积分记录总数，包含运动员积分和俱乐部积分。'],
+              ['成绩运动员', siteStats.resultAthleteCount || stats.athleteCount, 'user', '在公开成绩中出现过的运动员去重数。'],
+              ['积分运动员数', siteStats.pointAthleteCount, 'trophy', '在年度积分榜中出现过的运动员去重数。'],
+            ] as const).map(([label, value, icon, tip]) => (
               <div key={String(label)} className="min-w-[128px] rounded-md border border-[#8C704E] bg-black/18 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur">
-                <div className="mb-3 flex items-center gap-2 text-xs text-[#D7B77F]"><Icon name={icon} />{label}</div>
+                <div className="mb-3 flex items-center gap-2 text-xs text-[#D7B77F]"><Icon name={icon} /><Tooltip tip={tip} dotted={false}>{label}</Tooltip></div>
                 <div className="text-3xl font-bold">{value}</div>
               </div>
             ))}
@@ -587,6 +897,18 @@ function ResultsContent() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-5 inline-flex rounded-md border border-[#E1D2BF] bg-white p-1 shadow-[0_12px_28px_rgba(91,68,43,0.08)]">
+          <Link href="/results" className={`rounded-md px-5 py-2.5 text-sm font-semibold no-underline transition ${activeTab === 'results' ? 'bg-[#6B3E1E] text-white shadow-[0_8px_18px_rgba(107,62,30,0.2)]' : 'text-[#6B3E1E] hover:bg-[#F8EFE4]'}`}>
+            比赛成绩
+          </Link>
+          <Link href="/results?tab=points" className={`rounded-md px-5 py-2.5 text-sm font-semibold no-underline transition ${activeTab === 'points' ? 'bg-[#6B3E1E] text-white shadow-[0_8px_18px_rgba(107,62,30,0.2)]' : 'text-[#6B3E1E] hover:bg-[#F8EFE4]'}`}>
+            年度积分
+          </Link>
+        </div>
+        {activeTab === 'points' ? (
+          <AnnualPointsPanel token={token} loading={loading} />
+        ) : (
+          <>
         <div ref={filtersPanelRef} className="mb-5 border border-[#E2D4C0] bg-white/88 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <SearchSelect label="运动员" type="athlete" value={filters.athlete_id} display={filters.athlete_label} icon="user" onChange={(v, l) => updateFilter('athlete_id', 'athlete_label', v, l)} />
@@ -742,6 +1064,8 @@ function ResultsContent() {
             <span className="rounded-md border border-[#D8CDBE] bg-white px-3 py-2">{pageSize} 条/页</span>
           </div>
         </div>}
+          </>
+        )}
       </section>
     </main>
   );
@@ -749,7 +1073,7 @@ function ResultsContent() {
 
 export default function ResultsPage() {
   return (
-    <Suspense fallback={<div className="min-h-[60vh] px-6 py-20 text-center text-[#7B6D5E]">正在加载成绩查询...</div>}>
+    <Suspense fallback={<div className="min-h-[60vh] px-6 py-20 text-center text-[#7B6D5E]">正在加载查成绩...</div>}>
       <ResultsContent />
     </Suspense>
   );

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 const links = [
-  { href: '/results', label: '成绩查询' },
+  { href: '/results', label: '查成绩' },
   { href: '/athletes', label: '运动员' },
   { href: '/events', label: '赛事' },
   { href: '/learn', label: '学习' },
@@ -18,7 +18,7 @@ export default function Footer() {
               SUP Wiki
             </div>
             <p style={{ fontSize: 12, color: '#A08060', maxWidth: 300, lineHeight: 1.75, margin: 0 }}>
-              桨板运动资讯百科。以成绩查询、运动员档案、赛事资料和系统学习为核心。
+              桨板运动资讯百科。以查成绩、运动员档案、赛事资料和系统学习为核心。
             </p>
           </div>
           <nav style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -29,7 +29,12 @@ export default function Footer() {
         </div>
         <div style={{ marginTop: 32, paddingTop: 20, borderTop: '1px solid #EDE5D8', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <span style={{ fontSize: 11, color: '#C0B4A4', letterSpacing: '0.04em' }}>© {new Date().getFullYear()} SUP Wiki</span>
-          <span style={{ fontSize: 11, color: '#C0B4A4', letterSpacing: '0.04em' }}>由运动骇客团队维护</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 11, color: '#C0B4A4', letterSpacing: '0.04em' }}>
+            <span>由运动骇客团队维护</span>
+            <a href="https://beian.miit.gov.cn/#/Integrated/index" target="_blank" rel="noopener noreferrer" style={{ color: '#A08060', textDecoration: 'none' }}>
+              浙ICP备2023044401号
+            </a>
+          </span>
         </div>
       </div>
     </footer>
