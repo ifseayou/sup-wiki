@@ -94,6 +94,8 @@ const navGroups = [
     icon: '◍',
     items: [
       { href: '/admin/users', label: '用户管理' },
+      { href: '/admin/mini-feedback', label: '用户反馈' },
+      { href: '/admin/mini-announcements', label: '首页公告' },
     ],
   },
 ];

@@ -24,6 +24,7 @@ interface ClaimRow {
   submitted_started_sup_year: number | null;
   submitted_intro_short: string | null;
   submitted_intro: string | null;
+  submitted_contact: string | null;
   submitted_sup_photo_urls?: string[];
   submitted_photo_urls?: string[];
   diffs?: {
@@ -207,6 +208,7 @@ export default function AdminAthleteClaimsPage() {
                 <div><strong>现居：</strong>{[item.submitted_living_province, item.submitted_living_city].filter(Boolean).join(' · ') || '-'}</div>
                 <div><strong>开始桨板：</strong>{item.submitted_started_sup_year || '-'}</div>
                 <div><strong>一句话：</strong>{item.submitted_intro_short || '-'}</div>
+                <div><strong>联系方式：</strong>{item.submitted_contact || '-'}</div>
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.8, color: '#4B4238' }}>
                 <div><strong>校验赛事：</strong>{item.event_name || '-'}</div>

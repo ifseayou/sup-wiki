@@ -51,6 +51,39 @@ function normalizedTeam(value) {
   return String(value || '').replace(/\s+/g, '').replace(/[（）()·・,，。:：;；\-—–_【】[\]「」“”"《》]/g, '').toLowerCase();
 }
 
+function cleanClubName(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(/[（［【]/g, '(')
+    .replace(/[）］】]/g, ')')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+}
+
+function slugifyClubName(name, fallback) {
+  const ascii = String(name || '')
+    .normalize('NFKD')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase()
+    .slice(0, 120);
+  if (ascii) return ascii;
+  const suffix = fallback || Buffer.from(String(name || 'club')).toString('hex').slice(0, 12);
+  return `club-${suffix}`;
+}
+
+async function uniqueClubSlug(conn, name) {
+  const base = slugifyClubName(name);
+  for (let index = 0; index < 1000; index += 1) {
+    const slug = index ? `${base}-${index + 1}` : base;
+    const [rows] = await conn.execute('SELECT club_id FROM sup_clubs WHERE slug = ? LIMIT 1', [slug]);
+    if (!rows.length) return slug;
+  }
+  return slugifyClubName(name, Date.now());
+}
+
 function numberOrNull(value) {
   if (value === null || value === undefined || value === '') return null;
   const next = Number(value);
@@ -130,28 +163,120 @@ async function createAthleteMatcher(conn, rows) {
 }
 
 async function createClubMatcher(conn, rows) {
-  const names = Array.from(new Set(rows.map((row) => row.club_name_snapshot).filter(Boolean)));
-  const normalized = names.map((name) => normalizedTeam(name)).filter(Boolean);
-  const clubsByNormalized = new Map();
-  if (normalized.length) {
-    const [clubs] = await conn.execute(
-      `SELECT club_id, name FROM sup_clubs WHERE name IN (${names.map(() => '?').join(',')})`,
-      names
+  const names = Array.from(new Set(rows.map((row) => cleanClubName(row.club_name_snapshot)).filter(Boolean)));
+  const keys = Array.from(new Set(names.map((name) => normalizedTeam(name)).filter(Boolean)));
+  const matchesByNormalized = new Map();
+  const sourceStats = new Map();
+
+  for (const row of rows) {
+    const rawName = cleanClubName(row.club_name_snapshot);
+    const key = normalizedTeam(rawName);
+    if (!key) continue;
+    const stats = sourceStats.get(key) || { name: rawName, standings: 0, years: new Set() };
+    stats.standings += 1;
+    stats.years.add(Number(row.year));
+    sourceStats.set(key, stats);
+  }
+
+  for (const chunk of chunkArray(keys)) {
+    if (!chunk.length) continue;
+    const placeholders = chunk.map(() => '?').join(',');
+    const [aliasRows] = await conn.execute(
+      `SELECT normalized_name, club_id, confidence
+       FROM sup_club_team_aliases
+       WHERE normalized_name IN (${placeholders}) AND match_status = 'confirmed' AND club_id IS NOT NULL
+       ORDER BY confidence DESC, alias_id ASC`,
+      chunk
     );
-    for (const club of clubs) {
-      const keys = [normalizedTeam(club.name)].filter(Boolean);
-      for (const key of keys) {
-        const list = clubsByNormalized.get(key) || [];
-        list.push(Number(club.club_id));
-        clubsByNormalized.set(key, list);
+    for (const alias of aliasRows) {
+      const key = String(alias.normalized_name || '');
+      if (!matchesByNormalized.has(key)) {
+        matchesByNormalized.set(key, {
+          clubId: Number(alias.club_id),
+          matchStatus: 'confirmed',
+          confidence: Number(alias.confidence || 0.95),
+        });
       }
     }
   }
+
+  for (const chunk of keys) {
+    const [clubs] = await conn.execute(
+      `SELECT club_id, name
+       FROM sup_clubs
+       WHERE LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name, ' ', ''), '　', ''), '（', '('), '）', ')'), '·', ''), '•', '')) = ?
+       ORDER BY status = 'published' DESC, club_id ASC
+       LIMIT 2`,
+      [chunk]
+    );
+    if (clubs.length === 1 && !matchesByNormalized.has(chunk)) {
+      matchesByNormalized.set(chunk, {
+        clubId: Number(clubs[0].club_id),
+        matchStatus: 'confirmed',
+        confidence: 1,
+      });
+    } else if (clubs.length > 1 && !matchesByNormalized.has(chunk)) {
+      matchesByNormalized.set(chunk, {
+        clubId: null,
+        matchStatus: 'conflict',
+        confidence: 0.45,
+      });
+    }
+  }
+
+  for (const [key, stats] of sourceStats.entries()) {
+    const existing = matchesByNormalized.get(key);
+    if (!existing) {
+      const slug = await uniqueClubSlug(conn, stats.name);
+      const [result] = await conn.execute(
+        `INSERT INTO sup_clubs
+          (slug, name, claim_status, verification_status, source_type, source_note, status)
+         VALUES (?, ?, 'unclaimed', 'unverified', 'annual_point_club', '年度俱乐部积分自动生成，待俱乐部认领完善资料', 'draft')`,
+        [slug, stats.name]
+      );
+      matchesByNormalized.set(key, {
+        clubId: Number(result.insertId),
+        matchStatus: 'confirmed',
+        confidence: 0.95,
+      });
+    }
+    const match = matchesByNormalized.get(key);
+    await conn.execute(
+      `INSERT INTO sup_club_team_aliases
+        (team_name_raw, normalized_name, club_id, match_status, confidence, result_count, event_count, athlete_count, source_type, admin_note, reviewed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'annual_point_club', '年度俱乐部积分导入自动确认', NOW())
+       ON DUPLICATE KEY UPDATE
+         team_name_raw = VALUES(team_name_raw),
+         club_id = CASE
+           WHEN sup_club_team_aliases.match_status IN ('ignored', 'rejected') THEN sup_club_team_aliases.club_id
+           ELSE VALUES(club_id)
+         END,
+         match_status = CASE
+           WHEN sup_club_team_aliases.match_status IN ('ignored', 'rejected') THEN sup_club_team_aliases.match_status
+           ELSE VALUES(match_status)
+         END,
+         confidence = GREATEST(sup_club_team_aliases.confidence, VALUES(confidence)),
+         result_count = GREATEST(sup_club_team_aliases.result_count, VALUES(result_count)),
+         event_count = GREATEST(sup_club_team_aliases.event_count, VALUES(event_count)),
+         source_type = VALUES(source_type),
+         admin_note = COALESCE(sup_club_team_aliases.admin_note, VALUES(admin_note)),
+         reviewed_at = COALESCE(sup_club_team_aliases.reviewed_at, VALUES(reviewed_at)),
+         updated_at = NOW()`,
+      [
+        stats.name,
+        key,
+        match.clubId,
+        match.matchStatus,
+        match.confidence,
+        Math.max(1, stats.standings),
+        Math.max(1, stats.years.size),
+      ]
+    );
+  }
+
   return (row) => {
-    const matches = clubsByNormalized.get(normalizedTeam(row.club_name_snapshot)) || [];
-    if (matches.length === 1) return { clubId: matches[0], matchStatus: 'confirmed', confidence: 0.95 };
-    if (matches.length > 1) return { clubId: null, matchStatus: 'conflict', confidence: 0.45 };
-    return { clubId: null, matchStatus: 'unmatched', confidence: 0.3 };
+    const match = matchesByNormalized.get(normalizedTeam(row.club_name_snapshot));
+    return match || { clubId: null, matchStatus: 'unmatched', confidence: 0.3 };
   };
 }
 

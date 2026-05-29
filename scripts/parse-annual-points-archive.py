@@ -87,6 +87,10 @@ def normalize_number(value: str | None) -> float | None:
 
 
 def normalize_rank(value: str | None) -> int | None:
+    text = str(value or "")
+    numbers = re.findall(r"\d+", text.replace("O", "0").replace("o", "0").replace("l", "1"))
+    if numbers:
+        return int(numbers[-1])
     num = normalize_number(value)
     if num is None:
         return None
@@ -127,7 +131,7 @@ def parse_article(path: Path) -> Article | None:
     pub_match = re.search(r'publish_time"[^>]*>(.*?)</em>', html, re.S)
     published_at = BeautifulSoup(pub_match.group(1), "html.parser").get_text("", strip=True) if pub_match else None
 
-    is_club = "俱乐部积分" in title
+    is_club = "俱乐部积分" in title or "社团组织" in title
     is_notice = "通知" in title
     group_name = None
     if not is_club and not is_notice:
@@ -323,6 +327,22 @@ def is_noise_row(row: dict[str, str]) -> bool:
     return bool(re.search(r"MOLOKAI|feesuy|WALK\s*ON\s*WATER|瑞\s*阳\s*体育|中国桨板|查询二维码|癿ab|极限运动护肤", text, re.I))
 
 
+ANNUAL_TOTAL_EXCLUDE_RE = re.compile(r"全能|竞速|技巧|长距离|体适能|适能|瑜伽")
+
+
+def image_is_annual_total_page(article: Article, ocr_rows: list[dict]) -> bool:
+    if article.year != 2022 or article.is_club:
+        return True
+    header_text = "".join(
+        "".join(columnize(bucket).values())
+        for bucket in row_buckets(ocr_rows)[:4]
+    )
+    compact = clean_text(header_text).replace("奖板", "桨板")
+    if ANNUAL_TOTAL_EXCLUDE_RE.search(compact):
+        return False
+    return "年度总积分" in compact or ("年度" in compact and "总积分" in compact)
+
+
 def parse_athlete_rows(article: Article, image_index: int, ocr_rows: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
     standings = []
     anomalies = []
@@ -398,6 +418,8 @@ def parse_club_rows(article: Article, image_index: int, ocr_rows: list[dict]) ->
         rank = normalize_rank(row.get("rank"))
         club = normalize_team(row.get("name") or row.get("team") or "")
         total = normalize_number(row.get("total") or row.get("technical") or row.get("endurance"))
+        if not club and total is None:
+            continue
         if rank is None and not club:
             continue
         if not club or total is None:
@@ -410,9 +432,40 @@ def parse_club_rows(article: Article, image_index: int, ocr_rows: list[dict]) ->
             "rank_position": rank,
             "club_name_snapshot": club,
             "total_points": total,
-            "raw_json": {"ocr_row": row, "image_index": image_index},
+            "raw_json": {"ocr_row": row, "image_index": image_index, "row_index": row_index},
         })
     return rows, anomalies
+
+
+def fill_club_ranks(rows: list[dict]) -> list[dict]:
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    for row in rows:
+        grouped[str(row.get("source_key") or "")].append(row)
+    normalized: list[dict] = []
+    for source_rows in grouped.values():
+        ordered = sorted(
+            source_rows,
+            key=lambda item: (
+                int((item.get("raw_json") or {}).get("image_index") or 0),
+                int((item.get("raw_json") or {}).get("row_index") or 0),
+            ),
+        )
+        missing_count = sum(1 for item in ordered if item.get("rank_position") is None)
+        if missing_count > len(ordered) / 2:
+            for index, item in enumerate(ordered, start=1):
+                item["rank_position"] = index
+                item["source_record_id"] = f"{item['source_key']}:rank{index:03d}"
+        else:
+            current = 0
+            for item in ordered:
+                if item.get("rank_position") is not None:
+                    current = int(item["rank_position"])
+                else:
+                    current += 1
+                    item["rank_position"] = current
+                    item["source_record_id"] = f"{item['source_key']}:rank{current:03d}"
+        normalized.extend(ordered)
+    return normalized
 
 
 def write_review_csv(path: Path, anomalies: list[dict]) -> None:
@@ -433,6 +486,8 @@ def main() -> int:
     parser.add_argument("--source-dir", default=str(DEFAULT_SOURCE_DIR))
     parser.add_argument("--cache-dir", default=str(DEFAULT_CACHE_DIR))
     parser.add_argument("--refresh-ocr", action="store_true")
+    parser.add_argument("--year", type=int, default=0)
+    parser.add_argument("--only-path", action="append", default=[], help="Only parse the specified HTML path. Can be repeated.")
     parser.add_argument("--limit-articles", type=int, default=0)
     parser.add_argument("--limit-images", type=int, default=0)
     parser.add_argument("--skip-download", action="store_true")
@@ -443,6 +498,11 @@ def main() -> int:
     cache_dir = Path(args.cache_dir)
     articles = [item for item in (parse_article(path) for path in sorted(source_dir.glob("*.html"))) if item]
     articles = [article for article in articles if article.year in {2022, 2023, 2024}]
+    if args.year:
+        articles = [article for article in articles if article.year == args.year]
+    if args.only_path:
+        only_paths = {str(Path(item).expanduser().resolve()) for item in args.only_path}
+        articles = [article for article in articles if str(article.path.expanduser().resolve()) in only_paths]
     if args.limit_articles:
         articles = articles[:args.limit_articles]
 
@@ -493,6 +553,8 @@ def main() -> int:
         if article.is_club:
             rows, bad = parse_club_rows(article, index, ocr_rows)
             return [], rows, bad, []
+        if not image_is_annual_total_page(article, ocr_rows):
+            return [], [], [], []
         if not article.group_code:
             local_anomalies.append({"article": article.title, "image_index": index, "reason": "unknown_group", "row": {}})
             return [], [], local_anomalies, []
@@ -515,6 +577,8 @@ def main() -> int:
             completed += 1
             if completed == total_tasks or completed % 25 == 0:
                 print(f"progress {completed}/{total_tasks} standings={len(standings)} club={len(club_standings)} anomalies={len(anomalies)} manual={len(manual_review)}", file=sys.stderr)
+
+    club_standings = fill_club_ranks(club_standings)
 
     payload = {"sources": sources, "standings": standings, "club_standings": club_standings, "anomalies": anomalies, "manual_review": manual_review}
     cache_dir.mkdir(parents=True, exist_ok=True)

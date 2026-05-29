@@ -101,6 +101,7 @@ export async function PATCH(
     const socialLinks = parseJsonObject(claim.social_links);
     const submittedProfile = parseJsonObject(claim.submitted_profile_json);
     const submittedSupPhotoUrls = parseUrlArray(submittedProfile.sup_photos || submittedProfile.photos);
+    const submittedIntro = claim.submitted_intro || String(submittedProfile.intro || '');
     const mergedPhotos = mergePhotoUrls(claim.current_photos, submittedSupPhotoUrls);
     const hometownProvince = claim.submitted_hometown_province || getNestedString(submittedProfile, ['hometown', 'province']);
     const hometownCity = claim.submitted_hometown_city || getNestedString(submittedProfile, ['hometown', 'city']);
@@ -113,7 +114,7 @@ export async function PATCH(
       living_province: claim.submitted_living_province || null,
       living_city: claim.submitted_living_city || null,
       started_sup_year: claim.submitted_started_sup_year || null,
-      intro_short: claim.submitted_intro_short || null,
+      intro_short: claim.submitted_intro_short || submittedIntro || null,
       profile_claim_id: claimId,
     };
     const nextSocialLinks = JSON.stringify({ ...socialLinks, public_profile: publicProfile });
@@ -135,7 +136,7 @@ export async function PATCH(
         JSON.stringify(mergedPhotos),
         hometownProvince,
         hometownCity,
-        claim.submitted_intro,
+        submittedIntro,
         nextSocialLinks,
         claim.athlete_id,
       ]

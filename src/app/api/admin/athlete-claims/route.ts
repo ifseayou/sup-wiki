@@ -29,6 +29,9 @@ function normalizeClaimRow(row: RowDataPacket) {
   const currentPhotoUrls = parseUrlArray(row.current_photos_json);
   const normalized = {
     ...row,
+    submitted_contact: String(submittedProfile.contact || row.submitted_contact || ''),
+    submitted_intro_short: row.submitted_intro_short || submittedProfile.intro || '',
+    submitted_intro: row.submitted_intro || submittedProfile.intro || '',
     current_public_profile: parseJsonObject(currentSocialLinks.public_profile),
     current_photo_urls: currentPhotoUrls,
     previous_submitted_sup_photo_urls: previousSupPhotoUrls,

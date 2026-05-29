@@ -89,11 +89,23 @@ function parseDataItems(blockHtml: string) {
   return values;
 }
 
+function normalizeExpiryDate(value: unknown) {
+  const text = textOrNull(value);
+  if (!text) return null;
+  const standard = dateOrNull(text);
+  if (standard && /^\d{4}-\d{2}-\d{2}$/.test(standard)) return standard;
+  const shortSlash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+  if (shortSlash) {
+    return `20${shortSlash[3]}-${shortSlash[1].padStart(2, '0')}-${shortSlash[2].padStart(2, '0')}`;
+  }
+  return null;
+}
+
 function buildRecord(values: Record<string, string>): WjxCoachCertificateRecord | null {
   const name = textOrNull(values['姓名']);
   const certificateNo = textOrNull(values['证书编号']);
   const clubName = textOrNull(values['所属俱乐部']);
-  const expiryDate = dateOrNull(values['证书有效期截止']);
+  const expiryDate = normalizeExpiryDate(values['证书有效期截止']);
   const publicIndex = textOrNull(values['序号']);
   if (!name && !certificateNo && !clubName && !expiryDate) return null;
   const sourceExcerpt = [
@@ -118,7 +130,7 @@ function buildRecord(values: Record<string, string>): WjxCoachCertificateRecord 
 }
 
 function parseResultHtml(html: string): WjxCoachCertificateResult {
-  if (/验证码|访问过于频繁|操作频繁|安全验证|captcha/i.test(html)) {
+  if (/访问过于频繁|操作频繁|安全验证|请完成验证|滑动验证/i.test(html)) {
     return { status: 'blocked', records: [], errorMessage: '问卷星返回安全验证或访问频率限制' };
   }
 
