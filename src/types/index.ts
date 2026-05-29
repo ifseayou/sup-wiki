@@ -167,6 +167,9 @@ export interface Athlete {
   athlete_id: number;
   name: string;
   name_en?: string;
+  gender?: 'male' | 'female' | 'mixed' | 'unknown';
+  gender_source?: 'manual' | 'result_inferred' | 'unknown';
+  gender_confidence?: number;
   nationality?: string;
   province?: string;
   city?: string;
@@ -317,6 +320,7 @@ export interface ProductFilter {
 
 export interface AthleteFilter {
   discipline?: Discipline;
+  gender?: 'male' | 'female' | 'mixed' | 'unknown';
   nationality?: string;
   search?: string;
 }

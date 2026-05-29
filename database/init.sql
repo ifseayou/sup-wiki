@@ -54,6 +54,9 @@ CREATE TABLE IF NOT EXISTS sup_athletes (
     athlete_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
     name_en VARCHAR(100),
+    gender ENUM('male', 'female', 'mixed', 'unknown') NOT NULL DEFAULT 'unknown',
+    gender_source ENUM('manual', 'result_inferred', 'unknown') NOT NULL DEFAULT 'unknown',
+    gender_confidence DECIMAL(4,3),
     nationality VARCHAR(50),
     province VARCHAR(50),
     city VARCHAR(50),
@@ -68,6 +71,7 @@ CREATE TABLE IF NOT EXISTS sup_athletes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_athletes_discipline (discipline),
+    INDEX idx_athletes_gender (gender, status),
     INDEX idx_athletes_region (province, city),
     INDEX idx_athletes_ranking (icf_ranking),
     INDEX idx_athletes_status (status)

@@ -8,6 +8,7 @@ const {
   isPersonalChineseName,
   isYouthGroup,
 } = require('./coach-certificate-candidate-utils');
+const { inferGenderFromGroup } = require('./athlete-gender-utils');
 
 function readArgs(argv) {
   const args = { commit: false, dryRun: true, excludeYouth: true, limit: 200 };
@@ -47,6 +48,7 @@ async function loadCandidates(connection, args) {
     SELECT
       a.athlete_id,
       a.name,
+      a.gender,
       er.gender_group,
       e.start_date
     FROM sup_event_results er
@@ -67,6 +69,10 @@ async function loadCandidates(connection, args) {
     const group = String(row.gender_group || '');
     if (!isPersonalChineseName(name)) continue;
     if (args.excludeYouth && isYouthGroup(group)) continue;
+    const athleteGender = String(row.gender || 'unknown');
+    const groupGender = inferGenderFromGroup(group);
+    const isMalePriority = athleteGender === 'male'
+      || ((athleteGender === 'unknown' || !athleteGender) && (groupGender === 'male' || isMaleGroup(group)));
     const current = map.get(name) || {
       name,
       athleteIds: new Set(),
@@ -77,7 +83,7 @@ async function loadCandidates(connection, args) {
     };
     current.athleteIds.add(Number(row.athlete_id));
     current.resultCount += 1;
-    current.maleScore = Math.max(current.maleScore, isMaleGroup(group) ? 1 : 0);
+    current.maleScore = Math.max(current.maleScore, isMalePriority ? 1 : 0);
     const date = row.start_date ? String(row.start_date).slice(0, 10) : '';
     if (date > current.lastResultDate) current.lastResultDate = date;
     map.set(name, current);

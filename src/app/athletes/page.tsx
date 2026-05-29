@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
 import pool from '@/lib/db';
+import { normalizeAthleteGender, genderLabel } from '@/lib/athlete-gender';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import type { RowDataPacket } from 'mysql2';
 
@@ -8,6 +9,7 @@ interface AthleteCenterRow extends RowDataPacket {
   athlete_id: number;
   name: string;
   name_en: string | null;
+  gender: string | null;
   nationality: string | null;
   province: string | null;
   city: string | null;
@@ -61,6 +63,13 @@ function cleanParam(value?: string) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function cleanGenderParam(value?: string) {
+  const raw = cleanParam(value);
+  if (!raw) return '';
+  const gender = normalizeAthleteGender(raw);
+  return gender === 'unknown' ? '' : gender;
+}
+
 function clampPage(value?: string) {
   const page = Number(value || 1);
   return Number.isInteger(page) && page > 0 ? page : 1;
@@ -111,18 +120,10 @@ function buildAthleteQuery(filters: {
     baseConditions.push('a.nationality = ?');
     baseParams.push(filters.nationality);
   }
-  if (filters.gender) {
-    baseConditions.push(`EXISTS (
-      SELECT 1
-      FROM sup_event_results gender_er
-      INNER JOIN sup_event_result_sources gender_src ON gender_src.source_id = gender_er.source_id
-      WHERE gender_er.athlete_id = a.athlete_id
-        AND gender_er.gender_group LIKE ?
-        AND ${localResultSourceCondition.replaceAll('src.', 'gender_src.')}
-        AND gender_er.review_status = 'confirmed'
-        AND gender_er.is_verified = 1
-    )`);
-    baseParams.push(`%${filters.gender}%`);
+  const normalizedGender = normalizeAthleteGender(filters.gender);
+  if (normalizedGender !== 'unknown') {
+    baseConditions.push('a.gender = ?');
+    baseParams.push(normalizedGender);
   }
   if (filters.tier) {
     outerConditions.push('tier_key = ?');
@@ -149,7 +150,7 @@ function buildAthleteQuery(filters: {
     ),
     athlete_metrics AS (
       SELECT
-        a.athlete_id, a.name, a.name_en, a.nationality, a.province, a.city, a.photo,
+        a.athlete_id, a.name, a.name_en, a.gender, a.nationality, a.province, a.city, a.photo,
         a.discipline, a.icf_ranking,
         COALESCE(stats.result_count, 0) AS result_count,
         COALESCE(stats.event_count, 0) AS event_count,
@@ -368,7 +369,7 @@ export default async function AthletesPage({
     search: cleanParam(params.search),
     tier: cleanParam(params.tier),
     discipline: cleanParam(params.discipline),
-    gender: cleanParam(params.gender),
+    gender: cleanGenderParam(params.gender),
     nationality: cleanParam(params.nationality) || '中国',
     page: clampPage(params.page),
   };
@@ -477,8 +478,9 @@ export default async function AthletesPage({
               <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">性别</span>
               <select name="gender" defaultValue={filters.gender} className="h-11 w-full rounded-md border border-[#E2D4C0] bg-white px-3 text-sm outline-none focus:border-[#A26D2F]">
                 <option value="">请选择性别</option>
-                <option value="男子">男子</option>
-                <option value="女子">女子</option>
+                <option value="male">男</option>
+                <option value="female">女</option>
+                <option value="mixed">混合/团体</option>
               </select>
             </label>
             <label className="block">
@@ -515,7 +517,7 @@ export default async function AthletesPage({
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="truncate text-lg font-black text-[#2F251C]">{athlete.name}</div>
-                          <div className="mt-1 text-xs text-[#A09284]">{[athlete.nationality, athlete.city].filter(Boolean).join(' · ') || '资料待补充'}</div>
+                          <div className="mt-1 text-xs text-[#A09284]">{[genderLabel(athlete.gender), athlete.nationality, athlete.city].filter(Boolean).join(' · ') || '资料待补充'}</div>
                         </div>
                         <TierBadge tier={athlete.tier} />
                       </div>

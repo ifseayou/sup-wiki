@@ -3,6 +3,7 @@
 import EntityManager from '@/components/admin/EntityManager';
 import ImageUpload, { MultiImageUpload } from '@/components/admin/ImageUpload';
 import RegionSelect from '@/components/admin/RegionSelect';
+import { genderLabel } from '@/lib/athlete-gender';
 import { useAdminAuth } from '../layout';
 
 function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
@@ -32,6 +33,17 @@ function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>;
           <label className="block text-xs text-warm-gray-400 mb-1">国籍</label>
           <input className={inp} value={String(data.nationality || '')} onChange={e => set('nationality', e.target.value)} placeholder="中国" />
         </div>
+        <div>
+          <label className="block text-xs text-warm-gray-400 mb-1">性别</label>
+          <select className={inp} value={String(data.gender || 'unknown')} onChange={e => onChange({ ...data, gender: e.target.value, gender_source: 'manual', gender_confidence: null })}>
+            <option value="unknown">未知</option>
+            <option value="male">男</option>
+            <option value="female">女</option>
+            <option value="mixed">混合/团体</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">运动项目</label>
           <select className={inp} value={String(data.discipline || 'race')} onChange={e => set('discipline', e.target.value)}>
@@ -64,14 +76,36 @@ function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>;
   );
 }
 
+function formatLocation(province: unknown, city: unknown) {
+  return [province, city].filter(Boolean).join(' / ') || '—';
+}
+
+function formatAnnualRank(row: Record<string, unknown>) {
+  const rank = Number(row.latest_annual_rank || 0);
+  if (!Number.isFinite(rank) || rank <= 0 || rank >= 999999) return '—';
+  const year = row.latest_annual_year ? `${row.latest_annual_year}年` : '';
+  const group = row.latest_annual_group ? String(row.latest_annual_group) : '';
+  const points = row.latest_annual_points ? `${Number(row.latest_annual_points).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}分` : '';
+  const meta = [year, group, points].filter(Boolean).join(' · ');
+  return (
+    <div>
+      <div className="font-medium text-brown-700">#{rank}</div>
+      {meta && <div className="mt-0.5 max-w-40 truncate text-xs text-warm-gray-400" title={meta}>{meta}</div>}
+    </div>
+  );
+}
+
 const columns = [
   { key: 'name', label: '姓名' },
+  { key: 'gender', label: '性别', render: (value: unknown, row: Record<string, unknown>) => `${genderLabel(value)}${row.gender_source === 'result_inferred' ? '（推断）' : ''}` },
   { key: 'nationality', label: '国籍' },
-  { key: 'province', label: '籍贯', render: (_v: unknown, row: Record<string, unknown>) => [row.province, row.city].filter(Boolean).join(' / ') || '—' },
+  { key: 'province', label: '籍贯', render: (_v: unknown, row: Record<string, unknown>) => formatLocation(row.province, row.city) },
+  { key: 'living_city', label: '现居城市', render: (_v: unknown, row: Record<string, unknown>) => formatLocation(row.living_province, row.living_city) },
   { key: 'discipline', label: '项目', render: (v: unknown) => ({'race':'竞速','surf':'冲浪','distance':'长距离','technical':'技巧'}[String(v)] || String(v)) },
-  { key: 'icf_ranking', label: 'ICF排名', render: (v: unknown) => v ? `#${v}` : '—' },
+  { key: 'latest_annual_rank', label: '国内年度排名', render: (_v: unknown, row: Record<string, unknown>) => formatAnnualRank(row) },
+  { key: 'is_claimed', label: '认领', render: (v: unknown) => Number(v) > 0 ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">已认领</span> : <span className="rounded-full bg-cream-100 px-2 py-0.5 text-xs text-warm-gray-400">未认领</span> },
 ];
-const defaultFormData = { athlete_id: undefined, name: '', name_en: '', nationality: '', province: '', city: '', photo: '', photos: [], bio: '', discipline: 'race', icf_ranking: '', achievements: [], social_links: {} };
+const defaultFormData = { athlete_id: undefined, name: '', name_en: '', gender: 'unknown', gender_source: 'manual', gender_confidence: null, nationality: '', province: '', city: '', photo: '', photos: [], bio: '', discipline: 'race', icf_ranking: '', achievements: [], social_links: {} };
 
 export default function AthletesAdminPage() {
   const { token } = useAdminAuth();

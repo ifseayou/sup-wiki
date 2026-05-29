@@ -3,12 +3,12 @@ import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
 import type { ResultSetHeader } from 'mysql2';
 
-export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
+export const PUT = withAdmin(async (request: NextRequest) => {
   try {
     const url = new URL(request.url);
     const id = url.pathname.split('/').at(-1);
     const body = await request.json();
-    const allowed = ['name','name_en','nationality','province','city','photo','bio','discipline','icf_ranking','status'];
+    const allowed = ['name','name_en','gender','gender_source','gender_confidence','nationality','province','city','photo','bio','discipline','icf_ranking','status'];
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
     for (const f of allowed) {
@@ -28,7 +28,7 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
   }
 });
 
-export const DELETE = withAdmin(async (request: NextRequest, _ctx) => {
+export const DELETE = withAdmin(async (request: NextRequest) => {
   try {
     const url = new URL(request.url);
     const id = url.pathname.split('/').at(-1);

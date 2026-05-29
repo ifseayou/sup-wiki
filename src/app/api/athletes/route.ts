@@ -11,6 +11,9 @@ interface AthleteRow extends RowDataPacket {
   athlete_id: number;
   name: string;
   name_en: string | null;
+  gender: string | null;
+  gender_source: string | null;
+  gender_confidence: number | null;
   nationality: string | null;
   province: string | null;
   city: string | null;
