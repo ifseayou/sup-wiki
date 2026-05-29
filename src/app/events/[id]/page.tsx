@@ -148,6 +148,17 @@ function InfoIcon({ type }: { type: 'calendar' | 'pin' | 'file' | 'fee' | 'troph
   );
 }
 
+function buildResultBookUploadHref(event: Pick<EventRow, 'event_id' | 'name' | 'start_date'>, dateLabel: string, placeLabel: string) {
+  const params = new URLSearchParams({
+    event_id: String(event.event_id),
+    event_name: event.name,
+    location: placeLabel === '待公布' ? '' : placeLabel,
+  });
+  if (event.start_date) params.set('event_date', formatDate(event.start_date));
+  else if (dateLabel !== '待公布') params.set('event_date', dateLabel);
+  return `/events/upload-results?${params.toString()}`;
+}
+
 export default async function EventDetailPage({
   params,
 }: {
@@ -164,6 +175,8 @@ export default async function EventDetailPage({
     ? `${formatDate(event.start_date)}${event.end_date ? ` — ${formatDate(event.end_date)}` : ''}`
     : '待公布';
   const placeLabel = [event.venue, event.city, event.province].filter(Boolean).join('，') || event.location || '待公布';
+  const needsResultBook = event.event_status === 'completed' && (stats.resultCount === 0 || event.result_status === 'none' || !event.result_status);
+  const resultBookUploadHref = buildResultBookUploadHref(event, dateLabel, placeLabel);
 
   return (
     <main className="min-h-screen bg-[#F7F1E8] text-[#2E2118]">
@@ -305,6 +318,61 @@ export default async function EventDetailPage({
         <div id="results">
           <EventResultsPanel eventId={event.event_id} />
         </div>
+
+        {needsResultBook && (
+          <section
+            id="result-book-submit"
+            className="mt-8 overflow-hidden rounded-[28px] border border-[#D9B574] bg-[#FFF8EA] shadow-[0_22px_60px_rgba(110,78,36,0.13)]"
+          >
+            <div
+              className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_280px]"
+              style={{
+                background:
+                  'radial-gradient(circle at 12% 18%, rgba(255,255,255,0.92), transparent 30%), radial-gradient(circle at 86% 0%, rgba(203,151,78,0.24), transparent 28%), linear-gradient(135deg, rgba(255,248,234,0.98), rgba(249,236,211,0.88))',
+              }}
+            >
+              <div>
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#D9B574] bg-white/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[#8A612F]">
+                  Result Book Needed
+                </div>
+                <h2 className="font-[var(--font-display)] text-3xl font-semibold leading-tight text-[#2E2118] sm:text-4xl">
+                  上传官方成绩册 PDF
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-[#655D56]">
+                  这场比赛目前还缺官方成绩册。仅支持 PDF，单个不超过 20MB，管理员复核后收录到赛事成绩档案。
+                </p>
+                <div className="mt-5 grid gap-3 text-sm text-[#6F6258] sm:grid-cols-3">
+                  <div className="rounded-2xl border border-white/70 bg-white/62 px-4 py-3">
+                    <div className="text-xs text-[#9A8978]">赛事</div>
+                    <div className="mt-1 font-semibold text-[#2E2118]">{event.name}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/70 bg-white/62 px-4 py-3">
+                    <div className="text-xs text-[#9A8978]">日期</div>
+                    <div className="mt-1 font-semibold text-[#2E2118]">{dateLabel}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/70 bg-white/62 px-4 py-3">
+                    <div className="text-xs text-[#9A8978]">地点</div>
+                    <div className="mt-1 font-semibold text-[#2E2118]">{placeLabel}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col justify-between rounded-[22px] border border-[#D8B273] bg-[#2E2118] p-5 text-white shadow-[0_18px_36px_rgba(46,33,24,0.20)]">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.24em] text-[#E3C892]">Community Archive</div>
+                  <p className="mt-4 text-sm leading-7 text-[#F7E9D0]">
+                    有完整成绩册的人，实际上是在帮这场比赛建立可引用的公共档案。
+                  </p>
+                </div>
+                <Link
+                  href={resultBookUploadHref}
+                  className="mt-6 inline-flex h-12 items-center justify-center rounded-2xl bg-[#D7A04E] px-5 text-sm font-semibold text-[#2E2118] no-underline transition hover:bg-[#E6B966]"
+                >
+                  选择 PDF 并提交
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section id="notes" className="mt-8 grid gap-6 lg:grid-cols-2">
           {event.description && (

@@ -24,6 +24,7 @@ interface EventRow extends RowDataPacket {
   event_status: string;
   star_level: string | null;
   score_coefficient: string | null;
+  result_status: string | null;
   results_count: number;
 }
 
@@ -151,7 +152,7 @@ async function getEvents(event_type?: string, event_status?: string, province?: 
     const [events] = await pool.execute<EventRow[]>(
       `SELECT sup_events.event_id, name, slug, event_type, location, province, city, venue,
               start_date, end_date, registration_deadline, organizer, description, disciplines,
-              images, price_range, event_status, star_level, score_coefficient,
+              images, price_range, event_status, star_level, score_coefficient, result_status,
               COALESCE(r.results_count, 0) AS results_count
        FROM sup_events
        LEFT JOIN (
@@ -494,13 +495,14 @@ function EventCard({ event, highlighted = false }: {
   const statusInfo = eventStatusLabels[event.event_status] || eventStatusLabels.completed;
   const typeLabel = eventTypeLabels[event.event_type] || event.event_type;
   const image = event.images[0];
+  const needsResultBook = event.event_status === 'completed' && (event.results_count === 0 || event.result_status === 'none' || !event.result_status);
   const fallback = highlighted
     ? 'linear-gradient(120deg, rgba(117,148,156,0.72), rgba(242,218,172,0.72)), radial-gradient(circle at 78% 30%, rgba(255,255,255,0.72), transparent 28%)'
     : 'linear-gradient(120deg, rgba(137,160,150,0.62), rgba(210,182,139,0.66)), radial-gradient(circle at 70% 24%, rgba(255,255,255,0.64), transparent 28%)';
 
   return (
     <Link
-      href={`/events/${event.event_id}`}
+      href={`/events/${event.event_id}${needsResultBook ? '#result-book-submit' : ''}`}
       className="group block overflow-hidden rounded-xl border border-[#E0D8CC] bg-white/82 no-underline shadow-[0_14px_34px_rgba(88,63,36,0.08)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(88,63,36,0.14)]"
     >
       <div
@@ -547,8 +549,24 @@ function EventCard({ event, highlighted = false }: {
             <span>已录成绩 {event.results_count} 条</span>
           </div>
         </div>
+        {needsResultBook && (
+          <div className="mt-4 rounded-xl border border-dashed border-[#C99A57] bg-[#FFF8EA] px-4 py-3 text-sm text-[#765125]">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-semibold">缺成绩册，欢迎提交 PDF</span>
+              <span className="shrink-0 text-xs font-semibold text-[#9B6B32]">待补录</span>
+            </div>
+          </div>
+        )}
         <div className="mt-4 flex justify-end text-sm font-semibold text-[#8A612F]">
-          查看详情 <span className="ml-2 transition group-hover:translate-x-1">›</span>
+          {needsResultBook ? (
+            <span
+              className="inline-flex items-center rounded-full bg-[#8A612F] px-3 py-1 text-xs font-semibold text-white shadow-[0_8px_16px_rgba(138,97,47,0.20)]"
+            >
+              查看详情 / 上传成绩册
+            </span>
+          ) : (
+            <>查看详情 <span className="ml-2 transition group-hover:translate-x-1">›</span></>
+          )}
         </div>
       </div>
     </Link>

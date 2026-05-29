@@ -11,6 +11,16 @@ const OSS_ENDPOINT = `${OSS_BUCKET}.oss-cn-hangzhou.aliyuncs.com`;
 const MAX_SIZE = 20 * 1024 * 1024;
 const MAX_FILES = 10;
 
+interface EventLookupRow extends RowDataPacket {
+  event_id: number;
+  name: string;
+  start_date: Date | string | null;
+  location: string | null;
+  province: string | null;
+  city: string | null;
+  venue: string | null;
+}
+
 function ossSign(method: string, contentType: string, date: string, ossKey: string) {
   const stringToSign = `${method}\n\n${contentType}\n${date}\n/${OSS_BUCKET}/${ossKey}`;
   const signature = crypto.createHmac('sha1', OSS_SK).update(stringToSign).digest('base64');
@@ -26,6 +36,23 @@ function cleanDate(value: FormDataEntryValue | null) {
   const text = cleanText(value, 20);
   if (!text) return null;
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+}
+
+function formatMysqlDate(value: Date | string | null) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
+async function getPublishedEvent(eventId: number) {
+  const [rows] = await pool.execute<EventLookupRow[]>(
+    `SELECT event_id, name, start_date, location, province, city, venue
+     FROM sup_events
+     WHERE event_id = ? AND status = 'published'
+     LIMIT 1`,
+    [eventId]
+  );
+  return rows[0] || null;
 }
 
 async function hasPdfHeader(file: File) {
@@ -92,28 +119,36 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.formData();
-    const eventName = cleanText(formData.get('event_name'), 160);
-    const location = cleanText(formData.get('location'), 160);
+    let eventName = cleanText(formData.get('event_name'), 160);
+    let location = cleanText(formData.get('location'), 160);
     const userNote = cleanText(formData.get('user_note'), 1000);
-    const eventDate = cleanDate(formData.get('event_date'));
+    let eventDate = cleanDate(formData.get('event_date'));
     const eventIdValue = cleanText(formData.get('event_id'), 30);
     const eventId = eventIdValue && Number.isInteger(Number(eventIdValue)) && Number(eventIdValue) > 0
       ? Number(eventIdValue)
       : null;
     const files = getPdfFiles(formData);
 
+    if (eventId) {
+      const boundEvent = await getPublishedEvent(eventId);
+      if (!boundEvent) return NextResponse.json({ error: '赛事不存在或暂未公开' }, { status: 404 });
+      eventName = boundEvent.name;
+      eventDate = formatMysqlDate(boundEvent.start_date);
+      location = [boundEvent.venue, boundEvent.city, boundEvent.province].filter(Boolean).join('，') || boundEvent.location || location;
+    }
+
     if (!eventName) return NextResponse.json({ error: '请填写赛事名称' }, { status: 400 });
     if (files.length === 0) return NextResponse.json({ error: '请选择 PDF 成绩册' }, { status: 400 });
     if (files.length > MAX_FILES) return NextResponse.json({ error: `一次最多提交 ${MAX_FILES} 个 PDF` }, { status: 400 });
-    if (!OSS_AK || !OSS_SK) return NextResponse.json({ error: '文件上传服务未配置' }, { status: 500 });
 
     for (const file of files) {
-      if (file.type !== 'application/pdf') return NextResponse.json({ error: `${file.name} 不是 PDF 文件` }, { status: 400 });
+      if (file.type !== 'application/pdf') return NextResponse.json({ error: '仅支持 PDF 成绩册' }, { status: 400 });
       if (!file.name.toLowerCase().endsWith('.pdf')) return NextResponse.json({ error: `${file.name} 的扩展名必须是 .pdf` }, { status: 400 });
       if (file.size <= 0) return NextResponse.json({ error: `${file.name} 为空文件` }, { status: 400 });
       if (file.size > MAX_SIZE) return NextResponse.json({ error: `${file.name} 超过 20MB` }, { status: 400 });
-      if (!(await hasPdfHeader(file))) return NextResponse.json({ error: `${file.name} 不是有效 PDF` }, { status: 400 });
+      if (!(await hasPdfHeader(file))) return NextResponse.json({ error: '文件内容不是有效 PDF' }, { status: 400 });
     }
+    if (!OSS_AK || !OSS_SK) return NextResponse.json({ error: '文件上传服务未配置' }, { status: 500 });
 
     const batchId = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
     const batchTotal = files.length;

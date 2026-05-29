@@ -9,8 +9,8 @@ function UploadResultsForm() {
   const searchParams = useSearchParams();
   const { user, token, loading } = useUser();
   const [eventName, setEventName] = useState(searchParams.get('event_name') || '');
-  const [eventDate, setEventDate] = useState('');
-  const [location, setLocation] = useState('');
+  const [eventDate, setEventDate] = useState(searchParams.get('event_date') || '');
+  const [location, setLocation] = useState(searchParams.get('location') || '');
   const [note, setNote] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -21,6 +21,7 @@ function UploadResultsForm() {
     const redirect = `/events/upload-results${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     return `/login?redirect=${encodeURIComponent(redirect)}`;
   }, [searchParams]);
+  const hasBoundEvent = !!searchParams.get('event_id');
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -71,7 +72,7 @@ function UploadResultsForm() {
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#987D59]">Result Book</p>
         <h1 className="text-3xl font-bold text-stone-800">上传赛事成绩册</h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-stone-500">
-          如果你手上有尚未收录的官方 PDF 成绩册，可以提交给我们整理入库。成绩不会自动公开，管理员会先复核来源和内容。
+          如果你手上有尚未收录的官方 PDF 成绩册，可以提交给我们整理入库。仅支持 PDF，单个不超过 20MB，管理员会先复核来源和内容。
         </p>
       </div>
 
@@ -99,10 +100,12 @@ function UploadResultsForm() {
                 value={eventName}
                 onChange={(e) => setEventName(e.target.value)}
                 required
+                readOnly={hasBoundEvent}
                 maxLength={160}
-                className="h-11 rounded-lg border border-[#E0D8CC] bg-white px-3 text-sm text-stone-800 outline-none focus:border-[#8B7355]"
+                className={`h-11 rounded-lg border border-[#E0D8CC] px-3 text-sm text-stone-800 outline-none focus:border-[#8B7355] ${hasBoundEvent ? 'bg-[#F8F1E8]' : 'bg-white'}`}
                 placeholder="例如：2025中国百城桨板公开赛宁波梅山湾站"
               />
+              {hasBoundEvent && <span className="text-xs text-stone-400">已从赛事详情页自动带入，提交时会以系统内赛事信息为准。</span>}
             </label>
             <div className="grid gap-5 sm:grid-cols-2">
               <label className="grid gap-2">

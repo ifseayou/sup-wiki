@@ -41,12 +41,31 @@ test.describe('赛事成绩册上传', () => {
   });
 
   test('上传页未登录时引导登录并显示客服微信', async ({ page }, testInfo) => {
-    await page.goto('/events/upload-results');
+    await page.goto('/events/upload-results?event_id=123&event_name=测试赛事&event_date=2026-05-29&location=测试水域');
     await expect(page.getByRole('heading', { name: '上传赛事成绩册' })).toBeVisible();
     await expect(page.getByText('请先登录后上传')).toBeVisible();
     await expect(page.getByRole('link', { name: '登录后上传' })).toHaveAttribute('href', /\/login\?redirect=/);
     await expect(page.getByText('客服微信：i_add_u')).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('upload-results-login-gate.png'), fullPage: true });
+  });
+
+  test('上传页会从赛事入口自动带入赛事信息', async ({ page }) => {
+    await page.addInitScript((token) => {
+      localStorage.setItem('sup_user_token', token as string);
+    }, userToken());
+    await page.route('**/api/user/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ user: { user_id: 1, nickname: 'E2E', email: 'e2e@example.com' } }),
+      });
+    });
+
+    await page.goto('/events/upload-results?event_id=123&event_name=测试赛事&event_date=2026-05-29&location=测试水域');
+    await expect(page.getByLabel('赛事名称')).toHaveValue('测试赛事');
+    await expect(page.getByLabel('赛事日期')).toHaveValue('2026-05-29');
+    await expect(page.getByLabel('举办地')).toHaveValue('测试水域');
+    await expect(page.getByText('已从赛事详情页自动带入')).toBeVisible();
   });
 
   test('上传接口必须登录', async ({ request }) => {
