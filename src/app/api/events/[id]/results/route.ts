@@ -6,8 +6,9 @@ import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import { getResultPaceDisplay } from '@/lib/result-pace';
 import type { RowDataPacket } from 'mysql2';
 
-const DEFAULT_PAGE_SIZE = 50;
-const MAX_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 10;
+const NON_FINISH_CODES = new Set(['DNS', 'DNF', 'DQ', 'DSQ', 'DNQ', 'OTL']);
 
 function readPageParams(request: NextRequest) {
   const page = Math.max(1, Number(request.nextUrl.searchParams.get('page') || 1));
@@ -19,6 +20,11 @@ function readPageParams(request: NextRequest) {
 function normalizeFilter(value: string | null) {
   const text = value?.trim();
   return text || null;
+}
+
+function isNonFinishResult(row: RowDataPacket) {
+  const status = String(row.result_status_code || row.finish_time || '').trim().toUpperCase();
+  return NON_FINISH_CODES.has(status);
 }
 
 export async function GET(
@@ -156,6 +162,7 @@ export async function GET(
         });
         return {
           ...row,
+          rank_position: isNonFinishResult(row) ? null : row.rank_position,
           pace_display: pace.pace_display,
           is_long_distance: pace.is_long_distance,
         };

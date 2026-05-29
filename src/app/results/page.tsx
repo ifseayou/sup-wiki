@@ -154,6 +154,7 @@ function SearchSelect({
   staticOptions,
   optionParams,
   icon = 'search',
+  disabled = false,
 }: {
   label: string;
   type?: string;
@@ -163,6 +164,7 @@ function SearchSelect({
   staticOptions?: FilterOption[];
   optionParams?: Record<string, string>;
   icon?: 'search' | 'user' | 'trophy' | 'calendar' | 'star';
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(display);
@@ -205,9 +207,11 @@ function SearchSelect({
           <Icon name={icon} />
         </span>
         <input
-          className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 pr-9 text-sm text-[#3D3328] outline-none transition placeholder:text-[#B5AA9C] focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20"
+          className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 pr-9 text-sm text-[#3D3328] outline-none transition placeholder:text-[#B5AA9C] focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20 disabled:bg-[#F4EDE4] disabled:text-[#A69B8F]"
           placeholder={type ? `请输入${label}` : label}
           value={text}
+          disabled={disabled}
+          readOnly={Boolean(staticOptions)}
           onFocus={() => setOpen(true)}
           onChange={(event) => {
             const next = event.target.value;
@@ -217,26 +221,13 @@ function SearchSelect({
           }}
         />
       </div>
-      {open && (
+      {open && !disabled && (
         <div className="absolute left-0 right-0 z-30 mt-2 max-h-72 overflow-auto rounded-md border border-[#DCCBB4] bg-[#FFFDF9] shadow-[0_18px_50px_rgba(54,38,24,0.16)]">
-          {staticOptions && (
-            <button
-              type="button"
-              className="flex w-full items-center justify-between gap-3 border-b border-[#F0E6D9] px-3 py-2.5 text-left text-sm hover:bg-[#F8EFE2]"
-              onClick={() => {
-                onChange('', '');
-                setText('');
-                setOpen(false);
-              }}
-            >
-              <span className="truncate font-medium text-[#3A2B20]">全部</span>
-            </button>
-          )}
           {options.map((option) => (
             <button
               type="button"
               key={`${option.value}-${option.label}`}
-              className="flex w-full items-center justify-between gap-3 border-b border-[#F0E6D9] px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-[#F8EFE2]"
+              className={`flex w-full items-center justify-between gap-3 border-b border-[#F0E6D9] px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-[#F8EFE2] ${option.value === value ? 'bg-[#F0E4D3]' : ''}`}
               onClick={() => {
                 onChange(option.value, option.label);
                 setText(option.label);
@@ -491,6 +482,29 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
   const [previewLocked, setPreviewLocked] = useState(false);
+  const typeOptions = useMemo<FilterOption[]>(() => [
+    { value: 'athlete', label: '运动员积分' },
+    { value: 'club', label: '俱乐部积分' },
+  ], []);
+  const yearOptions = useMemo<FilterOption[]>(() => (
+    years.length
+      ? years.map((item) => ({ value: String(item.year), label: `${item.year} 年`, meta: `${item.total} 条` }))
+      : [{ value: '', label: '暂无年份' }]
+  ), [years]);
+  const groupOptions = useMemo<FilterOption[]>(() => (
+    type === 'club'
+      ? [{ value: '', label: '俱乐部积分无组别' }]
+      : [
+          { value: '', label: '全部组别' },
+          ...groups
+            .filter((group) => group.group_code)
+            .map((group) => ({ value: group.group_code || '', label: group.group_name, meta: `${group.total} 人` })),
+        ]
+  ), [groups, type]);
+  const typeDisplay = typeOptions.find((option) => option.value === type)?.label || '运动员积分';
+  const yearDisplay = yearOptions.find((option) => option.value === year)?.label || '';
+  const groupDisplay = groupOptions.find((option) => option.value === groupCode)?.label || '';
+  const rankDisplay = pointRankOptions.find((option) => option.value === rankMax)?.label || '全部排名';
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ type, page: String(page), pageSize: String(pageSize) });
@@ -553,41 +567,16 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
 
   return (
     <div className="space-y-5">
-      <div className="border border-[#E2D4C0] bg-white/88 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
+      <div className="sticky top-[56px] z-20 border border-[#E2D4C0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.2fr_1fr_1fr_auto]">
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">榜单类型</label>
-            <select value={type} onChange={(event) => resetAnd(() => { setType(event.target.value === 'club' ? 'club' : 'athlete'); setYear(''); setGroupCode(''); })} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none focus:border-[#8B5A2B]">
-              <option value="athlete">运动员积分</option>
-              <option value="club">俱乐部积分</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">年份</label>
-            <select value={year} onChange={(event) => resetAnd(() => { setYear(event.target.value); setGroupCode(''); })} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none focus:border-[#8B5A2B]">
-              {years.map((item) => <option key={item.year} value={item.year}>{item.year} 年</option>)}
-              {!years.length && <option value="">暂无年份</option>}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">年度组别</label>
-            <select disabled={type === 'club'} value={groupCode} onChange={(event) => resetAnd(() => setGroupCode(event.target.value))} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none disabled:bg-[#F5EFE6] disabled:text-[#A6998B] focus:border-[#8B5A2B]">
-              <option value="">{type === 'club' ? '俱乐部积分无组别' : '全部组别'}</option>
-              {groups.filter((group) => group.group_code).map((group) => (
-                <option key={group.group_code || group.group_name} value={group.group_code || ''}>{group.group_name} · {group.total} 人</option>
-              ))}
-            </select>
-          </div>
+          <SearchSelect label="榜单类型" value={type} display={typeDisplay} staticOptions={typeOptions} onChange={(value) => resetAnd(() => { setType(value === 'club' ? 'club' : 'athlete'); setYear(''); setGroupCode(''); })} icon="star" />
+          <SearchSelect label="年份" value={year} display={yearDisplay} staticOptions={yearOptions} onChange={(value) => resetAnd(() => { setYear(value); setGroupCode(''); })} icon="calendar" />
+          <SearchSelect label="年度组别" value={groupCode} display={groupDisplay} staticOptions={groupOptions} disabled={type === 'club'} onChange={(value) => resetAnd(() => setGroupCode(value))} icon="user" />
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">搜索</label>
             <input value={search} onChange={(event) => resetAnd(() => setSearch(event.target.value))} placeholder={type === 'club' ? '俱乐部名' : '运动员 / 队伍'} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none placeholder:text-[#B5AA9C] focus:border-[#8B5A2B]" />
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">排名</label>
-            <select value={rankMax} onChange={(event) => resetAnd(() => setRankMax(event.target.value))} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none focus:border-[#8B5A2B]">
-              {pointRankOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </div>
+          <SearchSelect label="排名" value={rankMax} display={rankDisplay} staticOptions={pointRankOptions} onChange={(value) => resetAnd(() => setRankMax(value))} icon="trophy" />
           <div className="flex items-end">
             <button type="button" onClick={() => { setSearch(''); setGroupCode(''); setRankMax(''); setPage(1); }} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-[#CDBAA4] bg-white px-5 text-sm font-semibold text-[#6B3E1E] transition hover:bg-[#F8EFE4]">
               <Icon name="rotate" />重置
@@ -766,7 +755,6 @@ function ResultsContent() {
   useEffect(() => {
     if (loading) return;
     if (activeTab === 'points') {
-      setFetching(false);
       return;
     }
     let cancelled = false;
@@ -909,7 +897,7 @@ function ResultsContent() {
           <AnnualPointsPanel token={token} loading={loading} />
         ) : (
           <>
-        <div ref={filtersPanelRef} className="mb-5 border border-[#E2D4C0] bg-white/88 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
+        <div ref={filtersPanelRef} className="sticky top-[56px] z-20 mb-5 border border-[#E2D4C0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <SearchSelect label="运动员" type="athlete" value={filters.athlete_id} display={filters.athlete_label} icon="user" onChange={(v, l) => updateFilter('athlete_id', 'athlete_label', v, l)} />
             <SearchSelect label="赛事" type="event" value={filters.event_id} display={filters.event_label} icon="trophy" onChange={updateEventFilter} />

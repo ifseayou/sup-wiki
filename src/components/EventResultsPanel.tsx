@@ -6,7 +6,8 @@ import { usePathname } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
 import ResultStatusBadge from '@/components/ResultStatusBadge';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 10;
+const NON_FINISH_CODES = new Set(['DNS', 'DNF', 'DQ', 'DSQ', 'DNQ', 'OTL']);
 
 interface EventResultRow {
   result_id: number;
@@ -16,7 +17,7 @@ interface EventResultRow {
   gender_group: string;
   discipline: string;
   round_label: string | null;
-  rank_position: number;
+  rank_position: number | null;
   result_label: string | null;
   finish_time: string;
   result_status_code: string | null;
@@ -117,6 +118,15 @@ function TeamNameValue({ row }: { row: { team_name: string | null; team_club_slu
 
 function numberValue(value: number | string | null | undefined) {
   return Number(value || 0);
+}
+
+function isNonFinishResult(row: Pick<EventResultRow, 'finish_time' | 'result_status_code'>) {
+  const status = String(row.result_status_code || row.finish_time || '').trim().toUpperCase();
+  return NON_FINISH_CODES.has(status);
+}
+
+function displayRank(row: EventResultRow) {
+  return isNonFinishResult(row) ? null : row.rank_position;
 }
 
 function byModuleSizeDesc<T extends { total: number | string }>(left: T, right: T) {
@@ -445,8 +455,14 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
   }, [active, currentPage, eventId, loading, pages, token]);
 
   const currentData = active ? pages[`${activeKey(active)}:page:${currentPage}`] : null;
-  const resultRows = active?.type === 'results' ? (currentData?.items || []) as EventResultRow[] : [];
-  const pointRows = active?.type === 'points' ? (currentData?.items || []) as PointStandingRow[] : [];
+  const resultRows = useMemo(
+    () => active?.type === 'results' ? (currentData?.items || []) as EventResultRow[] : [],
+    [active?.type, currentData]
+  );
+  const pointRows = useMemo(
+    () => active?.type === 'points' ? (currentData?.items || []) as PointStandingRow[] : [],
+    [active?.type, currentData]
+  );
   const searchText = search.trim().toLowerCase();
   const displayedResultRows = useMemo(() => {
     if (!searchText) return resultRows;
@@ -491,7 +507,12 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
       : 0;
   const totalResults = stats?.resultCount ?? resultModules.reduce((sum, item) => sum + numberValue(item.total), 0);
   const totalPoints = stats?.pointStandingCount ?? pointModules.reduce((sum, item) => sum + numberValue(item.total), 0);
-  const podiumRows = displayedResultRows.slice(0, 3);
+  const podiumRows = displayedResultRows
+    .filter((row) => {
+      const rank = Number(displayRank(row));
+      return Number.isFinite(rank) && rank > 0 && rank <= 3;
+    })
+    .slice(0, 3);
 
   function resetFilters() {
     setSearch('');
@@ -666,7 +687,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                     const members = parseMembers(row.team_members);
                     return (
                       <div key={row.result_id} className="flex items-center gap-4 rounded-xl border border-[#E9DFD1] bg-gradient-to-br from-[#FFF9EC] via-white to-[#FFFDF8] p-4 shadow-sm">
-                        <PodiumBadge rank={row.rank_position} />
+                        <PodiumBadge rank={displayRank(row)} />
                         <div className="min-w-0 flex-1">
                           <AthleteCell
                             athleteId={row.athlete_id}
@@ -703,7 +724,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                         const members = parseMembers(row.team_members);
                         return (
                           <tr key={row.result_id} className="border-t border-[#EEE4D8]">
-                            <td className="px-5 py-3"><RankBadge rank={row.rank_position} /></td>
+                            <td className="px-5 py-3"><RankBadge rank={displayRank(row)} /></td>
                             <td className="px-5 py-3 text-[#655D56]">
                               <AthleteCell
                                 athleteId={row.athlete_id}
@@ -741,7 +762,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                               meta={row.round_label || null}
                             />
                           </div>
-                          <RankBadge rank={row.rank_position} />
+                          <RankBadge rank={displayRank(row)} />
                         </div>
                         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                           <div><div className="text-xs text-[#8A8078]">成绩</div><div className="mt-1 font-semibold text-[#8A612F]"><ResultValue row={row} /></div></div>
@@ -770,7 +791,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                             meta={row.round_label || null}
                           />
                         </div>
-                        <RankBadge rank={row.rank_position} />
+                        <RankBadge rank={displayRank(row)} />
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div><div className="text-xs text-[#8A8078]">成绩</div><div className="mt-1 font-semibold text-[#8A612F]"><ResultValue row={row} /></div></div>

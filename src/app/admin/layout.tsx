@@ -100,8 +100,6 @@ const navGroups = [
   },
 ];
 
-const navItems = navGroups.flatMap(group => group.items);
-
 function isNavActive(pathname: string, item: { href: string; exact?: boolean }) {
   return item.exact ? pathname === item.href : pathname.startsWith(item.href) && pathname !== '/admin';
 }
@@ -225,13 +223,14 @@ function AdminShell({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarHover, setSidebarHover] = useState(false);
   const activeGroupKey = navGroups.find(group => group.items.some(item => isNavActive(pathname, item)))?.key || 'dashboard';
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navGroups.map(group => [group.key, group.key === activeGroupKey || group.key === 'results']))
   );
-
-  // Derive current page title
-  const currentNav = navItems.find(item => isNavActive(pathname, item)) || navItems[0];
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const isSidebarExpanded = isMobile || !sidebarCollapsed || sidebarHover;
 
   return (
     <AdminAuthContext.Provider value={{ token, logout }}>
@@ -248,18 +247,23 @@ function AdminShell({
       >
         {/* ── Sidebar ── */}
         <aside
+          onMouseEnter={() => setSidebarHover(true)}
+          onMouseLeave={() => setSidebarHover(false)}
           style={{
-            width: 220,
+            width: isSidebarExpanded ? 220 : 18,
             background: 'linear-gradient(180deg, #102D29 0%, #201914 100%)',
             display: 'flex',
             flexDirection: 'column',
             flexShrink: 0,
+            transition: 'width 0.18s ease, transform 0.2s ease',
+            overflow: 'hidden',
             // Mobile: hidden by default
-            ...(typeof window !== 'undefined' && window.innerWidth < 768
+            ...(isMobile
               ? {
                   position: 'fixed' as const,
                   inset: '0 auto 0 0',
                   zIndex: 60,
+                  width: 220,
                   transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
                   transition: 'transform 0.2s ease',
                 }
@@ -272,6 +276,9 @@ function AdminShell({
             style={{
               padding: '24px 20px 20px',
               borderBottom: '1px solid rgba(224,238,229,0.08)',
+              opacity: isSidebarExpanded ? 1 : 0,
+              pointerEvents: isSidebarExpanded ? 'auto' : 'none',
+              transition: 'opacity 0.12s ease',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -307,11 +314,29 @@ function AdminShell({
                   Admin Console
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed((value) => !value)}
+                className="ml-auto hidden h-7 w-7 items-center justify-center rounded-md border border-white/10 text-[#9FB7AD] transition hover:border-white/20 hover:text-white md:inline-flex"
+                aria-label={sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+                title={sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+              >
+                {sidebarCollapsed ? '›' : '‹'}
+              </button>
             </div>
           </div>
 
           {/* Nav items */}
-          <nav style={{ flex: 1, padding: '14px 10px', overflowY: 'auto' }}>
+          <nav
+            style={{
+              flex: 1,
+              padding: '14px 10px',
+              overflowY: 'auto',
+              opacity: isSidebarExpanded ? 1 : 0,
+              pointerEvents: isSidebarExpanded ? 'auto' : 'none',
+              transition: 'opacity 0.12s ease',
+            }}
+          >
             {navGroups.map(group => {
               const groupActive = group.items.some(item => isNavActive(pathname, item));
               const isOpen = groupActive || (openGroups[group.key] ?? false);
@@ -406,6 +431,9 @@ function AdminShell({
             style={{
               padding: '12px 8px 16px',
               borderTop: '1px solid rgba(224,238,229,0.08)',
+              opacity: isSidebarExpanded ? 1 : 0,
+              pointerEvents: isSidebarExpanded ? 'auto' : 'none',
+              transition: 'opacity 0.12s ease',
             }}
           >
             <a
@@ -478,49 +506,15 @@ function AdminShell({
             overflow: 'hidden',
           }}
         >
-          {/* Top bar */}
-          <header
-            style={{
-              height: 56,
-              background: 'rgba(250,247,242,0.92)',
-              borderBottom: '1px solid #EBE5DC',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '0 24px',
-              flexShrink: 0,
-              gap: 12,
-            }}
+          <button
+            className="fixed left-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-[#E3D8C9] bg-[#FFFDF9]/95 text-[#6B6560] shadow-[0_10px_25px_rgba(74,58,38,0.14)] md:hidden"
+            onClick={() => setMobileOpen(true)}
+            aria-label="打开后台导航"
           >
-            {/* Mobile menu button */}
-            <button
-              className="md:hidden"
-              onClick={() => setMobileOpen(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 4,
-                cursor: 'pointer',
-                color: '#6B6560',
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </button>
-
-            {/* Page title */}
-            <span
-              style={{
-                fontFamily: 'Georgia, serif',
-                fontSize: 16,
-                fontWeight: 600,
-                color: '#203B35',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              {currentNav.label}
-            </span>
-          </header>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
 
           {/* Content */}
           <main

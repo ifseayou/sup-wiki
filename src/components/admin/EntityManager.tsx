@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import AdminFilterSelect from '@/components/admin/AdminFilterSelect';
 
 // ---- Types ----
 interface Column {
@@ -485,60 +486,57 @@ export default function EntityManager({
 
   return (
     <div className="space-y-5">
-      {/* Page header */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-[#E4D8C8] bg-[#FFFDF9] px-5 py-5 shadow-[0_12px_32px_rgba(74,58,38,0.06)] md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#A98B63]">DATA OPERATIONS</div>
-          <h1 className="mt-1 text-2xl font-bold text-[#263D36]">{entityName}管理</h1>
-          <p className="mt-1 text-sm text-[#8B8175]">维护数据状态、内容资料和发布流转，支持搜索、筛选与批量操作。</p>
-        </div>
-        <button
-          onClick={openNew}
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-[#0F5C52] px-4 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#0B4A43]"
-        >
-          + 新建{entityName}
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="rounded-2xl border border-[#E4D8C8] bg-[#FFFDF9] p-4 shadow-[0_10px_28px_rgba(74,58,38,0.04)]">
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="text"
-            placeholder={searchPlaceholder}
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="h-10 w-64 rounded-lg border border-[#D8CCBA] bg-white px-3 text-sm text-[#3A2F24] outline-none transition-all placeholder:text-[#B1A69A] focus:border-[#0F5C52] focus:ring-2 focus:ring-[#0F5C52]/10"
-          />
-          <select
-            value={statusFilter}
-            onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-            className="h-10 rounded-lg border border-[#D8CCBA] bg-white px-3 text-sm text-[#6B5E50] outline-none transition-all focus:border-[#0F5C52] focus:ring-2 focus:ring-[#0F5C52]/10"
+      <div className="sticky top-0 z-30 -mx-7 -mt-7 border-b border-[#E5D9C9] bg-[#F7F3EC]/94 px-7 pb-4 pt-7 backdrop-blur">
+        {/* Page header */}
+        <div className="flex flex-col gap-4 rounded-t-2xl border border-b-0 border-[#E4D8C8] bg-[#FFFDF9] px-5 py-5 shadow-[0_12px_32px_rgba(74,58,38,0.05)] md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#A98B63]">DATA OPERATIONS</div>
+            <h1 className="mt-1 text-2xl font-bold text-[#263D36]">{entityName}管理</h1>
+            <p className="mt-1 text-sm text-[#8B8175]">维护数据状态、内容资料和发布流转，支持搜索、筛选与批量操作。</p>
+          </div>
+          <button
+            onClick={openNew}
+            className="inline-flex h-10 items-center justify-center rounded-lg bg-[#0F5C52] px-4 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#0B4A43]"
           >
-            <option value="">全部状态</option>
-            <option value="published">已发布</option>
-            <option value="draft">草稿</option>
-          </select>
-          {filters.map((filter) => (
-            <select
-              key={filter.key}
-              value={extraFilterValues[filter.key] || ''}
-              onChange={(e) => {
-                setExtraFilterValues((prev) => ({ ...prev, [filter.key]: e.target.value }));
-                setPage(1);
-              }}
-              className="h-10 rounded-lg border border-[#D8CCBA] bg-white px-3 text-sm text-[#6B5E50] outline-none transition-all focus:border-[#0F5C52] focus:ring-2 focus:ring-[#0F5C52]/10"
-            >
-              <option value="">{filter.placeholder}</option>
-              {filter.options.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          ))}
-          <div className="ml-auto rounded-lg border border-[#E8DDCF] bg-[#F8F3EC] px-3 py-2 text-sm text-[#8B8175]">
-            共 <span className="font-semibold text-[#263D36]">{total}</span> 条
+            + 新建{entityName}
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="rounded-b-2xl border border-[#E4D8C8] bg-[#FFFDF9] p-4 shadow-[0_10px_28px_rgba(74,58,38,0.04)]">
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              className="h-10 w-full rounded-lg border border-[#D8CCBA] bg-white px-3 text-sm text-[#3A2F24] outline-none transition-all placeholder:text-[#B1A69A] focus:border-[#0F5C52] focus:ring-2 focus:ring-[#0F5C52]/10 sm:w-72"
+            />
+            <AdminFilterSelect
+              value={statusFilter}
+              placeholder="全部状态"
+              onChange={(value) => { setStatusFilter(value); setPage(1); }}
+              options={[
+                { value: '', label: '全部状态' },
+                { value: 'published', label: '已发布' },
+                { value: 'draft', label: '草稿' },
+              ]}
+            />
+            {filters.map((filter) => (
+              <AdminFilterSelect
+                key={filter.key}
+                value={extraFilterValues[filter.key] || ''}
+                placeholder={filter.placeholder}
+                onChange={(value) => {
+                  setExtraFilterValues((prev) => ({ ...prev, [filter.key]: value }));
+                  setPage(1);
+                }}
+                options={[{ label: filter.placeholder, value: '' }, ...filter.options]}
+              />
+            ))}
+            <div className="ml-auto rounded-lg border border-[#E8DDCF] bg-[#F8F3EC] px-3 py-2 text-sm text-[#8B8175]">
+              共 <span className="font-semibold text-[#263D36]">{total}</span> 条
+            </div>
           </div>
         </div>
       </div>

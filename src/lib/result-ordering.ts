@@ -45,6 +45,11 @@ export function resultDefaultOrderBy(options: { includeEventDate?: boolean; even
     ${resultAlias}.discipline ASC,
     ${resultAlias}.gender_group ASC,
     ${resultAlias}.round_label ASC,
+    CASE
+      WHEN UPPER(COALESCE(${resultAlias}.result_status_code, '')) IN ('DNS', 'DNF', 'DQ', 'DSQ', 'DNQ', 'OTL') THEN 1
+      WHEN UPPER(COALESCE(${resultAlias}.finish_time, '')) IN ('DNS', 'DNF', 'DQ', 'DSQ', 'DNQ', 'OTL') THEN 1
+      ELSE 0
+    END ASC,
     ${resultAlias}.rank_position ASC,
     ${resultAlias}.result_id ASC`;
 }

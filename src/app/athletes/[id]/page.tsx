@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Tooltip from '@/components/Tooltip';
 import AthleteResultsPanel from '@/components/AthleteResultsPanel';
 import AthleteClaimEntry from '@/components/AthleteClaimEntry';
+import AthletePhotoCarousel from '@/components/AthletePhotoCarousel';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import { marked } from 'marked';
@@ -214,6 +215,7 @@ export default async function AthleteDetailPage({
   const extraPhotos: string[] = Array.isArray(athlete.photos)
     ? athlete.photos
     : (athlete.photos ? JSON.parse(String(athlete.photos)) : []);
+  const galleryPhotos = Array.from(new Set([athlete.photo, ...extraPhotos].filter(Boolean) as string[]));
 
   const rawRaceTimes: RaceTime[] = [];
 
@@ -261,16 +263,7 @@ export default async function AthleteDetailPage({
 
       <section className="mb-8 overflow-hidden rounded-xl border border-cream-200 bg-[radial-gradient(circle_at_top_right,#F5E7D4,transparent_34%),#FEFCF9] shadow-[0_20px_60px_rgba(68,51,35,0.08)]">
         <div className="grid gap-7 p-4 sm:p-5 lg:grid-cols-[280px_1fr_240px] lg:p-7">
-          <div className="relative overflow-hidden rounded-lg bg-cream-100 shadow-inner">
-            {athlete.photo ? (
-              <img src={athlete.photo} alt={athlete.name} className="aspect-[4/5] h-full min-h-[320px] w-full object-cover" />
-            ) : (
-              <div className="flex aspect-[4/5] min-h-[320px] w-full items-center justify-center bg-cream-100 font-[var(--font-display)] text-7xl text-cream-300">
-                {athlete.name.slice(0, 1)}
-              </div>
-            )}
-            <div className="absolute bottom-3 right-3 rounded-full bg-brown-800/75 px-3 py-1 text-xs font-semibold text-white">公开头像</div>
-          </div>
+          <AthletePhotoCarousel name={athlete.name} images={galleryPhotos} />
 
           <div className="flex min-w-0 flex-col justify-center py-2">
             <div className="flex flex-wrap items-center gap-3">
@@ -349,27 +342,6 @@ export default async function AthleteDetailPage({
           </aside>
         </div>
       </section>
-
-      {/* ── 更多照片 ─────────────────────────────────────────── */}
-      {extraPhotos.length > 0 && (
-        <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '20px 24px', marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <div style={{ width: 3, height: 18, background: '#7A6145', borderRadius: 2 }} />
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: '#2E2118', margin: 0 }}>照片</h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
-            {extraPhotos.map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                className="athlete-photo-thumb"
-                style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid #EDE5D8', aspectRatio: '1', background: '#F5EDE4' }}>
-                <img src={url} alt={`${athlete.name} ${i + 1}`}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.2s' }}
-                />
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
 
       <AthleteResultsPanel athleteId={athleteId} athleteName={athlete.name} />
 
