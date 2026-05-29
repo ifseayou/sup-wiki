@@ -1,5 +1,6 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
 import EntityManager from '@/components/admin/EntityManager';
 import ImageUpload, { MultiImageUpload } from '@/components/admin/ImageUpload';
 import RegionSelect from '@/components/admin/RegionSelect';
@@ -95,19 +96,46 @@ function formatAnnualRank(row: Record<string, unknown>) {
   );
 }
 
+function renderAthleteName(_value: unknown, row: Record<string, unknown>) {
+  const name = String(row.name || '未命名运动员');
+  const nameEn = String(row.name_en || '').trim();
+  const photo = String(row.photo || '').trim();
+  return (
+    <div className="flex min-w-48 items-center gap-3">
+      <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#E8DDCF] bg-[#F4EFE7] text-sm font-semibold text-[#7A6245]">
+        {photo ? <img src={photo} alt={name} className="h-full w-full object-cover" /> : name.slice(0, 1)}
+      </div>
+      <div className="min-w-0">
+        <div className="truncate font-semibold text-[#2E3D38]">{name}</div>
+        <div className="mt-0.5 truncate text-xs text-[#9A9085]">
+          #{String(row.athlete_id || '—')}{nameEn ? ` · ${nameEn}` : ''}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function renderGender(value: unknown, row: Record<string, unknown>) {
+  const inferred = row.gender_source === 'result_inferred';
+  return (
+    <span className="inline-flex rounded-full bg-[#F3ECE2] px-2.5 py-1 text-xs font-medium text-[#705B42]">
+      {genderLabel(value)}{inferred ? ' · 推断' : ''}
+    </span>
+  );
+}
+
 const columns = [
-  { key: 'name', label: '姓名' },
-  { key: 'gender', label: '性别', render: (value: unknown, row: Record<string, unknown>) => `${genderLabel(value)}${row.gender_source === 'result_inferred' ? '（推断）' : ''}` },
-  { key: 'nationality', label: '国籍' },
+  { key: 'name', label: '运动员', render: renderAthleteName },
+  { key: 'gender', label: '性别', render: renderGender },
   { key: 'province', label: '籍贯', render: (_v: unknown, row: Record<string, unknown>) => formatLocation(row.province, row.city) },
   { key: 'living_city', label: '现居城市', render: (_v: unknown, row: Record<string, unknown>) => formatLocation(row.living_province, row.living_city) },
-  { key: 'discipline', label: '项目', render: (v: unknown) => ({'race':'竞速','surf':'冲浪','distance':'长距离','technical':'技巧'}[String(v)] || String(v)) },
   { key: 'latest_annual_rank', label: '国内年度排名', render: (_v: unknown, row: Record<string, unknown>) => formatAnnualRank(row) },
   { key: 'is_claimed', label: '认领', render: (v: unknown) => Number(v) > 0 ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">已认领</span> : <span className="rounded-full bg-cream-100 px-2 py-0.5 text-xs text-warm-gray-400">未认领</span> },
+  { key: 'discipline', label: '项目', render: (v: unknown) => ({'race':'竞速','surf':'冲浪','distance':'长距离','technical':'技巧'}[String(v)] || String(v)) },
 ];
 const defaultFormData = { athlete_id: undefined, name: '', name_en: '', gender: 'unknown', gender_source: 'manual', gender_confidence: null, nationality: '', province: '', city: '', photo: '', photos: [], bio: '', discipline: 'race', icf_ranking: '', achievements: [], social_links: {} };
 
 export default function AthletesAdminPage() {
   const { token } = useAdminAuth();
-  return <EntityManager entityName="运动员" apiPath="/api/admin/athletes" columns={columns} FormComponent={AthleteForm} defaultFormData={defaultFormData} token={token} searchPlaceholder="搜索姓名..." enableBulkActions />;
+  return <EntityManager entityName="运动员" apiPath="/api/admin/athletes" columns={columns} FormComponent={AthleteForm} defaultFormData={defaultFormData} token={token} searchPlaceholder="搜索姓名 / 英文名..." enableBulkActions />;
 }

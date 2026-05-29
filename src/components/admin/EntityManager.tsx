@@ -30,9 +30,9 @@ interface EntityManagerProps {
 // ---- Status Badge ----
 export function StatusBadge({ status }: { status: string }) {
   if (status === 'published') {
-    return <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">已发布</span>;
+    return <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-100"><span className="size-1.5 rounded-full bg-emerald-500" />已发布</span>;
   }
-  return <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700">草稿</span>;
+  return <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-100"><span className="size-1.5 rounded-full bg-amber-500" />草稿</span>;
 }
 
 function initialQueryValue(key: string) {
@@ -484,78 +484,86 @@ export default function EntityManager({
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <div>
+    <div className="space-y-5">
       {/* Page header */}
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-bold text-brown-800">{entityName}管理</h1>
+      <div className="flex flex-col gap-4 rounded-2xl border border-[#E4D8C8] bg-[#FFFDF9] px-5 py-5 shadow-[0_12px_32px_rgba(74,58,38,0.06)] md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#A98B63]">DATA OPERATIONS</div>
+          <h1 className="mt-1 text-2xl font-bold text-[#263D36]">{entityName}管理</h1>
+          <p className="mt-1 text-sm text-[#8B8175]">维护数据状态、内容资料和发布流转，支持搜索、筛选与批量操作。</p>
+        </div>
         <button
           onClick={openNew}
-          className="px-4 py-2 bg-brown-500 text-white rounded-lg text-sm hover:bg-brown-600 transition-all"
+          className="inline-flex h-10 items-center justify-center rounded-lg bg-[#0F5C52] px-4 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#0B4A43]"
         >
           + 新建{entityName}
         </button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-5">
-        <input
-          type="text"
-          placeholder={searchPlaceholder}
-          value={search}
-          onChange={e => { setSearch(e.target.value); setPage(1); }}
-          className="px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800 w-56"
-        />
-        <select
-          value={statusFilter}
-          onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-          className="px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 bg-cream-50 text-warm-gray-600"
-        >
-          <option value="">全部状态</option>
-          <option value="published">已发布</option>
-          <option value="draft">草稿</option>
-        </select>
-        {filters.map((filter) => (
+      <div className="rounded-2xl border border-[#E4D8C8] bg-[#FFFDF9] p-4 shadow-[0_10px_28px_rgba(74,58,38,0.04)]">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            placeholder={searchPlaceholder}
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            className="h-10 w-64 rounded-lg border border-[#D8CCBA] bg-white px-3 text-sm text-[#3A2F24] outline-none transition-all placeholder:text-[#B1A69A] focus:border-[#0F5C52] focus:ring-2 focus:ring-[#0F5C52]/10"
+          />
           <select
-            key={filter.key}
-            value={extraFilterValues[filter.key] || ''}
-            onChange={(e) => {
-              setExtraFilterValues((prev) => ({ ...prev, [filter.key]: e.target.value }));
-              setPage(1);
-            }}
-            className="px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 bg-cream-50 text-warm-gray-600"
+            value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+            className="h-10 rounded-lg border border-[#D8CCBA] bg-white px-3 text-sm text-[#6B5E50] outline-none transition-all focus:border-[#0F5C52] focus:ring-2 focus:ring-[#0F5C52]/10"
           >
-            <option value="">{filter.placeholder}</option>
-            {filter.options.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
+            <option value="">全部状态</option>
+            <option value="published">已发布</option>
+            <option value="draft">草稿</option>
           </select>
-        ))}
-        <span className="text-sm text-warm-gray-400 self-center">共 {total} 条</span>
+          {filters.map((filter) => (
+            <select
+              key={filter.key}
+              value={extraFilterValues[filter.key] || ''}
+              onChange={(e) => {
+                setExtraFilterValues((prev) => ({ ...prev, [filter.key]: e.target.value }));
+                setPage(1);
+              }}
+              className="h-10 rounded-lg border border-[#D8CCBA] bg-white px-3 text-sm text-[#6B5E50] outline-none transition-all focus:border-[#0F5C52] focus:ring-2 focus:ring-[#0F5C52]/10"
+            >
+              <option value="">{filter.placeholder}</option>
+              {filter.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ))}
+          <div className="ml-auto rounded-lg border border-[#E8DDCF] bg-[#F8F3EC] px-3 py-2 text-sm text-[#8B8175]">
+            共 <span className="font-semibold text-[#263D36]">{total}</span> 条
+          </div>
+        </div>
       </div>
 
       {enableBulkActions && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-cream-200 bg-cream-50 px-4 py-3">
-          <span className="text-sm text-warm-gray-500">已选 {selectedIds.size} 条</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#D9E9DE] bg-[#F4FBF7] px-4 py-3">
+          <span className="text-sm font-medium text-[#31574C]">已选 {selectedIds.size} 条</span>
           <button
             onClick={() => handleBulkAction('publish')}
             disabled={selectedIds.size === 0 || bulkBusy}
-            className="px-3 py-1.5 text-xs rounded-lg border border-cream-300 text-brown-600 hover:border-brown-500 disabled:opacity-40"
+            className="rounded-lg border border-[#BFD8CC] bg-white px-3 py-1.5 text-xs text-[#0F5C52] hover:border-[#0F5C52] disabled:opacity-40"
           >
             批量发布
           </button>
           <button
             onClick={() => handleBulkAction('draft')}
             disabled={selectedIds.size === 0 || bulkBusy}
-            className="px-3 py-1.5 text-xs rounded-lg border border-cream-300 text-brown-600 hover:border-brown-500 disabled:opacity-40"
+            className="rounded-lg border border-[#BFD8CC] bg-white px-3 py-1.5 text-xs text-[#0F5C52] hover:border-[#0F5C52] disabled:opacity-40"
           >
             批量收回
           </button>
           <button
             onClick={() => handleBulkAction('delete')}
             disabled={selectedIds.size === 0 || bulkBusy}
-            className="px-3 py-1.5 text-xs rounded-lg border border-red-200 text-red-500 hover:border-red-400 disabled:opacity-40"
+            className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs text-red-500 hover:border-red-400 disabled:opacity-40"
           >
             批量删除
           </button>
@@ -565,45 +573,45 @@ export default function EntityManager({
 
       {/* Feedback */}
       {msg && (
-        <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm ${msg.startsWith('失败') || msg.startsWith('网络') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+        <div className={`rounded-xl px-4 py-2.5 text-sm ${msg.startsWith('失败') || msg.startsWith('网络') ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}`}>
           {msg}
         </div>
       )}
 
       {loadError && (
-        <div className="mb-4 px-4 py-2.5 rounded-lg text-sm bg-red-50 text-red-600">
+        <div className="rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-600">
           {loadError}
         </div>
       )}
 
       {/* Table */}
-      <div className="bg-cream-50 border border-cream-200 rounded-xl overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-[#E4D8C8] bg-[#FFFDF9] shadow-[0_16px_38px_rgba(74,58,38,0.06)]">
         {loading ? (
-          <div className="p-12 text-center text-warm-gray-400">加载中...</div>
+          <div className="p-12 text-center text-[#8B8175]">加载中...</div>
         ) : items.length === 0 ? (
-          <div className="p-12 text-center text-warm-gray-400">暂无数据</div>
+          <div className="p-12 text-center text-[#8B8175]">暂无数据</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[980px] text-sm">
               <thead>
-                <tr className="border-b border-cream-200 bg-cream-100">
+                <tr className="border-b border-[#E7DCCA] bg-[#F2E9DC]">
                   {enableBulkActions && (
                     <th className="w-10 px-4 py-3 text-left">
                       <input
                         type="checkbox"
                         checked={items.length > 0 && items.every((item) => selectedIds.has(item[idKey] as string | number))}
                         onChange={toggleSelectPage}
-                        className="h-4 w-4 rounded border-cream-300 text-brown-600 focus:ring-brown-500"
+                        className="h-4 w-4 rounded border-[#D8CCBA] text-[#0F5C52] focus:ring-[#0F5C52]"
                         aria-label="选择当前页"
                       />
                     </th>
                   )}
                   {columns.map(col => (
-                    <th key={col.key} className="px-4 py-3 text-left text-xs text-warm-gray-400 font-medium uppercase tracking-wide">
+                    <th key={col.key} className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#7D6B58]">
                       {col.sortable ? (
                         <button
                           onClick={() => toggleSort(col)}
-                          className="inline-flex items-center gap-1 hover:text-brown-600"
+                          className="inline-flex items-center gap-1 hover:text-[#0F5C52]"
                           title={`按${col.label}排序`}
                         >
                           <span>{col.label}</span>
@@ -614,26 +622,26 @@ export default function EntityManager({
                       )}
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-left text-xs text-warm-gray-400 font-medium uppercase tracking-wide">状态</th>
-                  <th className="px-4 py-3 text-right text-xs text-warm-gray-400 font-medium uppercase tracking-wide">操作</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#7D6B58]">状态</th>
+                  <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-[0.12em] text-[#7D6B58]">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-cream-200">
+              <tbody className="divide-y divide-[#EFE4D5]">
                 {items.map(item => (
-                  <tr key={String(item[idKey])} className="hover:bg-cream-100 transition-colors">
+                  <tr key={String(item[idKey])} className="transition-colors hover:bg-[#F8F4ED]">
                     {enableBulkActions && (
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={selectedIds.has(item[idKey] as string | number)}
                           onChange={() => toggleSelect(item[idKey] as string | number)}
-                          className="h-4 w-4 rounded border-cream-300 text-brown-600 focus:ring-brown-500"
+                          className="h-4 w-4 rounded border-[#D8CCBA] text-[#0F5C52] focus:ring-[#0F5C52]"
                           aria-label={`选择${entityName}`}
                         />
                       </td>
                     )}
                     {columns.map(col => (
-                      <td key={col.key} className="px-4 py-3 text-warm-gray-700">
+                      <td key={col.key} className="px-4 py-3.5 text-[#5E554D]">
                         {col.render ? col.render(item[col.key], item) : String(item[col.key] ?? '')}
                       </td>
                     ))}
@@ -644,20 +652,20 @@ export default function EntityManager({
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => toggleStatus(item)}
-                          className="text-xs text-warm-gray-400 hover:text-brown-600 transition-colors"
+                          className="text-xs text-[#8B8175] transition-colors hover:text-[#0F5C52]"
                           title={item.status === 'published' ? '收回为草稿' : '发布'}
                         >
                           {item.status === 'published' ? '收回' : '发布'}
                         </button>
                         <button
                           onClick={() => openEdit(item)}
-                          className="text-xs text-brown-500 hover:text-brown-700 transition-colors"
+                          className="text-xs font-medium text-[#0F5C52] transition-colors hover:text-[#083D36]"
                         >
                           编辑
                         </button>
                         <button
                           onClick={() => openDuplicate(item)}
-                          className="text-xs text-warm-gray-400 hover:text-brown-600 transition-colors"
+                          className="text-xs text-[#8B8175] transition-colors hover:text-[#0F5C52]"
                           title="复制为新草稿"
                         >
                           复制
@@ -680,12 +688,12 @@ export default function EntityManager({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-5">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 border border-cream-300 rounded text-sm text-warm-gray-600 disabled:opacity-40 hover:border-brown-500 transition-all">
+        <div className="flex items-center justify-center gap-2">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="rounded-lg border border-[#D8CCBA] bg-white px-3 py-1.5 text-sm text-[#6B5E50] transition-all hover:border-[#0F5C52] disabled:opacity-40">
             上一页
           </button>
-          <span className="text-sm text-warm-gray-400">{page} / {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 border border-cream-300 rounded text-sm text-warm-gray-600 disabled:opacity-40 hover:border-brown-500 transition-all">
+          <span className="rounded-lg bg-[#F2E9DC] px-3 py-1.5 text-sm text-[#6B5E50]">第 {page} / {totalPages} 页 · 共 {total} 条</span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded-lg border border-[#D8CCBA] bg-white px-3 py-1.5 text-sm text-[#6B5E50] transition-all hover:border-[#0F5C52] disabled:opacity-40">
             下一页
           </button>
         </div>

@@ -22,13 +22,13 @@ export function useAdminAuth() {
 const navGroups = [
   {
     key: 'dashboard',
-    label: '仪表板',
+    label: '仪表盘',
     icon: '⌂',
     items: [{ href: '/admin', label: '后台首页', exact: true }],
   },
   {
     key: 'results',
-    label: '赛事成绩',
+    label: '赛事中心',
     icon: '◈',
     items: [
       { href: '/admin/events', label: '赛事' },
@@ -41,13 +41,12 @@ const navGroups = [
   },
   {
     key: 'athletes',
-    label: '运动员',
+    label: '运动员中心',
     icon: '◎',
     items: [
       { href: '/admin/athletes', label: '运动员' },
       { href: '/admin/athlete-claims', label: '资料审批' },
       { href: '/admin/athlete-identities', label: '身份匹配' },
-      { href: '/admin/users', label: '用户管理' },
     ],
   },
   {
@@ -87,6 +86,14 @@ const navGroups = [
       { href: '/admin/learn-docs', label: '学习文档' },
       { href: '/admin/courses', label: '课程' },
       { href: '/admin/techniques', label: '技术动作库' },
+    ],
+  },
+  {
+    key: 'system',
+    label: '系统管理',
+    icon: '◍',
+    items: [
+      { href: '/admin/users', label: '用户管理' },
     ],
   },
 ];
@@ -241,7 +248,7 @@ function AdminShell({
         <aside
           style={{
             width: 220,
-            background: '#2A2118',
+            background: 'linear-gradient(180deg, #102D29 0%, #201914 100%)',
             display: 'flex',
             flexDirection: 'column',
             flexShrink: 0,
@@ -262,7 +269,7 @@ function AdminShell({
           <div
             style={{
               padding: '24px 20px 20px',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              borderBottom: '1px solid rgba(224,238,229,0.08)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -270,7 +277,7 @@ function AdminShell({
                 style={{
                   width: 32,
                   height: 32,
-                  background: '#8B7355',
+                  background: 'linear-gradient(145deg, #0F5C52, #A57A43)',
                   borderRadius: 8,
                   display: 'flex',
                   alignItems: 'center',
@@ -294,20 +301,20 @@ function AdminShell({
                 >
                   SUP Wiki
                 </div>
-                <div style={{ fontSize: 11, color: '#6B6560', marginTop: 1 }}>
-                  内容管理系统
+                <div style={{ fontSize: 11, color: '#9FB7AD', marginTop: 1 }}>
+                  Admin Console
                 </div>
               </div>
             </div>
           </div>
 
           {/* Nav items */}
-          <nav style={{ flex: 1, padding: '12px 8px', overflowY: 'auto' }}>
+          <nav style={{ flex: 1, padding: '14px 10px', overflowY: 'auto' }}>
             {navGroups.map(group => {
               const groupActive = group.items.some(item => isNavActive(pathname, item));
               const isOpen = groupActive || (openGroups[group.key] ?? false);
               return (
-                <div key={group.key} style={{ marginBottom: 8 }}>
+                <div key={group.key} style={{ marginBottom: 10 }}>
                   <button
                     type="button"
                     onClick={() => setOpenGroups(prev => ({ ...prev, [group.key]: !isOpen }))}
@@ -316,24 +323,25 @@ function AdminShell({
                       display: 'flex',
                       alignItems: 'center',
                       gap: 8,
-                      padding: '8px 10px',
-                      borderRadius: 7,
+                      padding: '9px 10px',
+                      borderRadius: 8,
                       border: 'none',
-                      background: groupActive ? 'rgba(139,115,85,0.18)' : 'transparent',
-                      color: groupActive ? '#EDE5D8' : '#7D746C',
+                      background: groupActive ? 'rgba(21,154,122,0.14)' : 'transparent',
+                      color: groupActive ? '#F5FBF8' : '#88A098',
                       cursor: 'pointer',
                       fontSize: 12,
                       fontWeight: 700,
-                      letterSpacing: '0.04em',
+                      letterSpacing: '0.06em',
                       textAlign: 'left',
+                      boxShadow: groupActive ? 'inset 3px 0 0 #31C49B' : 'inset 3px 0 0 transparent',
                     }}
                   >
-                    <span style={{ width: 16, color: groupActive ? '#C4A882' : '#6B6560' }}>{group.icon}</span>
+                    <span style={{ width: 16, color: groupActive ? '#77E0C0' : '#5F7870' }}>{group.icon}</span>
                     <span style={{ flex: 1 }}>{group.label}</span>
-                    <span style={{ color: '#6B6560', fontSize: 11 }}>{isOpen ? '−' : '+'}</span>
+                    <span style={{ color: groupActive ? '#9DE8D1' : '#5F7870', fontSize: 11 }}>{isOpen ? '−' : '+'}</span>
                   </button>
                   {isOpen && (
-                    <div style={{ marginTop: 3 }}>
+                    <div style={{ marginTop: 4, paddingLeft: 8, borderLeft: '1px solid rgba(157,232,209,0.12)' }}>
                       {group.items.map(item => {
                         const isActive = isNavActive(pathname, item);
                         return (
@@ -344,26 +352,26 @@ function AdminShell({
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              padding: '7px 10px 7px 28px',
-                              borderRadius: 7,
+                              padding: '7px 10px 7px 14px',
+                              borderRadius: 8,
                               marginBottom: 2,
-                              color: isActive ? '#FAF7F2' : '#8B8580',
-                              background: isActive ? 'rgba(139,115,85,0.28)' : 'transparent',
+                              color: isActive ? '#F7FFFB' : '#98A59F',
+                              background: isActive ? 'rgba(255,255,255,0.10)' : 'transparent',
                               fontWeight: isActive ? 600 : 400,
                               textDecoration: 'none',
                               transition: 'all 0.1s',
-                              fontSize: 13.5,
+                              fontSize: 13,
                             }}
                             onMouseEnter={e => {
                               if (!isActive) {
-                                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
-                                (e.currentTarget as HTMLElement).style.color = '#E0D8CC';
+                                (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)';
+                                (e.currentTarget as HTMLElement).style.color = '#E0EEE5';
                               }
                             }}
                             onMouseLeave={e => {
                               if (!isActive) {
                                 (e.currentTarget as HTMLElement).style.background = 'transparent';
-                                (e.currentTarget as HTMLElement).style.color = '#8B8580';
+                                (e.currentTarget as HTMLElement).style.color = '#98A59F';
                               }
                             }}
                           >
@@ -371,9 +379,9 @@ function AdminShell({
                               <span
                                 style={{
                                   width: 3,
-                                  height: 3,
-                                  borderRadius: '50%',
-                                  background: '#C4A882',
+                                  height: 14,
+                                  borderRadius: 3,
+                                  background: '#31C49B',
                                   marginRight: 10,
                                   flexShrink: 0,
                                 }}
@@ -395,7 +403,7 @@ function AdminShell({
           <div
             style={{
               padding: '12px 8px 16px',
-              borderTop: '1px solid rgba(255,255,255,0.06)',
+              borderTop: '1px solid rgba(224,238,229,0.08)',
             }}
           >
             <a
@@ -408,13 +416,13 @@ function AdminShell({
                 padding: '8px 12px',
                 borderRadius: 7,
                 marginBottom: 2,
-                color: '#6B6560',
+                color: '#88A098',
                 textDecoration: 'none',
                 fontSize: 13,
                 transition: 'color 0.1s',
               }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#E0D8CC')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#6B6560')}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#E0EEE5')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#88A098')}
             >
               <span style={{ marginRight: 8, fontSize: 11 }}>↗</span>
               查看前台
@@ -427,7 +435,7 @@ function AdminShell({
                 width: '100%',
                 padding: '8px 12px',
                 borderRadius: 7,
-                color: '#6B6560',
+                color: '#88A098',
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
@@ -435,8 +443,8 @@ function AdminShell({
                 transition: 'color 0.1s',
                 textAlign: 'left',
               }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#E0D8CC')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#6B6560')}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#E0EEE5')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#88A098')}
             >
               <span style={{ marginRight: 8, fontSize: 11 }}>←</span>
               退出登录
@@ -472,7 +480,7 @@ function AdminShell({
           <header
             style={{
               height: 56,
-              background: '#FAF7F2',
+              background: 'rgba(250,247,242,0.92)',
               borderBottom: '1px solid #EBE5DC',
               display: 'flex',
               alignItems: 'center',
@@ -504,7 +512,7 @@ function AdminShell({
                 fontFamily: 'Georgia, serif',
                 fontSize: 16,
                 fontWeight: 600,
-                color: '#3D3226',
+                color: '#203B35',
                 letterSpacing: '-0.01em',
               }}
             >
@@ -518,6 +526,8 @@ function AdminShell({
               flex: 1,
               overflow: 'auto',
               padding: '28px 28px',
+              background:
+                'radial-gradient(circle at 12% 4%, rgba(15,92,82,0.06), transparent 30%), #F7F3EC',
             }}
           >
             {children}
