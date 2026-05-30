@@ -179,6 +179,10 @@ function SearchSelect({
   }, [display]);
 
   useEffect(() => {
+    if (staticOptions) setOptions(staticOptions);
+  }, [staticOptions]);
+
+  useEffect(() => {
     if (staticOptions || !type || !open) return;
     const controller = new AbortController();
     const params = new URLSearchParams({ type, q: text });
