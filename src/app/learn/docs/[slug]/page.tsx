@@ -27,6 +27,7 @@ const categoryLabels: Record<string, { name: string; icon: string }> = {
   muscle:    { name: '肌肉训练', icon: '💪' },
   stretch:   { name: '拉伸指南', icon: '🧘' },
   technique: { name: '技术动作', icon: '🏄' },
+  race:      { name: '竞赛规则', icon: '🏁' },
   safety:    { name: '安全知识', icon: '🛟' },
   nutrition: { name: '运动饮食', icon: '🥗' },
   equipment: { name: '装备知识', icon: '🧰' },

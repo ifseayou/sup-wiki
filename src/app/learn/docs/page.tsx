@@ -20,6 +20,7 @@ const categoryLabels: Record<string, { name: string; icon: string; tip: string }
   muscle:    { name: '肌肉训练', icon: '💪', tip: '桨板涉及的核心肌群与辅助训练' },
   stretch:   { name: '拉伸指南', icon: '🧘', tip: '运动前后的动态 / 静态拉伸' },
   technique: { name: '技术动作', icon: '🏄', tip: '进阶划水、转向与冲浪动作' },
+  race:      { name: '竞赛规则', icon: '🏁', tip: '赛事类型、组别规则与比赛策略' },
   safety:    { name: '安全知识', icon: '🛟', tip: '落水、救援与风险控制' },
   nutrition: { name: '运动饮食', icon: '🥗', tip: '训练前后的营养搭配与食材选择' },
   equipment: { name: '装备知识', icon: '🧰', tip: '板型、桨型与配件选择' },

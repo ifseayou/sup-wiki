@@ -7,6 +7,7 @@ const categoryOptions = [
   { value: 'muscle', label: '肌肉训练' },
   { value: 'stretch', label: '拉伸指南' },
   { value: 'technique', label: '技术动作' },
+  { value: 'race', label: '竞赛规则' },
   { value: 'safety', label: '安全知识' },
   { value: 'equipment', label: '装备知识' },
   { value: 'general', label: '通用' },
