@@ -33,7 +33,8 @@ export async function buildPrivacyMap(targetType: 'athlete' | 'result', ids: Arr
        FROM sup_privacy_requests pr
        WHERE pr.target_type = ?
          AND pr.target_id IN (${placeholders})
-         AND ${privacyStatusCondition('pr')}`,
+         AND ${privacyStatusCondition('pr')}
+       ORDER BY pr.created_at ASC, pr.request_id ASC`,
       [targetType, ...cleanIds]
     );
     for (const row of rows) {
@@ -41,6 +42,10 @@ export async function buildPrivacyMap(targetType: 'athlete' | 'result', ids: Arr
       if (!id) continue;
       const current = map.get(id) || { hidden: false, anonymized: false, deleted: false };
       const type = String(row.request_type || '');
+      if (type === 'restore_frontend') {
+        map.set(id, { hidden: false, anonymized: false, deleted: false });
+        continue;
+      }
       current.hidden = current.hidden || PRIVACY_HIDE_TYPES.has(type);
       current.deleted = current.deleted || type === 'delete_frontend';
       current.anonymized = current.anonymized || PRIVACY_ANON_TYPES.has(type);

@@ -23,6 +23,15 @@ const UserContext = createContext<UserContextValue>({
   login: () => {}, logout: () => {}, loading: true, refreshUser: () => {},
 });
 
+function syncUserTokenCookie(value: string | null) {
+  if (typeof document === 'undefined') return;
+  if (value) {
+    document.cookie = `sup_user_token=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`;
+  } else {
+    document.cookie = 'sup_user_token=; path=/; max-age=0; SameSite=Lax';
+  }
+}
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -34,16 +43,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       .then(r => r.json())
       .then(data => {
         if (data.user) {
+          syncUserTokenCookie(savedToken);
           setToken(savedToken);
           setUser(data.user);
           setHasSportHacker(!!data.user.has_sport_hacker);
           return true;
         } else {
           localStorage.removeItem('sup_user_token');
+          syncUserTokenCookie(null);
           return false;
         }
       })
-      .catch(() => { localStorage.removeItem('sup_user_token'); return false; });
+      .catch(() => { localStorage.removeItem('sup_user_token'); syncUserTokenCookie(null); return false; });
   }, []);
 
   useEffect(() => {
@@ -51,12 +62,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (saved) {
       loadUser(saved).finally(() => setLoading(false));
     } else {
-      setLoading(false);
+      Promise.resolve().then(() => setLoading(false));
     }
   }, [loadUser]);
 
   const login = useCallback((newToken: string, newUser: User) => {
     localStorage.setItem('sup_user_token', newToken);
+    syncUserTokenCookie(newToken);
     setToken(newToken);
     setUser(newUser);
     setHasSportHacker(!!(newUser as User & { has_sport_hacker?: boolean }).has_sport_hacker);
@@ -64,6 +76,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem('sup_user_token');
+    syncUserTokenCookie(null);
     setToken(null);
     setUser(null);
     setHasSportHacker(false);

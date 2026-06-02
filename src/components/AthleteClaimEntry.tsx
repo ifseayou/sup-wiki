@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { useUser } from '@/components/UserContext';
 import Tooltip from '@/components/Tooltip';
@@ -17,21 +18,24 @@ interface ClaimStatus {
 
 const actionLabels: Record<string, string> = {
   hide_athlete: '隐藏主页',
+  restore_frontend: '展示主页',
   anonymize_name: '匿名化展示',
   delete_frontend: '删除前台展示',
 };
 
 const actionTips: Record<string, string> = {
   hide_athlete: '其他用户不能查看个人主页资料，自己仍可查看资料和成绩，确认后立即生效。',
+  restore_frontend: '恢复个人主页展示，其他用户将可以正常查看公开资料和主页成绩。',
   anonymize_name: '公开成绩中的姓名进入匿名或隐藏展示，需要提交隐私处理。',
   delete_frontend: '从前台移除运动员主页展示，影响较大，需要提交隐私处理。',
 };
 
 export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) {
+  const router = useRouter();
   const { token, loading } = useUser();
   const [status, setStatus] = useState<ClaimStatus | null>(null);
   const [showHideModal, setShowHideModal] = useState(false);
-  const [hiding, setHiding] = useState(false);
+  const [processingAction, setProcessingAction] = useState('');
   const [hideError, setHideError] = useState('');
 
   const loadStatus = useCallback(() => {
@@ -55,9 +59,17 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
     return loadStatus();
   }, [loadStatus]);
 
-  async function hideHomepage() {
+  useEffect(() => {
+    if (!status?.is_owner || status.privacy_mode !== 'hidden') return;
+    const key = `sup_owner_hidden_refresh_${athleteId}`;
+    if (sessionStorage.getItem(key) === '1') return;
+    sessionStorage.setItem(key, '1');
+    router.refresh();
+  }, [athleteId, router, status?.is_owner, status?.privacy_mode]);
+
+  async function submitPrivacyAction(requestType: 'hide_athlete' | 'restore_frontend') {
     if (!token) return;
-    setHiding(true);
+    setProcessingAction(requestType);
     setHideError('');
     try {
       const res = await fetch('/api/user/privacy-requests', {
@@ -66,26 +78,28 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
         body: JSON.stringify({
           target_type: 'athlete',
           target_id: athleteId,
-          request_type: 'hide_athlete',
-          description: '本人确认隐藏运动员主页',
+          request_type: requestType,
+          description: requestType === 'restore_frontend' ? '本人确认展示运动员主页' : '本人确认隐藏运动员主页',
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '隐藏主页失败');
+      if (!res.ok) throw new Error(data.error || (requestType === 'restore_frontend' ? '展示主页失败' : '隐藏主页失败'));
       setShowHideModal(false);
-      setStatus((prev) => prev ? { ...prev, privacy_mode: 'hidden' } : prev);
+      setStatus((prev) => prev ? { ...prev, privacy_mode: requestType === 'restore_frontend' ? 'claimed' : 'hidden' } : prev);
       loadStatus();
     } catch (error) {
-      setHideError(error instanceof Error ? error.message : '隐藏主页失败');
+      setHideError(error instanceof Error ? error.message : requestType === 'restore_frontend' ? '展示主页失败' : '隐藏主页失败');
     } finally {
-      setHiding(false);
+      setProcessingAction('');
     }
   }
 
   if (loading || !status) return null;
 
   const showClaim = Boolean(status.can_claim || (!status.has_owner && !status.viewer_has_owned_athlete));
-  const actions = (Array.isArray(status.privacy_actions) ? status.privacy_actions : []).filter((action) => actionLabels[action]);
+  const actions = (Array.isArray(status.privacy_actions) ? status.privacy_actions : [])
+    .map((action) => action === 'hide_athlete' && status.privacy_mode === 'hidden' ? 'restore_frontend' : action)
+    .filter((action) => actionLabels[action]);
   if (!showClaim && actions.length === 0) return null;
 
   return (
@@ -99,18 +113,29 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
         </Link>
       )}
       {actions.map((action) => action === 'hide_athlete' ? (
-        <Tooltip key={action} tip={actionTips[action]} dotted={false}>
+        <Tooltip key={action} tip={actionTips[action]} dotted={false} align="end">
           <button
             type="button"
             onClick={() => setShowHideModal(true)}
-            disabled={status.privacy_mode === 'hidden'}
+            disabled={Boolean(processingAction)}
             className="inline-flex h-11 items-center justify-center rounded-lg border border-[#D8CDBE] bg-white px-4 text-sm font-semibold text-[#6B4A24] transition hover:bg-[#FAF6EF] disabled:cursor-not-allowed disabled:opacity-55"
           >
-            {status.privacy_mode === 'hidden' ? '已隐藏主页' : actionLabels[action]}
+            {processingAction === action ? '处理中...' : actionLabels[action]}
+          </button>
+        </Tooltip>
+      ) : action === 'restore_frontend' ? (
+        <Tooltip key={action} tip={actionTips[action]} dotted={false} align="end">
+          <button
+            type="button"
+            onClick={() => submitPrivacyAction('restore_frontend')}
+            disabled={Boolean(processingAction)}
+            className="inline-flex h-11 items-center justify-center rounded-lg border border-[#D8CDBE] bg-white px-4 text-sm font-semibold text-[#6B4A24] transition hover:bg-[#FAF6EF] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {processingAction === action ? '处理中...' : actionLabels[action]}
           </button>
         </Tooltip>
       ) : (
-        <Tooltip key={action} tip={actionTips[action]} dotted={false}>
+        <Tooltip key={action} tip={actionTips[action]} dotted={false} align="end">
           <Link
             href={`/privacy-request?target_type=athlete&target_id=${athleteId}&request_type=${action}`}
             className="inline-flex h-11 items-center justify-center rounded-lg border border-[#D8CDBE] bg-white px-4 text-sm font-semibold text-[#6B4A24] no-underline transition hover:bg-[#FAF6EF]"
@@ -132,8 +157,8 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
               <button type="button" onClick={() => setShowHideModal(false)} className="h-10 rounded-lg border border-[#D8CDBE] bg-white px-4 text-sm font-semibold text-[#6F5B42]">
                 取消
               </button>
-              <button type="button" onClick={hideHomepage} disabled={hiding} className="h-10 rounded-lg bg-[#6B4A24] px-4 text-sm font-semibold text-white disabled:opacity-60">
-                {hiding ? '处理中...' : '确认隐藏'}
+              <button type="button" onClick={() => submitPrivacyAction('hide_athlete')} disabled={Boolean(processingAction)} className="h-10 rounded-lg bg-[#6B4A24] px-4 text-sm font-semibold text-white disabled:opacity-60">
+                {processingAction ? '处理中...' : '确认隐藏'}
               </button>
             </div>
           </div>

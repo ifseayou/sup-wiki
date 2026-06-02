@@ -1,14 +1,15 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
 import Tooltip from '@/components/Tooltip';
 import OfficialEliteBadge from '@/components/OfficialEliteBadge';
 import AthleteResultsPanel from '@/components/AthleteResultsPanel';
 import AthleteClaimEntry from '@/components/AthleteClaimEntry';
 import AthletePhotoCarousel from '@/components/AthletePhotoCarousel';
-import OwnerHiddenAthletePanel from '@/components/OwnerHiddenAthletePanel';
 import pool from '@/lib/db';
+import { verifyUserToken } from '@/lib/auth';
 import { normalizeNationality } from '@/lib/nationality';
-import { getAthletePrivacyState } from '@/lib/result-privacy';
+import { athleteOwnerCondition, getAthletePrivacyState } from '@/lib/result-privacy';
 import type { RowDataPacket } from 'mysql2';
 import { marked } from 'marked';
 
@@ -130,6 +131,25 @@ async function getAthlete(id: number) {
   }
 }
 
+async function getViewerIsAthleteOwner(athleteId: number) {
+  try {
+    const rawToken = (await cookies()).get('sup_user_token')?.value || '';
+    const token = rawToken ? decodeURIComponent(rawToken) : '';
+    const user = token ? verifyUserToken(token) : null;
+    if (!user) return false;
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT user_id
+       FROM sup_athlete_profile_owners
+       WHERE athlete_id = ? AND user_id = ? AND ${athleteOwnerCondition('sup_athlete_profile_owners')}
+       LIMIT 1`,
+      [athleteId, user.user_id]
+    );
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function getAthleteAnnualPointSummary(athleteId: number, athleteName: string) {
   try {
     const completedYear = new Date().getFullYear() - 1;
@@ -205,13 +225,14 @@ export default async function AthleteDetailPage({
   if (!athlete) notFound();
   const { privacy, hasOwner } = await getAthletePrivacyState(athleteId);
   if (privacy.deleted) notFound();
+  const viewerIsOwner = await getViewerIsAthleteOwner(athleteId);
   const normalizedNationality = normalizeNationality(athlete.nationality);
   const isForeignAthlete = Boolean(normalizedNationality && normalizedNationality !== '中国');
-  const hiddenByPrivacy = !isForeignAthlete && (privacy.hidden || privacy.anonymized);
-  const isMinimalProfile = !isForeignAthlete && (!hasOwner || hiddenByPrivacy);
+  const restrictedByPrivacy = !isForeignAthlete && !viewerIsOwner && (privacy.hidden || privacy.anonymized);
+  const isMinimalProfile = !isForeignAthlete && (!hasOwner || restrictedByPrivacy);
   const displayName = athlete.name;
   const annualPoint = isMinimalProfile ? null : await getAthleteAnnualPointSummary(athleteId, athlete.name);
-  const hideIdentitySignals = hiddenByPrivacy;
+  const hideIdentitySignals = restrictedByPrivacy;
   const eliteEventGroups = hideIdentitySignals ? [] : parseStringArray(athlete.elite_event_groups);
   const showEliteBadge = !hideIdentitySignals && (athlete.elite_event_status === 'formal' || athlete.elite_event_status === 'reserve');
 
@@ -268,7 +289,7 @@ export default async function AthleteDetailPage({
   const heroFacts = [
     startedSupYear ? `从${startedSupYear}年开始玩桨板` : '',
   ].filter(Boolean).join(' · ');
-  const minimalPrivacyText = hiddenByPrivacy
+  const minimalPrivacyText = restrictedByPrivacy
     ? '该运动员已主动隐藏个人主页，公开页面不再展示个人资料、照片和主页成绩。'
     : '该档案来自公开赛事成绩，尚未由本人认领。平台当前仅展示最小必要赛事记录；本人可申请认领并更新资料。';
 
@@ -288,7 +309,7 @@ export default async function AthleteDetailPage({
         </div>
       )}
 
-      <section className="mb-8 overflow-hidden rounded-xl border border-cream-200 bg-[radial-gradient(circle_at_top_right,#F5E7D4,transparent_34%),#FEFCF9] shadow-[0_20px_60px_rgba(68,51,35,0.08)]">
+      <section className="mb-8 overflow-visible rounded-xl border border-cream-200 bg-[radial-gradient(circle_at_top_right,#F5E7D4,transparent_34%),#FEFCF9] shadow-[0_20px_60px_rgba(68,51,35,0.08)]">
         <div className="grid gap-7 p-4 sm:p-5 lg:grid-cols-[280px_1fr_240px] lg:p-7">
           {isMinimalProfile ? (
             <div className="flex min-h-[280px] items-center justify-center rounded-xl border border-cream-200 bg-cream-100">
@@ -382,8 +403,6 @@ export default async function AthleteDetailPage({
           </aside>
         </div>
       </section>
-
-      {hiddenByPrivacy && <OwnerHiddenAthletePanel athleteId={athleteId} athleteName={athlete.name} />}
 
       {!isMinimalProfile && <AthleteResultsPanel athleteId={athleteId} athleteName={athlete.name} />}
 

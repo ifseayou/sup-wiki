@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/user-auth';
 import { athleteOwnerCondition } from '@/lib/result-privacy';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
-const REQUEST_TYPES = new Set(['correction', 'hide_athlete', 'anonymize_name', 'delete_frontend']);
+const REQUEST_TYPES = new Set(['correction', 'hide_athlete', 'anonymize_name', 'delete_frontend', 'restore_frontend']);
 const TARGET_TYPES = new Set(['athlete', 'result']);
 
 function cleanText(value: unknown, max = 1000) {
@@ -74,9 +74,9 @@ export async function POST(request: NextRequest) {
     if (!TARGET_TYPES.has(targetType) || !Number.isInteger(targetId) || targetId <= 0) {
       return NextResponse.json({ error: '无效处理对象' }, { status: 400 });
     }
-    const isOwnerHideAthlete = requestType === 'hide_athlete' && targetType === 'athlete' && athleteId;
+    const isOwnerDirectPrivacy = ['hide_athlete', 'restore_frontend'].includes(requestType) && targetType === 'athlete' && athleteId;
     let ownerCanComplete = false;
-    if (isOwnerHideAthlete) {
+    if (isOwnerDirectPrivacy) {
       const [ownerRows] = await pool.execute<RowDataPacket[]>(
         `SELECT user_id
          FROM sup_athlete_profile_owners
@@ -86,7 +86,11 @@ export async function POST(request: NextRequest) {
       );
       ownerCanComplete = ownerRows.length > 0;
     }
-    const description = cleanText(body.description, 2000) || (ownerCanComplete ? '本人确认隐藏运动员主页' : null);
+    const description = cleanText(body.description, 2000) || (ownerCanComplete
+      ? requestType === 'restore_frontend'
+        ? '本人确认展示运动员主页'
+        : '本人确认隐藏运动员主页'
+      : null);
     if (!description) return NextResponse.json({ error: '请填写说明' }, { status: 400 });
     const status = ownerCanComplete ? 'completed' : 'pending';
     const handledAtSql = ownerCanComplete ? 'NOW()' : 'NULL';
@@ -109,7 +113,11 @@ export async function POST(request: NextRequest) {
         status,
         ownerCanComplete ? user.user_id : null,
         ownerCanComplete ? user.nickname || null : null,
-        ownerCanComplete ? '本人确认隐藏主页，系统自动完成' : null,
+        ownerCanComplete
+          ? requestType === 'restore_frontend'
+            ? '本人确认展示主页，系统自动完成'
+            : '本人确认隐藏主页，系统自动完成'
+          : null,
       ]
     );
     await pool.execute(
@@ -120,8 +128,14 @@ export async function POST(request: NextRequest) {
     if (ownerCanComplete) {
       await pool.execute(
         `INSERT INTO sup_privacy_request_logs (request_id, action, actor_user_id, actor_name, note)
-         VALUES (?, 'owner_completed_hide_athlete', ?, ?, '本人确认后立即隐藏主页')`,
-        [inserted.insertId, user.user_id, user.nickname || null]
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          inserted.insertId,
+          requestType === 'restore_frontend' ? 'owner_completed_restore_frontend' : 'owner_completed_hide_athlete',
+          user.user_id,
+          user.nickname || null,
+          requestType === 'restore_frontend' ? '本人点击后立即展示主页' : '本人确认后立即隐藏主页',
+        ]
       );
     }
     return NextResponse.json({ success: true, request_id: inserted.insertId, status }, { status: 201 });
