@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     let ownerCanComplete = false;
     if (isOwnerHideAthlete) {
       const [ownerRows] = await pool.execute<RowDataPacket[]>(
-        `SELECT owner_id
+        `SELECT user_id
          FROM sup_athlete_profile_owners
          WHERE athlete_id = ? AND user_id = ? AND ${athleteOwnerCondition('sup_athlete_profile_owners')}
          LIMIT 1`,
