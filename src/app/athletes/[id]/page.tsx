@@ -5,6 +5,7 @@ import OfficialEliteBadge from '@/components/OfficialEliteBadge';
 import AthleteResultsPanel from '@/components/AthleteResultsPanel';
 import AthleteClaimEntry from '@/components/AthleteClaimEntry';
 import AthletePhotoCarousel from '@/components/AthletePhotoCarousel';
+import OwnerHiddenAthletePanel from '@/components/OwnerHiddenAthletePanel';
 import pool from '@/lib/db';
 import { normalizeNationality } from '@/lib/nationality';
 import { getAthletePrivacyState } from '@/lib/result-privacy';
@@ -25,7 +26,7 @@ interface AthleteRow extends RowDataPacket {
   achievements: string | null;
   race_times: string | null;
   icf_ranking: number | null;
-  elite_event_status: 'none' | 'formal' | null;
+  elite_event_status: 'none' | 'formal' | 'reserve' | null;
   elite_event_groups: string[] | string | null;
   elite_event_note: string | null;
   elite_event_source_title: string | null;
@@ -114,15 +115,6 @@ function displayNationality(value: string | null) {
   if (!nationality) return '';
   return nationality === '中国' ? '🇨🇳 中国' : `🌏 ${nationality}`;
 }
-
-const resultIcon = (result: string, highlight?: boolean) => {
-  if (highlight) return '🥇';
-  if (result.includes('冠军') || result.includes('金牌') || result.includes('第一') || result.toLowerCase().includes('gold') || result.toLowerCase().includes('champion')) return '🥇';
-  if (result.includes('亚军') || result.includes('银牌') || result.includes('第二') || result.toLowerCase().includes('silver') || result.toLowerCase().includes('2nd')) return '🥈';
-  if (result.includes('季军') || result.includes('铜牌') || result.includes('第三') || result.toLowerCase().includes('bronze') || result.toLowerCase().includes('3rd')) return '🥉';
-  if (result.includes('世界纪录') || result.includes('记录') || result.toLowerCase().includes('record')) return '⚡';
-  return '🏅';
-};
 
 async function getAthlete(id: number) {
   try {
@@ -213,12 +205,15 @@ export default async function AthleteDetailPage({
   if (!athlete) notFound();
   const { privacy, hasOwner } = await getAthletePrivacyState(athleteId);
   if (privacy.deleted) notFound();
-  const isMinimalProfile = !hasOwner || privacy.hidden || privacy.anonymized;
-  const displayName = privacy.anonymized ? '已隐藏选手' : athlete.name;
+  const normalizedNationality = normalizeNationality(athlete.nationality);
+  const isForeignAthlete = Boolean(normalizedNationality && normalizedNationality !== '中国');
+  const hiddenByPrivacy = !isForeignAthlete && (privacy.hidden || privacy.anonymized);
+  const isMinimalProfile = !isForeignAthlete && (!hasOwner || hiddenByPrivacy);
+  const displayName = athlete.name;
   const annualPoint = isMinimalProfile ? null : await getAthleteAnnualPointSummary(athleteId, athlete.name);
-  const hideIdentitySignals = privacy.hidden || privacy.anonymized;
+  const hideIdentitySignals = hiddenByPrivacy;
   const eliteEventGroups = hideIdentitySignals ? [] : parseStringArray(athlete.elite_event_groups);
-  const showOfficialEliteBadge = !hideIdentitySignals && athlete.elite_event_status === 'formal';
+  const showEliteBadge = !hideIdentitySignals && (athlete.elite_event_status === 'formal' || athlete.elite_event_status === 'reserve');
 
   const rawAchievements = Array.isArray(athlete.achievements)
     ? athlete.achievements
@@ -235,9 +230,6 @@ export default async function AthleteDetailPage({
 
   const references: { title: string; url: string }[] = socialLinks.references as { title: string; url: string }[] || [];
 
-  // 按年份排序
-  const sortedAchievements = [...achievements].sort((a, b) => b.year - a.year);
-
   const bioHtml = athlete.bio ? marked.parse(athlete.bio) as string : '';
 
   // 多张照片
@@ -246,7 +238,11 @@ export default async function AthleteDetailPage({
     : (athlete.photos ? JSON.parse(String(athlete.photos)) : []);
   const galleryPhotos = isMinimalProfile ? [] : Array.from(new Set([athlete.photo, ...extraPhotos].filter(Boolean) as string[]));
 
-  const rawRaceTimes: RaceTime[] = [];
+  const rawRaceTimes: RaceTime[] = isMinimalProfile
+    ? []
+    : Array.isArray(athlete.race_times)
+      ? athlete.race_times as RaceTime[]
+      : (athlete.race_times ? JSON.parse(String(athlete.race_times)) : []);
 
   // 按距离分组
   const raceTimesByDistance = rawRaceTimes.reduce<Record<string, RaceTime[]>>((acc, rt) => {
@@ -270,9 +266,11 @@ export default async function AthleteDetailPage({
   const profileLevel = achievements.length >= 5 || athlete.icf_ranking ? '精英选手' : achievements.length >= 2 ? '进阶选手' : '基础档案';
   const displayDiscipline = disciplineLabels[athlete.discipline] || athlete.discipline || '桨板';
   const heroFacts = [
-    birthYear ? `${birthYear}年出生` : '',
     startedSupYear ? `从${startedSupYear}年开始玩桨板` : '',
   ].filter(Boolean).join(' · ');
+  const minimalPrivacyText = hiddenByPrivacy
+    ? '该运动员已主动隐藏个人主页，公开页面不再展示个人资料、照片和主页成绩。'
+    : '该档案来自公开赛事成绩，尚未由本人认领。平台当前仅展示最小必要赛事记录；本人可申请认领并更新资料。';
 
   return (
     <div className="mx-auto max-w-[1180px] px-4 py-8 sm:px-6 lg:py-10">
@@ -308,20 +306,20 @@ export default async function AthleteDetailPage({
               <h1 className="font-[var(--font-display)] text-5xl font-medium leading-tight text-brown-800 sm:text-6xl">
                 {displayName}
               </h1>
-              {showOfficialEliteBadge && <OfficialEliteBadge groups={eliteEventGroups} />}
-              {athlete.icf_ranking && (
+              {showEliteBadge && <OfficialEliteBadge status={athlete.elite_event_status as 'formal' | 'reserve'} groups={eliteEventGroups} />}
+              {!isMinimalProfile && athlete.icf_ranking && (
                 <span className="rounded-full border border-[#AED6F1] bg-[#EBF5FB] px-3 py-1 text-xs font-semibold text-[#1A5276]">
                   <Tooltip tip="国际皮划艇联合会 (International Canoe Federation) 世界排名">ICF #{athlete.icf_ranking}</Tooltip>
                 </span>
               )}
             </div>
-            {athlete.name_en && <div className="mt-1 font-[var(--font-display)] text-2xl italic text-warm-gray-400">{athlete.name_en}</div>}
+            {!isMinimalProfile && athlete.name_en && <div className="mt-1 font-[var(--font-display)] text-2xl italic text-warm-gray-400">{athlete.name_en}</div>}
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
               {!isMinimalProfile && athlete.nationality && <span className="rounded-full bg-cream-100 px-3 py-1 text-sm text-warm-gray-600">{displayNationality(athlete.nationality)}</span>}
               {!isMinimalProfile && livingLocation && <span className="rounded-full bg-cream-100 px-3 py-1 text-sm text-warm-gray-600">现居 · {livingLocation}</span>}
               <span className="rounded-full border border-cream-200 bg-cream-100 px-3 py-1 text-sm text-brown-600">{displayDiscipline}</span>
-              {!hasOwner && <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm text-amber-700">待本人认领</span>}
+              {!hasOwner && !isForeignAthlete && <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm text-amber-700">待本人认领</span>}
             </div>
 
             {!isMinimalProfile && heroFacts && <p className="mt-5 text-base text-warm-gray-500">{heroFacts}</p>}
@@ -331,7 +329,7 @@ export default async function AthleteDetailPage({
               <div className="relative pl-6 text-lg font-medium leading-8 text-brown-800">
                 <span className="absolute left-0 top-0 font-[var(--font-display)] text-4xl text-cream-300">“</span>
                 {isMinimalProfile
-                  ? '该档案来自公开赛事成绩，尚未由本人认领。平台当前仅展示最小必要赛事记录；本人可申请认领、更新资料、隐藏、匿名化或删除前台展示。'
+                  ? minimalPrivacyText
                   : introShort || '这位运动员还没有补充个人介绍'}
                 <span className="ml-2 font-[var(--font-display)] text-4xl text-cream-300">”</span>
               </div>
@@ -384,6 +382,8 @@ export default async function AthleteDetailPage({
           </aside>
         </div>
       </section>
+
+      {hiddenByPrivacy && <OwnerHiddenAthletePanel athleteId={athleteId} athleteName={athlete.name} />}
 
       {!isMinimalProfile && <AthleteResultsPanel athleteId={athleteId} athleteName={athlete.name} />}
 
@@ -460,72 +460,6 @@ export default async function AthleteDetailPage({
             dangerouslySetInnerHTML={{ __html: bioHtml }}
             style={{ fontSize: 15, lineHeight: 1.85, color: '#3D3730' }}
           />
-        </div>
-      )}
-
-      {/* ── 职业时间线 ──────────────────────────────────────── */}
-      {sortedAchievements.length > 0 && (
-        <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '28px 32px', marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-            <div style={{ width: 3, height: 20, background: '#7A6145', borderRadius: 2 }} />
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', margin: 0 }}>职业时间线</h2>
-          </div>
-
-          <div style={{ position: 'relative' }}>
-            {/* 竖线 */}
-            <div style={{ position: 'absolute', left: 36, top: 8, bottom: 8, width: 2, background: '#EDE5D8' }} />
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {sortedAchievements.map((ach, idx) => {
-                const icon = resultIcon(ach.result, ach.highlight);
-                const isGold = icon === '🥇';
-                return (
-                  <div key={idx} style={{ display: 'flex', gap: 0, position: 'relative' }}>
-                    {/* 年份+图标 */}
-                    <div style={{ width: 74, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 14 }}>
-                      <div style={{
-                        width: 32, height: 32, borderRadius: '50%',
-                        background: isGold ? '#F5E4A0' : '#F0EAE0',
-                        border: `2px solid ${isGold ? '#C4A320' : '#EDE5D8'}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 14, zIndex: 1, flexShrink: 0,
-                      }}>
-                        {icon}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#8A8078', marginTop: 4, fontWeight: 600 }}>{ach.year}</div>
-                    </div>
-
-                    {/* 内容卡片 */}
-                    <div style={{
-                      flex: 1, marginLeft: 12, marginBottom: 12,
-                      background: isGold ? '#FFFDF0' : '#FAFAF9',
-                      border: `1px solid ${isGold ? '#EDD97A' : '#EDE5D8'}`,
-                      borderRadius: 10, padding: '12px 16px',
-                    }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: '#2E2118', marginBottom: 3 }}>
-                        {ach.event}
-                        {ach.location && <span style={{ fontSize: 12, color: '#8A8078', marginLeft: 8, fontWeight: 400 }}>📍 {ach.location}</span>}
-                      </div>
-                      <div style={{ fontSize: 13, color: isGold ? '#8B6F00' : '#5E4A33', marginBottom: ach.story ? 6 : 0 }}>
-                        {icon} {ach.result}
-                      </div>
-                      {ach.story && (
-                        <div style={{ fontSize: 12, color: '#655D56', lineHeight: 1.65, background: '#F5F5F0', padding: '8px 10px', borderRadius: 6, marginTop: 8, borderLeft: '3px solid #C4A882' }}>
-                          💬 {ach.story}
-                        </div>
-                      )}
-                      {ach.source_url && (
-                        <a href={ach.source_url} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 11, color: '#A08060', textDecoration: 'none', display: 'inline-block', marginTop: 6 }}>
-                          来源：{ach.source_title || ach.source_url.split('/')[2]} ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
       )}
 

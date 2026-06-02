@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getNationalityAliases, normalizeNationality } from '@/lib/nationality';
 import { buildAthleteOwnerMap, buildPrivacyMap } from '@/lib/result-privacy';
+import { hiddenAthleteName, maskAthleteName } from '@/lib/name-mask';
+import { resolveResultAccess, applyPublicPreview } from '@/lib/result-access';
 import type { RowDataPacket } from 'mysql2';
 import type { Athlete, Discipline, PaginatedResponse } from '@/types';
 
@@ -25,6 +27,7 @@ interface AthleteRow extends RowDataPacket {
   achievements: string | null;
   icf_ranking: number | null;
   social_links: string | null;
+  race_times?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -38,6 +41,11 @@ export async function GET(request: NextRequest) {
     const nationality = searchParams.get('nationality');
     const search = searchParams.get('search');
     const sort = searchParams.get('sort') || 'ranking'; // ranking, name, newest
+    const shouldConsumeAccess = Boolean(search || discipline || nationality);
+    const access = await resolveResultAccess(request, { consume: shouldConsumeAccess });
+    if (shouldConsumeAccess && access.authenticated && access.remaining === 0 && access.previewLimit === 0) {
+      return NextResponse.json({ error: '今日成绩查询次数已用完，请明天再试', access }, { status: 429 });
+    }
 
     const offset = (page - 1) * pageSize;
     const conditions: string[] = ['status = "published"'];
@@ -92,26 +100,37 @@ export async function GET(request: NextRequest) {
       .filter((a) => !privacyMap.get(Number(a.athlete_id))?.deleted)
       .map((a) => {
         const privacy = privacyMap.get(Number(a.athlete_id));
-        const minimal = !(ownerMap.get(Number(a.athlete_id)) || []).length || privacy?.hidden || privacy?.anonymized;
+        const hasOwner = (ownerMap.get(Number(a.athlete_id)) || []).length > 0;
+        const normalizedNationality = normalizeNationality(a.nationality);
+        const isForeignAthlete = Boolean(normalizedNationality && normalizedNationality !== '中国');
+        const hiddenByPrivacy = !isForeignAthlete && (privacy?.hidden || privacy?.anonymized);
+        const minimal = !isForeignAthlete && (!hasOwner || hiddenByPrivacy);
         return {
           ...a,
-          name: privacy?.anonymized ? '已隐藏选手' : a.name,
+          name: hiddenByPrivacy ? hiddenAthleteName() : !hasOwner && !isForeignAthlete ? maskAthleteName(a.name) : a.name,
           name_en: minimal ? null : a.name_en,
           photo: minimal ? null : a.photo,
           bio: minimal ? '' : a.bio,
-          nationality: normalizeNationality(a.nationality),
+          nationality: normalizedNationality,
           achievements: minimal ? [] : parseArr(a.achievements),
+          race_times: minimal ? [] : parseArr(a.race_times),
           social_links: minimal ? { privacy_mode: privacy?.hidden ? 'hidden' : 'minimal' } : parseObj(a.social_links),
           is_claimed: !minimal,
+          is_foreign_athlete: isForeignAthlete,
         };
       });
+    const preview = shouldConsumeAccess
+      ? applyPublicPreview(parsedAthletes, access)
+      : { items: parsedAthletes, previewLocked: false };
 
     const response: PaginatedResponse<Athlete> = {
-      items: parsedAthletes as unknown as Athlete[],
+      items: preview.items as unknown as Athlete[],
       total,
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize),
+      access: shouldConsumeAccess ? access : undefined,
+      preview_locked: preview.previewLocked,
     };
 
     return NextResponse.json(response);

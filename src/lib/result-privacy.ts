@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import pool from '@/lib/db';
 import { getUserFromRequest } from '@/lib/user-auth';
+import { hiddenAthleteName, maskAthleteName } from '@/lib/name-mask';
+import { normalizeNationality } from '@/lib/nationality';
 import type { RowDataPacket } from 'mysql2';
 
 const PRIVACY_HIDE_TYPES = new Set(['hide_athlete', 'delete_frontend']);
@@ -110,14 +112,33 @@ export function isInternationalResult(row: Record<string, unknown>) {
   return /(ICF|ISA|APP|World|EuroTour|世界|国际|亚洲杯|亚锦赛|海外|国外)/i.test(text);
 }
 
-function hideResultName<T extends Record<string, unknown>>(row: T): T {
+export function isForeignAthleteIdentity(row: Record<string, unknown>) {
+  const nationality = [
+    row.athlete_nationality,
+    row.nationality,
+    row.nationality_snapshot,
+    row.display_nationality,
+  ].map(normalizeNationality).find(Boolean);
+  if (nationality && nationality !== '中国') return true;
+
+  const pointScope = String(row.point_scope || row.source_scope || row.event_source_scope || '').trim().toLowerCase();
+  return pointScope === 'international' || pointScope === 'global' || pointScope === 'world';
+}
+
+function hideResultName<T extends Record<string, unknown>>(row: T, label: string): T {
   const members = Array.isArray(row.team_members)
-    ? row.team_members.map((member) => ({ ...(member as Record<string, unknown>), name: '已隐藏选手', member_name: '已隐藏选手' }))
+    ? row.team_members.map((member) => {
+        const item = member as Record<string, unknown>;
+        const name = label === hiddenAthleteName()
+          ? label
+          : maskAthleteName(item.name || item.member_name || row.athlete_name || row.athlete_name_snapshot);
+        return { ...item, name, member_name: name };
+      })
     : row.team_members;
   return {
     ...row,
-    athlete_name: '已隐藏选手',
-    athlete_name_snapshot: '已隐藏选手',
+    athlete_name: label,
+    athlete_name_snapshot: label,
     athlete_photo: '',
     team_members: members,
   };
@@ -136,31 +157,40 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
     .filter((row) => {
       const resultState = resultPrivacy.get(Number(row.result_id || row.id));
       const athleteState = athletePrivacy.get(Number(row.athlete_id));
-      return !(resultState && (resultState.hidden || resultState.deleted)) && !(athleteState && (athleteState.hidden || athleteState.deleted));
+      return !(resultState?.deleted || athleteState?.deleted);
     })
     .map((row) => {
       const athleteId = Number(row.athlete_id);
       const owners = ownerMap.get(athleteId) || [];
       const isInternational = isInternationalResult(row);
+      const isForeignAthlete = isForeignAthleteIdentity(row);
+      const isPublicForeignResult = isInternational || isForeignAthlete;
       const isMyAthlete = ownedAthleteIds.has(athleteId);
-      const athleteIsClaimed = isInternational || owners.length > 0;
+      const athleteIsClaimed = isPublicForeignResult || owners.length > 0;
       const viewerHasOwnedAthlete = ownedAthleteIds.size > 0;
       const resultState = resultPrivacy.get(Number(row.result_id || row.id));
       const athleteState = athletePrivacy.get(athleteId);
       const privacy = resultState?.anonymized ? resultState : athleteState;
-      const shouldAnonymize = !isInternational && Boolean(privacy?.anonymized || !athleteIsClaimed);
-      const masked = shouldAnonymize ? hideResultName(row) : row;
-      const privacyActions = isInternational
+      const shouldHideByPrivacy = !isPublicForeignResult && !isMyAthlete && Boolean(privacy?.hidden || privacy?.anonymized);
+      const shouldMaskUnclaimed = !isPublicForeignResult && !athleteIsClaimed;
+      const displayLabel = shouldHideByPrivacy
+        ? hiddenAthleteName()
+        : shouldMaskUnclaimed
+          ? maskAthleteName(row.athlete_name || row.athlete_name_snapshot)
+          : '';
+      const masked = displayLabel ? hideResultName(row, displayLabel) : row;
+      const privacyActions = isPublicForeignResult
         ? []
         : isMyAthlete
           ? ['anonymize_name']
-          : !viewerHasOwnedAthlete && !athleteIsClaimed
-            ? ['claim', 'correction', 'anonymize_name']
+          : !shouldHideByPrivacy && !viewerHasOwnedAthlete && !athleteIsClaimed
+            ? ['claim']
             : [];
       return {
         ...masked,
         athlete_is_claimed: athleteIsClaimed,
         is_international_result: isInternational,
+        is_foreign_athlete: isForeignAthlete,
         is_my_athlete: isMyAthlete,
         viewer_has_owned_athlete: viewerHasOwnedAthlete,
         privacy_actions: privacyActions,
@@ -175,4 +205,43 @@ export async function getAthletePrivacyState(athleteId: number) {
     privacy: privacyMap.get(athleteId) || { hidden: false, anonymized: false, deleted: false },
     hasOwner: (ownerMap.get(athleteId) || []).length > 0,
   };
+}
+
+export async function maskAthleteIdentityRows<T extends Record<string, unknown>>(rows: T[]) {
+  const athletePrivacy = await buildPrivacyMap('athlete', rows.map((row) => Number(row.athlete_id)));
+  const ownerMap = await buildAthleteOwnerMap(rows.map((row) => Number(row.athlete_id)));
+
+  return rows
+    .filter((row) => !athletePrivacy.get(Number(row.athlete_id))?.deleted)
+    .map((row) => {
+      const athleteId = Number(row.athlete_id);
+      const privacy = athletePrivacy.get(athleteId);
+      const hasOwner = (ownerMap.get(athleteId) || []).length > 0;
+      const isForeignAthlete = isForeignAthleteIdentity(row);
+      const hiddenByPrivacy = !isForeignAthlete && Boolean(privacy?.hidden || privacy?.anonymized);
+      if (!hiddenByPrivacy && hasOwner) {
+        return {
+          ...row,
+          athlete_is_claimed: true,
+          is_foreign_athlete: isForeignAthlete,
+        };
+      }
+      if (isForeignAthlete) {
+        return {
+          ...row,
+          athlete_is_claimed: true,
+          is_foreign_athlete: true,
+        };
+      }
+      const label = hiddenByPrivacy
+        ? hiddenAthleteName()
+        : maskAthleteName(row.athlete_name || row.athlete_name_snapshot);
+      return {
+        ...row,
+        athlete_name: label,
+        athlete_name_snapshot: label,
+        athlete_photo: '',
+        athlete_is_claimed: false,
+      };
+    });
 }

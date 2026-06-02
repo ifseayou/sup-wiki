@@ -276,7 +276,7 @@ function AthleteCell({
       </span>
     </span>
   );
-  if (!athleteId) return body;
+  if (!athleteId || name === '隐藏') return body;
   return <Link href={`/athletes/${athleteId}`} className="inline-flex max-w-full no-underline">{body}</Link>;
 }
 

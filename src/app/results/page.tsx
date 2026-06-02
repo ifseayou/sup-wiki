@@ -294,7 +294,7 @@ function AthleteCell({ row, members }: { row: ResultRow; members: string[] }) {
       </span>
     </span>
   );
-  if (!row.athlete_id) return body;
+  if (!row.athlete_id || name === '隐藏') return body;
   return <Link href={`/athletes/${row.athlete_id}`} className="block no-underline">{body}</Link>;
 }
 
@@ -343,7 +343,7 @@ function AnnualAthleteCell({ row }: { row: AnnualPointRow }) {
       <span className="block truncate text-base font-bold text-[#3A2B20]">{name}</span>
     </span>
   );
-  if (!row.athlete_id) return body;
+  if (!row.athlete_id || name === '隐藏') return body;
   return <Link href={`/athletes/${row.athlete_id}`} className="block no-underline">{body}</Link>;
 }
 

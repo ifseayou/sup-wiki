@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import { writeSearchLog } from '@/lib/search-log';
+import { maskAthleteIdentityRows } from '@/lib/result-privacy';
 import type { RowDataPacket } from 'mysql2';
 
 type PointType = 'athlete' | 'club';
@@ -126,7 +127,7 @@ export async function GET(request: NextRequest) {
          LIMIT ${queryPageSize} OFFSET ${queryOffset}`
       : `SELECT
            s.standing_id, s.year, s.group_code, s.group_name, s.rank_position,
-           s.athlete_id, s.athlete_name_snapshot, a.name AS athlete_name, a.photo AS athlete_photo,
+           s.athlete_id, s.athlete_name_snapshot, a.name AS athlete_name, a.photo AS athlete_photo, a.nationality AS athlete_nationality,
            s.team_name, s.total_points, s.endurance_points, s.sprint_points, s.technical_points,
            src.title AS source_title, src.source_url, src.point_scope
          FROM sup_annual_point_standings s
@@ -135,7 +136,8 @@ export async function GET(request: NextRequest) {
          ${where}
          ORDER BY s.group_name ASC, COALESCE(s.rank_position, 999999) ASC, s.total_points DESC, s.standing_id ASC
          LIMIT ${queryPageSize} OFFSET ${queryOffset}`;
-    const [items] = await pool.execute<RowDataPacket[]>(itemSql, params);
+    const [rawItems] = await pool.execute<RowDataPacket[]>(itemSql, params);
+    const items = type === 'athlete' ? await maskAthleteIdentityRows(rawItems) : rawItems;
 
     const [groupRows] = await pool.execute<RowDataPacket[]>(
       type === 'club'

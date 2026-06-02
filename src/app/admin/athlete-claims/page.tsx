@@ -169,7 +169,7 @@ export default function AdminAthleteClaimsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', marginBottom: 18 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 24, color: '#2A2118' }}>运动员资料审批</h1>
-          <p style={{ margin: '6px 0 0', color: '#8B8580', fontSize: 13 }}>优先处理号码牌已校验通过的“这是我，更新资料”提交。</p>
+          <p style={{ margin: '6px 0 0', color: '#8B8580', fontSize: 13 }}>优先处理号码牌已校验通过的“我是本人，认领该运动员”提交。</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') load(); }} placeholder="搜索运动员 / 用户" style={{ height: 36, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 10px' }} />
@@ -233,7 +233,6 @@ export default function AdminAthleteClaimsPage() {
                 <div><strong>出生日期：</strong>{formatSubmittedBirth(item)}</div>
                 <div><strong>籍贯：</strong>{[item.submitted_hometown_province, item.submitted_hometown_city].filter(Boolean).join(' · ') || '-'}</div>
                 <div><strong>现居：</strong>{[item.submitted_living_province, item.submitted_living_city].filter(Boolean).join(' · ') || '-'}</div>
-                <div><strong>一句话：</strong>{item.submitted_intro_short || '-'}</div>
                 <div><strong>联系方式：</strong>{item.submitted_contact || '-'}</div>
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.8, color: '#4B4238' }}>

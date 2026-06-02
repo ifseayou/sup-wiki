@@ -35,6 +35,7 @@ export type EventRunStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
 export type EventStarLevel = '五星+' | '五星' | '四星+' | '四星' | '三星+' | '三星';
 export type EventResultStatus = 'none' | 'partial' | 'top10_complete' | 'extended_complete';
 export type EventResultSourceType = 'official' | 'media' | 'livestream' | 'manual';
+export type EliteEventStatus = 'none' | 'formal' | 'reserve';
 
 // 实体类型（用于批量导入等）
 export type EntityType = 'brand' | 'product' | 'athlete' | 'creator' | 'event' | 'shop_item' | 'course' | 'technique';
@@ -178,6 +179,10 @@ export interface Athlete {
   discipline: Discipline;
   achievements?: Achievement[];
   icf_ranking?: number;
+  elite_event_status?: EliteEventStatus;
+  elite_event_groups?: string[];
+  elite_event_note?: string | null;
+  elite_event_source_title?: string | null;
   social_links?: SocialLinks;
   status: ContentStatus;
   created_at: Date;
@@ -300,6 +305,8 @@ export interface PaginatedResponse<T> {
   page: number;
   pageSize: number;
   totalPages: number;
+  access?: unknown;
+  preview_locked?: boolean;
 }
 
 // 筛选参数

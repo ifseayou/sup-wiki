@@ -52,8 +52,22 @@ test('builds diffs against current athlete profile and previous submission', () 
     previous_submitted_intro_short: '新介绍',
   });
 
-  assert.deepEqual(diffs.againstCurrent.map((item) => item.key), ['name', 'avatar', 'hometown', 'intro_short']);
+  assert.deepEqual(diffs.againstCurrent.map((item) => item.key), ['name', 'avatar', 'hometown']);
   assert.deepEqual(diffs.againstPreviousSubmission.map((item) => item.key), ['name', 'hometown']);
+});
+
+test('does not expose intro_short as a separate one-line diff', () => {
+  const diffs = buildAthleteClaimDiffs({
+    current_public_profile: { intro_short: '旧一句话' },
+    submitted_intro_short: '新一句话',
+    previous_submitted_intro_short: '旧一句话',
+    current_bio: '旧简介',
+    submitted_intro: '新简介',
+    previous_submitted_intro: '旧简介',
+  });
+
+  assert.equal(diffs.againstCurrent.some((item) => item.key === 'intro_short' || item.label === '一句话'), false);
+  assert.deepEqual(diffs.againstCurrent.map((item) => item.key), ['intro']);
 });
 
 test('normalizes photo url arrays before comparing', () => {

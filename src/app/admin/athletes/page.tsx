@@ -102,7 +102,7 @@ function renderAthleteName(_value: unknown, row: Record<string, unknown>) {
   const name = String(row.name || '未命名运动员');
   const nameEn = String(row.name_en || '').trim();
   const photo = String(row.photo || '').trim();
-  const isOfficialElite = row.elite_event_status === 'formal';
+  const showEliteBadge = row.elite_event_status === 'formal' || row.elite_event_status === 'reserve';
   const eliteGroups = Array.isArray(row.elite_event_groups) ? row.elite_event_groups as string[] : [];
   return (
     <div className="flex min-w-48 items-center gap-3">
@@ -112,7 +112,7 @@ function renderAthleteName(_value: unknown, row: Record<string, unknown>) {
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate font-semibold text-[#2E3D38]">{name}</span>
-          {isOfficialElite && <OfficialEliteBadge groups={eliteGroups} />}
+          {showEliteBadge && <OfficialEliteBadge status={row.elite_event_status as 'formal' | 'reserve'} groups={eliteGroups} />}
         </div>
         <div className="mt-0.5 truncate text-xs text-[#9A9085]">
           #{String(row.athlete_id || '—')}{nameEn ? ` · ${nameEn}` : ''}

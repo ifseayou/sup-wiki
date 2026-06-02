@@ -5,7 +5,7 @@ import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import { getResultPaceDisplay } from '@/lib/result-pace';
 import { writeSearchLog } from '@/lib/search-log';
-import { filterAndMaskRaceResults, getViewerOwnedAthleteIds } from '@/lib/result-privacy';
+import { filterAndMaskRaceResults, getViewerOwnedAthleteIds, maskAthleteIdentityRows } from '@/lib/result-privacy';
 import type { RowDataPacket } from 'mysql2';
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -125,12 +125,13 @@ export async function GET(
         `SELECT
            er.result_id, er.event_id, er.athlete_id, er.athlete_name_snapshot, er.bib_number,
            er.gender_group, er.discipline, er.board_class, er.round_label, er.rank_position,
-           er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name,
+           er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name, er.nationality_snapshot,
            (SELECT c.slug FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_slug,
            (SELECT c.name FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_name,
            er.source_title, er.source_url, er.source_locator, er.source_note,
            a.name AS athlete_name,
            a.photo AS athlete_photo,
+           a.nationality AS athlete_nationality,
            e.name AS event_name,
            e.name_en AS event_name_en,
            e.source_scope,
@@ -216,7 +217,7 @@ export async function GET(
         [eventId, groupName]
       );
 
-      const [pointRows] = await pool.execute<RowDataPacket[]>(
+      const [rawPointRows] = await pool.execute<RowDataPacket[]>(
         `SELECT
            ps.standing_id, ps.event_id, ps.source_id, ps.group_name, ps.rank_position, ps.status_rank,
            ps.bib_number, ps.athlete_id, ps.athlete_name_snapshot, ps.team_name,
@@ -224,6 +225,8 @@ export async function GET(
            ps.source_locator,
            a.name AS athlete_name,
            a.photo AS athlete_photo,
+           a.nationality AS athlete_nationality,
+           e.source_scope,
            src.source_url AS source_file_url,
            src.file_name AS source_file_name
          FROM sup_event_point_standings ps
@@ -240,6 +243,7 @@ export async function GET(
       );
 
       const total = Number(countRows[0]?.total || 0);
+      const pointRows = await maskAthleteIdentityRows(rawPointRows);
       const preview = applyPublicPreview(pointRows, access);
       await writeSearchLog(request, {
         entry: 'event_results',
@@ -273,12 +277,13 @@ export async function GET(
       `SELECT
          er.result_id, er.event_id, er.athlete_id, er.athlete_name_snapshot, er.bib_number,
          er.gender_group, er.discipline, er.board_class, er.round_label, er.rank_position,
-         er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name,
+         er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name, er.nationality_snapshot,
          (SELECT c.slug FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_slug,
          (SELECT c.name FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_name,
            er.source_title, er.source_url, er.source_locator, er.source_note,
            a.name AS athlete_name,
            a.photo AS athlete_photo,
+           a.nationality AS athlete_nationality,
            e.name AS event_name,
            e.name_en AS event_name_en,
            e.source_scope,
@@ -301,7 +306,7 @@ export async function GET(
       [eventId]
     );
 
-    const [pointRows] = await pool.execute<RowDataPacket[]>(
+    const [rawPointRows] = await pool.execute<RowDataPacket[]>(
       `SELECT
          ps.standing_id, ps.event_id, ps.source_id, ps.group_name, ps.rank_position, ps.status_rank,
          ps.bib_number, ps.athlete_id, ps.athlete_name_snapshot, ps.team_name,
@@ -309,6 +314,8 @@ export async function GET(
          ps.source_locator,
          a.name AS athlete_name,
          a.photo AS athlete_photo,
+         a.nationality AS athlete_nationality,
+         e.source_scope,
          src.source_url AS source_file_url,
          src.file_name AS source_file_name
        FROM sup_event_point_standings ps
@@ -326,6 +333,7 @@ export async function GET(
 
     const viewer = await getViewerOwnedAthleteIds(request);
     const visibleRows = await filterAndMaskRaceResults(rows, viewer);
+    const pointRows = await maskAthleteIdentityRows(rawPointRows);
     const rowsWithPace = visibleRows.map((row) => {
       const pace = getResultPaceDisplay({
         discipline: row.discipline,

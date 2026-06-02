@@ -7,23 +7,29 @@ const { spawnSync } = require('child_process');
 const mysql = require('mysql2/promise');
 
 const repoRoot = path.resolve(__dirname, '..');
-const SOURCE_TITLE = '体育总局水上中心关于公示中国桨板精英赛事运动员名单的通知';
+const FORMAL_SOURCE_TITLE = '中国桨板精英赛事正式运动员名单';
+const RESERVE_SOURCE_TITLE = '中国桨板精英赛事候补运动员名单';
+const SOURCE_TITLE = FORMAL_SOURCE_TITLE;
 
 function usage() {
   console.log(`Usage:
+  node scripts/import-official-elite-athletes.js --formal-file "/path/to/1.中国桨板精英赛事正式运动员名单.xlsx" --reserve-file "/path/to/2.中国桨板精英赛事候补运动员名单.xlsx" [--dry-run] [--no-reset]
   node scripts/import-official-elite-athletes.js --file "/path/to/1.中国桨板精英赛事正式运动员名单.xlsx" [--dry-run] [--no-reset]
 `);
 }
 
 function parseArgs(argv) {
-  const args = { file: '', dryRun: false, reset: true, help: false };
+  const args = { file: '', formalFile: '', reserveFile: '', dryRun: false, reset: true, help: false };
   for (let index = 2; index < argv.length; index += 1) {
     const item = argv[index];
     if (item === '--file' || item === '--input') args.file = argv[++index] || '';
+    else if (item === '--formal-file') args.formalFile = argv[++index] || '';
+    else if (item === '--reserve-file') args.reserveFile = argv[++index] || '';
     else if (item === '--dry-run') args.dryRun = true;
     else if (item === '--no-reset') args.reset = false;
     else if (item === '--help' || item === '-h') args.help = true;
   }
+  if (args.file && !args.formalFile) args.formalFile = args.file;
   return args;
 }
 
@@ -67,6 +73,8 @@ function dedupeRosterRows(rows) {
       group,
       note: cleanText(row.note),
       sheet: cleanText(row.sheet),
+      status: row.status === 'reserve' ? 'reserve' : 'formal',
+      sourceTitle: cleanText(row.sourceTitle),
     };
     if (!current) {
       byKey.set(key, next);
@@ -82,22 +90,26 @@ function groupRosterByName(rows) {
   const byName = new Map();
   for (const row of rows) {
     const key = normalizeName(row.name);
-    const item = byName.get(key) || { name: row.name, groups: new Set(), notes: new Set(), rows: [] };
+    const item = byName.get(key) || { name: row.name, groups: new Set(), notes: new Set(), rows: [], status: row.status === 'reserve' ? 'reserve' : 'formal', sourceTitles: new Set() };
     item.groups.add(row.group);
     if (row.note) item.notes.add(row.note);
+    if (row.sourceTitle) item.sourceTitles.add(row.sourceTitle);
     item.rows.push(row);
     byName.set(key, item);
   }
   return [...byName.values()].map((item) => ({
     name: item.name,
     normalizedName: normalizeName(item.name),
+    status: item.status,
     groups: [...item.groups].sort((a, b) => a.localeCompare(b, 'zh-CN')),
     notes: [...item.notes].sort((a, b) => a.localeCompare(b, 'zh-CN')),
+    sourceTitle: [...item.sourceTitles][0] || (item.status === 'reserve' ? RESERVE_SOURCE_TITLE : FORMAL_SOURCE_TITLE),
     rows: item.rows,
   }));
 }
 
-function parseWorkbook(file) {
+function parseWorkbook(file, status = 'formal') {
+  const sourceTitle = status === 'reserve' ? RESERVE_SOURCE_TITLE : FORMAL_SOURCE_TITLE;
   const python = `
 import json
 import sys
@@ -122,8 +134,12 @@ for sheet_name in wb.sheetnames:
             continue
         name = cells[indexes["姓名"]] if indexes["姓名"] < len(cells) else ""
         group = cells[indexes["组别"]] if indexes["组别"] < len(cells) else ""
-        note_index = indexes.get("备注", -1)
-        note = cells[note_index] if note_index >= 0 and note_index < len(cells) else ""
+        note = ""
+        for note_name in ("备注", "积分排名"):
+            note_index = indexes.get(note_name, -1)
+            if note_index >= 0 and note_index < len(cells) and cells[note_index]:
+                note = cells[note_index]
+                break
         if name and group:
             rows.append({"sheet": sheet_name, "name": name, "group": group, "note": note})
 print(json.dumps(rows, ensure_ascii=False))
@@ -132,7 +148,14 @@ print(json.dumps(rows, ensure_ascii=False))
   if (result.status !== 0) {
     throw new Error(result.stderr || 'Excel 解析失败');
   }
-  return dedupeRosterRows(JSON.parse(result.stdout || '[]'));
+  return dedupeRosterRows(JSON.parse(result.stdout || '[]').map((row) => ({ ...row, status, sourceTitle })));
+}
+
+function mergeRosterEntries(formalEntries, reserveEntries) {
+  const byName = new Map();
+  for (const entry of reserveEntries) byName.set(entry.normalizedName, entry);
+  for (const entry of formalEntries) byName.set(entry.normalizedName, entry);
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
 }
 
 function chunkArray(items, size = 300) {
@@ -203,22 +226,23 @@ async function applyImport(conn, matched, reset) {
                 elite_event_note = NULL,
                 elite_event_source_title = NULL,
                 elite_event_updated_at = NULL
-          WHERE elite_event_status = 'formal'`
+          WHERE elite_event_status IN ('formal', 'reserve')`
       );
     }
     for (const item of matched) {
       await conn.execute(
         `UPDATE sup_athletes
-            SET elite_event_status = 'formal',
+            SET elite_event_status = ?,
                 elite_event_groups = ?,
                 elite_event_note = ?,
                 elite_event_source_title = ?,
                 elite_event_updated_at = NOW()
           WHERE athlete_id = ?`,
         [
+          item.status,
           JSON.stringify(item.groups),
           item.notes.join('；').slice(0, 255) || null,
-          SOURCE_TITLE,
+          item.sourceTitle || (item.status === 'reserve' ? RESERVE_SOURCE_TITLE : FORMAL_SOURCE_TITLE),
           item.athleteId,
         ]
       );
@@ -230,15 +254,26 @@ async function applyImport(conn, matched, reset) {
   }
 }
 
+function countByStatus(items) {
+  return items.reduce((acc, item) => {
+    const status = item.status === 'reserve' ? 'reserve' : 'formal';
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+}
+
 function printSummary({ rows, entries, matched, unmatched, conflicts, dryRun }) {
+  const entryCounts = countByStatus(entries);
+  const matchedCounts = countByStatus(matched);
   console.log(`Excel 去重后名单：${rows.length} 条姓名+组别，${entries.length} 名运动员`);
-  console.log(`匹配成功：${matched.length}`);
+  console.log(`运动员状态：正式 ${entryCounts.formal || 0}，候补 ${entryCounts.reserve || 0}`);
+  console.log(`匹配成功：${matched.length}（正式 ${matchedCounts.formal || 0}，候补 ${matchedCounts.reserve || 0}）`);
   console.log(`未匹配：${unmatched.length}`);
   console.log(`同名冲突：${conflicts.length}`);
   console.log(`模式：${dryRun ? 'dry-run，仅预览' : '已写入数据库'}`);
   if (unmatched.length) {
     console.log('\n未匹配前 30 名：');
-    for (const item of unmatched.slice(0, 30)) console.log(`- ${item.name}｜${item.groups.join('、')}`);
+    for (const item of unmatched.slice(0, 30)) console.log(`- ${item.status === 'reserve' ? '候补' : '正式'}｜${item.name}｜${item.groups.join('、')}`);
   }
   if (conflicts.length) {
     console.log('\n同名冲突：');
@@ -248,15 +283,21 @@ function printSummary({ rows, entries, matched, unmatched, conflicts, dryRun }) 
 
 async function main() {
   const args = parseArgs(process.argv);
-  if (args.help || !args.file) {
+  if (args.help || (!args.formalFile && !args.reserveFile)) {
     usage();
     process.exit(args.help ? 0 : 1);
   }
-  const file = path.resolve(args.file);
-  if (!fs.existsSync(file)) throw new Error(`文件不存在：${file}`);
+  const formalFile = args.formalFile ? path.resolve(args.formalFile) : '';
+  const reserveFile = args.reserveFile ? path.resolve(args.reserveFile) : '';
+  if (formalFile && !fs.existsSync(formalFile)) throw new Error(`文件不存在：${formalFile}`);
+  if (reserveFile && !fs.existsSync(reserveFile)) throw new Error(`文件不存在：${reserveFile}`);
 
-  const rows = parseWorkbook(file);
-  const entries = groupRosterByName(rows);
+  const formalRows = formalFile ? parseWorkbook(formalFile, 'formal') : [];
+  const reserveRows = reserveFile ? parseWorkbook(reserveFile, 'reserve') : [];
+  const rows = [...formalRows, ...reserveRows];
+  const formalEntries = groupRosterByName(formalRows);
+  const reserveEntries = groupRosterByName(reserveRows);
+  const entries = mergeRosterEntries(formalEntries, reserveEntries);
   const env = loadEnv();
   const conn = await mysql.createConnection({
     host: env.MYSQL_HOST || 'localhost',
@@ -299,4 +340,7 @@ module.exports = {
   cleanText,
   dedupeRosterRows,
   groupRosterByName,
+  mergeRosterEntries,
+  FORMAL_SOURCE_TITLE,
+  RESERVE_SOURCE_TITLE,
 };

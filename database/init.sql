@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS sup_athletes (
     achievements JSON,
     race_times JSON,
     icf_ranking INT,
-    elite_event_status ENUM('none','formal') NOT NULL DEFAULT 'none',
+    elite_event_status ENUM('none','formal','reserve') NOT NULL DEFAULT 'none',
     elite_event_groups JSON,
     elite_event_note VARCHAR(255),
     elite_event_source_title VARCHAR(255),

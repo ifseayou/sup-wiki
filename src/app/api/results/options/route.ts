@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
+import { maskAthleteIdentityRows } from '@/lib/result-privacy';
 import type { RowDataPacket } from 'mysql2';
 
 type OptionRow = RowDataPacket & {
   value: string | number;
   label: string;
+  athlete_id?: number | null;
+  athlete_name?: string | null;
+  athlete_name_snapshot?: string | null;
+  athlete_photo?: string | null;
   meta?: string | null;
 };
 
@@ -76,6 +81,11 @@ export async function GET(request: NextRequest) {
       const [data] = await pool.execute<OptionRow[]>(
         `SELECT
            CAST(er.athlete_id AS CHAR) AS value,
+           er.athlete_id,
+           a.name AS athlete_name,
+           a.nationality AS athlete_nationality,
+           er.athlete_name_snapshot,
+           er.nationality_snapshot,
            COALESCE(a.name, er.athlete_name_snapshot) AS label,
            CONCAT(COUNT(*), ' 条成绩') AS meta
          FROM sup_event_results er
@@ -83,12 +93,13 @@ export async function GET(request: NextRequest) {
          INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
          LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
          WHERE ${conditions.join(' AND ')}
-         GROUP BY er.athlete_id, label
+         GROUP BY er.athlete_id, a.name, a.nationality, er.athlete_name_snapshot, er.nationality_snapshot, label
          ORDER BY COUNT(*) DESC, label ASC
          LIMIT 40`,
         params
       );
-      rows = data;
+      const masked = await maskAthleteIdentityRows(data);
+      rows = masked.map((row) => ({ ...row, label: String(row.athlete_name || row.athlete_name_snapshot || row.label || '') }));
     } else if (type === 'event') {
       const conditions = [
         "e.status = 'published'",

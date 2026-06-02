@@ -178,12 +178,12 @@ export async function GET(request: NextRequest) {
       `SELECT
          er.result_id, er.event_id, er.athlete_id, er.athlete_name_snapshot, er.bib_number,
          er.gender_group, er.discipline, er.board_class, er.round_label, er.rank_position,
-         er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name,
+         er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name, er.nationality_snapshot,
          (SELECT c.slug FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_slug,
          (SELECT c.name FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_name,
          er.source_title, er.source_url, er.source_locator, er.review_status,
          e.name AS event_name, e.name_en AS event_name_en, e.start_date, e.city, e.province, e.star_level, e.score_coefficient, e.source_scope,
-         a.name AS athlete_name, a.photo AS athlete_photo,
+         a.name AS athlete_name, a.photo AS athlete_photo, a.nationality AS athlete_nationality,
          src.source_url AS source_file_url, src.file_name AS source_file_name, src.file_type AS source_file_type,
          (
            SELECT JSON_ARRAYAGG(JSON_OBJECT('athlete_id', erm.athlete_id, 'name', erm.member_name, 'member_order', erm.member_order))

@@ -21,6 +21,17 @@ function parseJsonObject(value: unknown) {
   }
 }
 
+function normalizeMediaList(value: unknown) {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed.map((item) => String(item || '').trim()).filter(Boolean) : [];
+  } catch {
+    return String(value).split(/[,\n]/).map((item) => item.trim()).filter(Boolean);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const user = requireUser(request);
   if (user instanceof NextResponse) return user;
@@ -32,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [athletes] = await pool.execute<RowDataPacket[]>(
-      `SELECT athlete_id, name, photo, province, city, bio, social_links
+      `SELECT athlete_id, name, photo, photos, province, city, bio, social_links
        FROM sup_athletes
        WHERE athlete_id = ?
        LIMIT 1`,
@@ -49,6 +60,16 @@ export async function GET(request: NextRequest) {
     const ownerIds = ownerRows.map((row) => Number(row.user_id));
     if (ownerIds.length > 0 && !ownerIds.includes(user.user_id)) {
       return NextResponse.json({ error: '该运动员资料已被本人绑定' }, { status: 403 });
+    }
+    const [userOwnerRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT athlete_id
+       FROM sup_athlete_profile_owners
+       WHERE user_id = ? AND status = 'active' AND role = 'owner'
+       LIMIT 1`,
+      [user.user_id]
+    );
+    if (userOwnerRows.length && Number(userOwnerRows[0].athlete_id) !== athleteId) {
+      return NextResponse.json({ error: '一个用户只能绑定一个运动员' }, { status: 403 });
     }
 
     const [results] = await pool.execute<RowDataPacket[]>(
@@ -73,11 +94,34 @@ export async function GET(request: NextRequest) {
     const athlete = athletes[0];
     const socialLinks = parseJsonObject(athlete.social_links);
     const publicProfile = parseJsonObject(socialLinks.public_profile);
+    const [latestClaims] = await pool.execute<RowDataPacket[]>(
+      `SELECT submitted_profile_json
+       FROM sup_athlete_profile_claims
+       WHERE athlete_id = ? AND user_id = ?
+       ORDER BY created_at DESC, claim_id DESC
+       LIMIT 1`,
+      [athleteId, user.user_id]
+    );
+    const latestProfile = parseJsonObject(latestClaims[0]?.submitted_profile_json);
+    const currentPhotoUrls = normalizeMediaList(athlete.photos);
+    const profilePhotoUrls = normalizeMediaList(
+      latestProfile.sup_photos || latestProfile.photos || publicProfile.sup_photos || publicProfile.photos || []
+    );
+    const mergedPhotoUrls = Array.from(new Set([...profilePhotoUrls, ...currentPhotoUrls]));
+    const mergedProfile = {
+      ...publicProfile,
+      ...latestProfile,
+      sup_photos: mergedPhotoUrls,
+      photos: mergedPhotoUrls,
+    };
+    const isOwner = ownerIds.includes(user.user_id);
 
     return NextResponse.json({
+      claim_mode: isOwner ? 'update' : 'claim',
+      is_owner: isOwner,
       athlete: {
         ...athlete,
-        public_profile: publicProfile,
+        public_profile: mergedProfile,
         social_links: undefined,
       },
       recent_results: results.map((row) => ({

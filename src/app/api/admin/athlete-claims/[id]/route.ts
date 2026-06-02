@@ -36,21 +36,6 @@ function parseUrlArray(value: unknown) {
   return Array.from(new Set(source.map((item) => String(item || '').trim()).filter(Boolean)));
 }
 
-function mergePhotoUrls(existing: unknown, incoming: string[]) {
-  const existingList = Array.isArray(existing)
-    ? existing
-    : (() => {
-        if (!existing) return [];
-        try {
-          const parsed = JSON.parse(String(existing));
-          return Array.isArray(parsed) ? parsed : [];
-        } catch {
-          return [];
-        }
-      })();
-  return Array.from(new Set(existingList.concat(incoming).map((item) => String(item || '').trim()).filter(Boolean)));
-}
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -107,7 +92,7 @@ export async function PATCH(
     const submittedProfile = parseJsonObject(claim.submitted_profile_json);
     const submittedSupPhotoUrls = parseUrlArray(submittedProfile.sup_photos || submittedProfile.photos);
     const submittedIntro = claim.submitted_intro || String(submittedProfile.intro || '');
-    const mergedPhotos = mergePhotoUrls(claim.current_photos, submittedSupPhotoUrls);
+    const nextPhotoUrls = submittedSupPhotoUrls;
     const hometownProvince = claim.submitted_hometown_province || getNestedString(submittedProfile, ['hometown', 'province']);
     const hometownCity = claim.submitted_hometown_city || getNestedString(submittedProfile, ['hometown', 'city']);
     const submittedBirthDate = normalizeDateOnly(claim.submitted_birth_date);
@@ -139,7 +124,7 @@ export async function PATCH(
       [
         claim.submitted_name,
         claim.submitted_avatar_url,
-        JSON.stringify(mergedPhotos),
+        JSON.stringify(nextPhotoUrls),
         hometownProvince,
         hometownCity,
         submittedIntro,

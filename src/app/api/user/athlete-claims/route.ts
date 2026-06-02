@@ -68,9 +68,16 @@ export async function POST(request: NextRequest) {
     const athleteId = Number(body.athlete_id);
     const resultId = Number(body.result_id);
     const submittedBib = normalizeBib(body.submitted_bib_number);
+    const supPhotoUrls = Array.isArray(body.submitted_sup_photo_urls)
+      ? body.submitted_sup_photo_urls.map((url: unknown) => cleanText(url, 500)).filter(Boolean)
+      : [];
+    const dataLicenseAgreed = body.data_license_agreed === true || body.data_license_agreed === 'true' || body.data_license_agreed === 1 || body.data_license_agreed === '1';
 
     if (!Number.isInteger(athleteId) || athleteId <= 0) {
       return NextResponse.json({ error: '请选择要认领的运动员' }, { status: 400 });
+    }
+    if (!dataLicenseAgreed) {
+      return NextResponse.json({ error: '请先阅读并同意运动员数据许可协议' }, { status: 400 });
     }
     if (!Number.isInteger(resultId) || resultId <= 0 || !submittedBib) {
       return NextResponse.json({ error: '请选择最近比赛，并补全该场号码牌' }, { status: 400 });
@@ -80,6 +87,9 @@ export async function POST(request: NextRequest) {
     }
     if (!cleanText(body.submitted_avatar_url, 500)) {
       return NextResponse.json({ error: '请上传本人清晰人脸头像' }, { status: 400 });
+    }
+    if (!cleanText(body.submitted_hometown_province, 50) || !cleanText(body.submitted_hometown_city, 50)) {
+      return NextResponse.json({ error: '请选择籍贯' }, { status: 400 });
     }
     if (!cleanText(body.submitted_living_province, 50) || !cleanText(body.submitted_living_city, 50)) {
       return NextResponse.json({ error: '请选择现居城市' }, { status: 400 });
@@ -94,6 +104,16 @@ export async function POST(request: NextRequest) {
     const ownerIds = ownerRows.map((row) => Number(row.user_id));
     if (ownerIds.length > 0 && !ownerIds.includes(user.user_id)) {
       return NextResponse.json({ error: '该运动员资料已被本人绑定' }, { status: 403 });
+    }
+    const [userOwnerRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT athlete_id
+       FROM sup_athlete_profile_owners
+       WHERE user_id = ? AND status = 'active' AND role = 'owner'
+       LIMIT 1`,
+      [user.user_id]
+    );
+    if (userOwnerRows.length && Number(userOwnerRows[0].athlete_id) !== athleteId) {
+      return NextResponse.json({ error: '一个用户只能绑定一个运动员' }, { status: 403 });
     }
 
     const [resultRows] = await pool.execute<RowDataPacket[]>(
@@ -119,8 +139,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '请填写有效出生年月日' }, { status: 400 });
     }
     const startedYear = cleanYear(body.submitted_started_sup_year, 1990);
-    const introShort = cleanText(body.submitted_intro_short, 120);
+    const introShort = cleanText(body.submitted_intro_short || body.submitted_intro, 120);
     const intro = cleanText(body.submitted_intro, 1000);
+    const submittedContact = cleanText(body.submitted_contact, 80);
     const submittedAge = Number(body.submitted_age || 0) || null;
 
     const [inserted] = await pool.execute<ResultSetHeader>(
@@ -159,8 +180,16 @@ export async function POST(request: NextRequest) {
           },
           started_sup_year: startedYear,
           intro_short: introShort,
+          intro: intro || '',
+          contact: submittedContact || '',
+          sup_photos: supPhotoUrls,
+          photos: supPhotoUrls,
           submitted_age: submittedAge,
           age_submitted_year: submittedAge ? new Date().getFullYear() : null,
+          data_license_agreed: true,
+          data_license_agreed_at: new Date().toISOString(),
+          data_license_version: '2026-06-02',
+          submitted_from: 'sup_wiki_pc',
         }),
         storedBib.slice(0, 2),
         submittedBib,

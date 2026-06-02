@@ -9,7 +9,23 @@ SET @column_exists = (
 );
 SET @ddl = IF(
   @column_exists = 0,
-  "ALTER TABLE sup_athletes ADD COLUMN elite_event_status ENUM('none','formal') NOT NULL DEFAULT 'none' AFTER icf_ranking",
+  "ALTER TABLE sup_athletes ADD COLUMN elite_event_status ENUM('none','formal','reserve') NOT NULL DEFAULT 'none' AFTER icf_ranking",
+  'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @column_type = (
+  SELECT COLUMN_TYPE
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'sup_athletes'
+    AND COLUMN_NAME = 'elite_event_status'
+);
+SET @ddl = IF(
+  @column_type IS NOT NULL AND @column_type NOT LIKE "%'reserve'%",
+  "ALTER TABLE sup_athletes MODIFY COLUMN elite_event_status ENUM('none','formal','reserve') NOT NULL DEFAULT 'none'",
   'SELECT 1'
 );
 PREPARE stmt FROM @ddl;

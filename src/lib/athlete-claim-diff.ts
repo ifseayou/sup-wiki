@@ -119,13 +119,6 @@ export function buildAthleteClaimDiffs(row: Record<string, unknown>) {
       previous: (item) => item.previous_submitted_started_sup_year as ComparableValue,
     },
     {
-      key: 'intro_short',
-      label: '一句话',
-      current: (item) => publicProfile(item).intro_short as ComparableValue,
-      submitted: (item) => item.submitted_intro_short as ComparableValue,
-      previous: (item) => item.previous_submitted_intro_short as ComparableValue,
-    },
-    {
       key: 'intro',
       label: '简介',
       current: (item) => item.current_bio as ComparableValue,

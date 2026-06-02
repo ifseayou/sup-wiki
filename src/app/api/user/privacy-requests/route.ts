@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireUser } from '@/lib/user-auth';
-import type { ResultSetHeader } from 'mysql2';
+import { athleteOwnerCondition } from '@/lib/result-privacy';
+import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
 const REQUEST_TYPES = new Set(['correction', 'hide_athlete', 'anonymize_name', 'delete_frontend']);
 const TARGET_TYPES = new Set(['athlete', 'result']);
@@ -73,13 +74,27 @@ export async function POST(request: NextRequest) {
     if (!TARGET_TYPES.has(targetType) || !Number.isInteger(targetId) || targetId <= 0) {
       return NextResponse.json({ error: '无效处理对象' }, { status: 400 });
     }
-    const description = cleanText(body.description, 2000);
+    const isOwnerHideAthlete = requestType === 'hide_athlete' && targetType === 'athlete' && athleteId;
+    let ownerCanComplete = false;
+    if (isOwnerHideAthlete) {
+      const [ownerRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT owner_id
+         FROM sup_athlete_profile_owners
+         WHERE athlete_id = ? AND user_id = ? AND ${athleteOwnerCondition('sup_athlete_profile_owners')}
+         LIMIT 1`,
+        [athleteId, user.user_id]
+      );
+      ownerCanComplete = ownerRows.length > 0;
+    }
+    const description = cleanText(body.description, 2000) || (ownerCanComplete ? '本人确认隐藏运动员主页' : null);
     if (!description) return NextResponse.json({ error: '请填写说明' }, { status: 400 });
+    const status = ownerCanComplete ? 'completed' : 'pending';
+    const handledAtSql = ownerCanComplete ? 'NOW()' : 'NULL';
 
     const [inserted] = await pool.execute<ResultSetHeader>(
       `INSERT INTO sup_privacy_requests
-       (user_id, nickname, request_type, target_type, target_id, athlete_id, result_id, event_id, description, contact, proof_images, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, JSON_ARRAY(), 'pending')`,
+       (user_id, nickname, request_type, target_type, target_id, athlete_id, result_id, event_id, description, contact, proof_images, status, handler_user_id, handler_name, handler_note, handled_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, JSON_ARRAY(), ?, ?, ?, ?, ${handledAtSql})`,
       [
         user.user_id,
         user.nickname || null,
@@ -91,6 +106,10 @@ export async function POST(request: NextRequest) {
         eventId,
         description,
         cleanText(body.contact, 500),
+        status,
+        ownerCanComplete ? user.user_id : null,
+        ownerCanComplete ? user.nickname || null : null,
+        ownerCanComplete ? '本人确认隐藏主页，系统自动完成' : null,
       ]
     );
     await pool.execute(
@@ -98,7 +117,14 @@ export async function POST(request: NextRequest) {
        VALUES (?, 'submitted', ?, ?, ?)`,
       [inserted.insertId, user.user_id, user.nickname || null, description]
     );
-    return NextResponse.json({ success: true, request_id: inserted.insertId }, { status: 201 });
+    if (ownerCanComplete) {
+      await pool.execute(
+        `INSERT INTO sup_privacy_request_logs (request_id, action, actor_user_id, actor_name, note)
+         VALUES (?, 'owner_completed_hide_athlete', ?, ?, '本人确认后立即隐藏主页')`,
+        [inserted.insertId, user.user_id, user.nickname || null]
+      );
+    }
+    return NextResponse.json({ success: true, request_id: inserted.insertId, status }, { status: 201 });
   } catch (error) {
     console.error('提交隐私请求失败:', error);
     return NextResponse.json({ error: '提交隐私请求失败' }, { status: 500 });

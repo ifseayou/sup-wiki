@@ -43,13 +43,13 @@ test('normalizes current and legacy user levels', () => {
 
 test('resolves default result query limits by level', () => {
   assert.deepEqual(DEFAULT_RESULT_QUERY_LIMITS, {
-    free: 5,
+    free: 2,
     vip: 20,
     svip: 200,
     admin: null,
     blocked: 0,
   });
-  assert.deepEqual(resolveResultQueryLimit({ level: 'free' }), { level: 'free', limit: 5 });
+  assert.deepEqual(resolveResultQueryLimit({ level: 'free' }), { level: 'free', limit: 2 });
   assert.deepEqual(resolveResultQueryLimit({ level: 'vip' }), { level: 'vip', limit: 20 });
   assert.deepEqual(resolveResultQueryLimit({ level: 'svip' }), { level: 'svip', limit: 200 });
 });
