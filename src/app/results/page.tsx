@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
 import ResultStatusBadge from '@/components/ResultStatusBadge';
@@ -39,6 +39,8 @@ interface ResultRow {
   score_locked?: boolean;
   privacy_actions?: string[];
   athlete_is_claimed?: boolean;
+  results_points_hidden?: boolean;
+  privacy_notice?: string | null;
 }
 
 interface FilterOption {
@@ -70,6 +72,8 @@ interface AnnualPointRow {
   point_scope?: string | null;
   source_title?: string | null;
   source_url?: string | null;
+  results_points_hidden?: boolean;
+  privacy_notice?: string | null;
 }
 
 interface AnnualPointGroup {
@@ -182,7 +186,8 @@ function SearchSelect({
   }, [display]);
 
   useEffect(() => {
-    if (staticOptions) setOptions(staticOptions);
+    if (!staticOptions) return;
+    queueMicrotask(() => setOptions(staticOptions));
   }, [staticOptions]);
 
   useEffect(() => {
@@ -254,12 +259,14 @@ function SearchSelect({
   );
 }
 
-function RankBadge({ rank }: { rank: number }) {
-  if (!rank || rank >= 9000) return <span className="text-[#9B9187]">-</span>;
-  if (rank <= 3) {
-    const style = rank === 1
+function RankBadge({ rank }: { rank: number | string | null }) {
+  if (String(rank || '') === '隐藏') return <HiddenValue />;
+  const numeric = Number(rank || 0);
+  if (!numeric || numeric >= 9000 || Number.isNaN(numeric)) return <span className="text-[#9B9187]">-</span>;
+  if (numeric <= 3) {
+    const style = numeric === 1
       ? 'border-[#F5B82E] bg-[radial-gradient(circle_at_38%_28%,#FFF8D7,#FFD45C_54%,#B97312)] text-[#5D3700] shadow-[0_0_0_5px_rgba(245,184,46,0.16),0_8px_18px_rgba(185,115,18,0.22)]'
-      : rank === 2
+      : numeric === 2
         ? 'border-[#BFC7D0] bg-[radial-gradient(circle_at_38%_28%,#FFFFFF,#DCE3EA_58%,#9BA8B5)] text-[#33404C] shadow-[0_0_0_5px_rgba(160,174,189,0.16),0_8px_18px_rgba(92,107,121,0.18)]'
         : 'border-[#DE9351] bg-[radial-gradient(circle_at_38%_28%,#FFF1DF,#E9A45F_56%,#A85D26)] text-[#5D2E07] shadow-[0_0_0_5px_rgba(222,147,81,0.16),0_8px_18px_rgba(168,93,38,0.18)]';
     return (
@@ -267,12 +274,12 @@ function RankBadge({ rank }: { rank: number }) {
         <span className="absolute inset-x-1 bottom-0 h-2 rounded-full bg-black/10 blur-sm" />
         <span className={`relative inline-flex h-11 w-11 items-center justify-center rounded-full border-2 text-lg font-black ${style}`}>
           <span className="absolute inset-1 rounded-full border border-white/65" />
-          <span className="relative">{rank}</span>
+          <span className="relative">{numeric}</span>
         </span>
       </span>
     );
   }
-  return <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#E6D9C9] bg-white px-2 font-semibold text-[#5B4A38]">{rank}</span>;
+  return <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#E6D9C9] bg-white px-2 font-semibold text-[#5B4A38]">{numeric}</span>;
 }
 
 function AthleteCell({ row, members }: { row: ResultRow; members: string[] }) {
@@ -353,6 +360,14 @@ function LockedScoreValue({ align = 'right' }: { align?: 'right' | 'left' }) {
       <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#D8C2A2] text-[10px] text-white">锁</span>
       登录后查看
     </span>
+  );
+}
+
+function HiddenValue({ tip = '该运动员已选择隐藏成绩&积分' }: { tip?: string | null }) {
+  return (
+    <Tooltip tip={tip || '该运动员已选择隐藏成绩&积分'} dotted={false}>
+      <span className="inline-flex items-center rounded-full border border-[#E1D0B8] bg-[#FFF8ED] px-2.5 py-1 text-xs font-semibold text-[#8A6A45]">隐藏</span>
+    </Tooltip>
   );
 }
 
@@ -555,7 +570,7 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
   const groupDisplay = groupOptions.find((option) => option.value === groupCode)?.label || (groupCode ? '已选组别' : '');
   const rankDisplay = pointRankOptions.find((option) => option.value === rankMax)?.label || '全部排名';
 
-  function syncPointUrl(next: Partial<{ type: 'athlete' | 'club'; pointScope: 'domestic' | 'international' | 'all'; year: string; groupCode: string; search: string; rankMax: string }>) {
+  const syncPointUrl = useCallback((next: Partial<{ type: 'athlete' | 'club'; pointScope: 'domestic' | 'international' | 'all'; year: string; groupCode: string; search: string; rankMax: string }>) => {
     const nextType = next.type ?? type;
     const nextPointScope = next.pointScope ?? pointScope;
     const nextYear = next.year ?? year;
@@ -571,7 +586,7 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
     if (nextSearch.trim()) params.set('point_search', nextSearch.trim()); else params.delete('point_search');
     if (nextRankMax) params.set('point_rank_max', nextRankMax); else params.delete('point_rank_max');
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }
+  }, [groupCode, pathname, pointScope, rankMax, router, search, searchParams, type, year]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ type, page: String(page), pageSize: String(pageSize) });
@@ -581,7 +596,7 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
     if (search.trim()) params.set('search', search.trim());
     if (rankMax) params.set('rank_max', rankMax);
     return params.toString();
-  }, [groupCode, page, pageSize, pointScope, rankMax, search, type, year]);
+  }, [groupCode, page, pointScope, rankMax, search, type, year]);
 
   useEffect(() => {
     if (loading) return;
@@ -621,7 +636,7 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
     return () => {
       cancelled = true;
     };
-  }, [loading, query, token, year]);
+  }, [loading, query, syncPointUrl, token, year]);
 
   useEffect(() => {
     queueMicrotask(() => setJumpPage(String(page)));
@@ -707,14 +722,14 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
                 {items.map((row) => {
                   return (
                     <tr key={row.standing_id} className="border-b border-[#EFE5D8] transition hover:bg-[#FFF8EE]">
-                      <td className="px-4 py-3 text-center"><RankBadge rank={Number(row.rank_position || 0)} /></td>
-                      <td className="px-4 py-3 font-semibold text-[#3A2B20]"><AnnualAthleteCell row={row} /></td>
+                      <td className="px-4 py-3 text-center">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={row.rank_position} />}</td>
+                      <td className="px-4 py-3 font-semibold text-[#3A2B20]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <AnnualAthleteCell row={row} />}</td>
                       <td className="px-4 py-3 text-[#5B5148]">{row.group_name || '-'}</td>
                       <td className="px-4 py-3 text-[#5B5148]">{row.team_name || '个人'}</td>
-                      <td className="px-4 py-3 text-right text-base font-bold text-[#634325]">{formatPoint(row.total_points)}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{formatPoint(row.endurance_points)}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{formatPoint(row.sprint_points)}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{formatPoint(row.technical_points)}</td>
+                      <td className="px-4 py-3 text-right text-base font-bold text-[#634325]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : formatPoint(row.total_points)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : formatPoint(row.endurance_points)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : formatPoint(row.sprint_points)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : formatPoint(row.technical_points)}</td>
                       <td className="px-4 py-3 text-[#6F6255]">{row.source_url ? <a href={row.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#6B3E1E] hover:text-[#3B2110]">{row.source_title || '原文来源'}</a> : (row.source_title || '-')}</td>
                     </tr>
                   );
@@ -1089,9 +1104,9 @@ function ResultsContent() {
                     const members = parseMembers(row.team_members);
                     return (
                       <tr key={row.result_id} className="border-b border-[#EFE5D8] transition hover:bg-[#FFF8EE]">
-                        <td className="px-4 py-3 text-center"><RankBadge rank={row.rank_position} /></td>
+                        <td className="px-4 py-3 text-center">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={row.rank_position} />}</td>
                         <td className="px-4 py-3 font-semibold text-[#3A2B20]">
-                          <AthleteCell row={row} members={members} />
+                          {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <AthleteCell row={row} members={members} />}
                         </td>
                         <td className="px-4 py-3 text-[#5B5148]">{row.gender_group || '-'}</td>
                         <td className="px-4 py-3 text-[#5B5148]">
@@ -1099,14 +1114,16 @@ function ResultsContent() {
                           <div className="text-xs text-[#A09284]">{[row.board_class, row.round_label].filter(Boolean).join(' · ') || '-'}</div>
                         </td>
                         <td className="px-4 py-3 text-right text-base font-bold text-[#634325]">
-                          {row.score_locked ? (
+                          {row.results_points_hidden ? (
+                            <HiddenValue tip={row.privacy_notice} />
+                          ) : row.score_locked ? (
                             <LockedScoreValue />
                           ) : (
                             <span className="inline-flex items-center justify-end gap-1.5"><Icon name="timer" /><ResultStatusBadge finishTime={row.finish_time || '-'} statusCode={row.result_status_code} statusNote={row.result_status_note} /></span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.score_locked ? <LockedScoreValue /> : (row.gap_display || '-')}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.score_locked ? <LockedScoreValue /> : (row.is_long_distance ? (row.pace_display || '-') : '-')}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.score_locked ? <LockedScoreValue /> : (row.gap_display || '-')}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-[#6F6255]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.score_locked ? <LockedScoreValue /> : (row.is_long_distance ? (row.pace_display || '-') : '-')}</td>
                         <td className="px-4 py-3">
                           <Link href={`/events/${row.event_id}`} className="font-semibold text-[#6B3E1E] hover:text-[#3B2110]">{row.event_name}</Link>
                           <div className="mt-1 text-xs text-[#A09284]">{[row.province, row.city].filter(Boolean).join(' · ')} {row.start_date?.slice(0, 10)}</div>

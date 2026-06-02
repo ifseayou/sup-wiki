@@ -139,8 +139,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '请填写有效出生年月日' }, { status: 400 });
     }
     const startedYear = cleanYear(body.submitted_started_sup_year, 1990);
-    const introShort = cleanText(body.submitted_intro_short || body.submitted_intro, 120);
-    const intro = cleanText(body.submitted_intro, 1000);
+    const introShort = cleanText(body.submitted_intro_short, 20);
+    const intro = cleanText(body.submitted_intro, 300);
     const submittedContact = cleanText(body.submitted_contact, 80);
     const submittedAge = Number(body.submitted_age || 0) || null;
 

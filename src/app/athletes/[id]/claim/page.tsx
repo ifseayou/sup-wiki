@@ -63,6 +63,7 @@ export default function AthleteClaimPage() {
     submitted_living_province: '',
     submitted_living_city: '',
     submitted_started_sup_year: '',
+    submitted_intro_short: '',
     submitted_intro: '',
     submitted_contact: '',
     submitted_sup_photo_urls: [] as string[],
@@ -122,7 +123,8 @@ export default function AthleteClaimPage() {
           submitted_living_province: profile.living_province || living.province || '',
           submitted_living_city: profile.living_city || living.city || '',
           submitted_started_sup_year: profile.started_sup_year ? String(profile.started_sup_year) : '',
-          submitted_intro: String(profile.intro || profile.intro_short || ''),
+          submitted_intro_short: String(profile.intro_short || ''),
+          submitted_intro: String(profile.intro || data.athlete?.bio || ''),
           submitted_contact: String(profile.contact || profile.submitted_contact || ''),
           submitted_sup_photo_urls: Array.isArray(profile.sup_photos) ? profile.sup_photos : Array.isArray(profile.photos) ? profile.photos : [],
           data_license_agreed: Boolean(profile.data_license_agreed),
@@ -335,8 +337,14 @@ export default function AthleteClaimPage() {
               <input value={form.submitted_contact} onChange={(e) => update('submitted_contact', e.target.value)} placeholder="微信号或手机号，仅管理员审核可见" className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
             </label>
             <label className="block text-sm font-medium text-warm-gray-700 sm:col-span-2">
+              一句话介绍自己
+              <input value={form.submitted_intro_short} onChange={(e) => update('submitted_intro_short', e.target.value)} maxLength={20} placeholder="例如：荧光战神" className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
+              <span className="mt-1 block text-right text-xs text-warm-gray-400">{form.submitted_intro_short.length}/20</span>
+            </label>
+            <label className="block text-sm font-medium text-warm-gray-700 sm:col-span-2">
               个人简介
-              <textarea value={form.submitted_intro} onChange={(e) => update('submitted_intro', e.target.value)} rows={4} maxLength={1000} placeholder="介绍你的桨板经历、训练地点或代表队信息" className="mt-2 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 py-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
+              <textarea value={form.submitted_intro} onChange={(e) => update('submitted_intro', e.target.value)} rows={4} maxLength={300} placeholder="介绍你的桨板经历、训练地点或代表队信息" className="mt-2 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 py-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
+              <span className="mt-1 block text-right text-xs text-warm-gray-400">{form.submitted_intro.length}/300</span>
             </label>
           </div>
 

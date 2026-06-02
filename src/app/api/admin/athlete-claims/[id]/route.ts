@@ -105,7 +105,7 @@ export async function PATCH(
       living_province: claim.submitted_living_province || null,
       living_city: claim.submitted_living_city || null,
       started_sup_year: claim.submitted_started_sup_year || null,
-      intro_short: claim.submitted_intro_short || submittedIntro || null,
+      intro_short: claim.submitted_intro_short || null,
       profile_claim_id: claimId,
     };
     const nextSocialLinks = JSON.stringify({ ...socialLinks, public_profile: publicProfile });

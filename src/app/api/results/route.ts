@@ -205,6 +205,17 @@ export async function GET(request: NextRequest) {
     const visibleItems = await filterAndMaskRaceResults(items as unknown as Array<Record<string, unknown>>, viewer) as unknown as ResultItemRow[];
     const previousTimes = await loadPreviousTimes(visibleItems);
     const enrichedItems = visibleItems.map((item) => {
+      if (item.results_points_hidden) {
+        return {
+          ...item,
+          distance_km: null,
+          is_long_distance: false,
+          gap_seconds: null,
+          gap_display: '隐藏',
+          pace_seconds_per_km: null,
+          pace_display: '隐藏',
+        };
+      }
       const timeSeconds = toResultNumber(item.time_seconds);
       const previousTime = previousTimes.get(Number(item.result_id));
       const gapSeconds = timeSeconds !== null && previousTime !== undefined

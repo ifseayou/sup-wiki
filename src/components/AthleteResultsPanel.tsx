@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useUser } from '@/components/UserContext';
 import ResultStatusBadge from '@/components/ResultStatusBadge';
+import Tooltip from '@/components/Tooltip';
 
 interface ResultRow {
   result_id: number;
@@ -26,6 +27,8 @@ interface ResultRow {
   city: string | null;
   province: string | null;
   pace_display: string | null;
+  results_points_hidden?: boolean;
+  privacy_notice?: string | null;
 }
 
 interface MemberLike {
@@ -35,9 +38,9 @@ interface MemberLike {
 
 interface AnnualPointRow {
   standing_id: number;
-  year: number;
+  year: number | string;
   group_name: string | null;
-  rank_position: number | null;
+  rank_position: number | string | null;
   team_name: string | null;
   total_points: number | string | null;
   endurance_points: number | string | null;
@@ -45,6 +48,8 @@ interface AnnualPointRow {
   technical_points: number | string | null;
   source_title: string | null;
   source_url: string | null;
+  results_points_hidden?: boolean;
+  privacy_notice?: string | null;
 }
 
 function parseMembers(value: unknown) {
@@ -69,6 +74,14 @@ function formatPoint(value: number | string | null | undefined) {
   const num = Number(value);
   if (!Number.isFinite(num)) return String(value);
   return num.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+}
+
+function HiddenValue({ tip = '该运动员已选择隐藏成绩&积分' }: { tip?: string | null }) {
+  return (
+    <Tooltip tip={tip || '该运动员已选择隐藏成绩&积分'} dotted={false}>
+      <span className="inline-flex items-center rounded-full border border-[#E1D0B8] bg-[#FFF8ED] px-2.5 py-1 text-xs font-semibold text-[#8A6A45]">隐藏</span>
+    </Tooltip>
+  );
 }
 
 export default function AthleteResultsPanel({ athleteId, athleteName }: { athleteId: number; athleteName: string }) {
@@ -215,13 +228,13 @@ export default function AthleteResultsPanel({ athleteId, athleteName }: { athlet
               <tbody className="divide-y divide-cream-200 bg-white">
                 {pointItems.map((row) => (
                   <tr key={row.standing_id} className="transition hover:bg-cream-50">
-                    <td className="px-4 py-4 font-semibold text-brown-800">{row.year}</td>
+                    <td className="px-4 py-4 font-semibold text-brown-800">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.year}</td>
                     <td className="px-4 py-4 text-warm-gray-600">{row.group_name || '-'}</td>
-                    <td className="px-4 py-4 text-center font-bold text-brown-800">{row.rank_position || '-'}</td>
-                    <td className="px-4 py-4 text-right font-bold text-brown-800">{formatPoint(row.total_points)}</td>
-                    <td className="px-4 py-4 text-right text-warm-gray-600">{formatPoint(row.endurance_points)}</td>
-                    <td className="px-4 py-4 text-right text-warm-gray-600">{formatPoint(row.sprint_points)}</td>
-                    <td className="px-4 py-4 text-right text-warm-gray-600">{formatPoint(row.technical_points)}</td>
+                    <td className="px-4 py-4 text-center font-bold text-brown-800">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.rank_position || '-'}</td>
+                    <td className="px-4 py-4 text-right font-bold text-brown-800">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : formatPoint(row.total_points)}</td>
+                    <td className="px-4 py-4 text-right text-warm-gray-600">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : formatPoint(row.endurance_points)}</td>
+                    <td className="px-4 py-4 text-right text-warm-gray-600">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : formatPoint(row.sprint_points)}</td>
+                    <td className="px-4 py-4 text-right text-warm-gray-600">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : formatPoint(row.technical_points)}</td>
                     <td className="px-4 py-4 text-warm-gray-600">{row.team_name || '个人'}</td>
                     <td className="px-4 py-4 text-warm-gray-600">{row.source_url ? <a href={row.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-brown-700 no-underline hover:text-brown-500">{row.source_title || '原文来源'}</a> : (row.source_title || '-')}</td>
                   </tr>
@@ -279,9 +292,9 @@ export default function AthleteResultsPanel({ athleteId, athleteName }: { athlet
                       {members.length > 0 && <div className="mt-1 text-xs text-warm-gray-400">成员：{members.join('、')}</div>}
                     </td>
                     <td className="px-4 py-4 text-warm-gray-600">{row.gender_group}{row.round_label ? ` · ${row.round_label}` : ''}</td>
-                    <td className="px-4 py-4 text-center font-bold text-brown-800">{row.rank_position >= 9000 ? '—' : row.rank_position}</td>
-                    <td className="px-4 py-4 text-right font-bold text-brown-800"><ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} /></td>
-                    <td className="px-4 py-4 text-right font-medium text-warm-gray-600">{row.pace_display || '-'}</td>
+                    <td className="px-4 py-4 text-center font-bold text-brown-800">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.rank_position >= 9000 ? '—' : row.rank_position}</td>
+                    <td className="px-4 py-4 text-right font-bold text-brown-800">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} />}</td>
+                    <td className="px-4 py-4 text-right font-medium text-warm-gray-600">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.pace_display || '-'}</td>
                   </tr>
                   );
                 })}

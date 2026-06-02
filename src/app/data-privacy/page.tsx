@@ -13,7 +13,7 @@ const sections = [
   },
   {
     title: '本人如何处理',
-    body: '如果你是相关运动员本人，可以申请认领、更正、隐藏运动员主页、成绩榜姓名匿名化或删除前台展示。删除前台展示不是物理删除，后台会保留来源记录、处理记录和操作日志。',
+    body: '如果你是相关运动员本人，可以申请认领、更正、隐藏运动员主页，也可以选择隐藏或重新公开自己的成绩与积分展示。',
   },
 ];
 
@@ -25,7 +25,7 @@ export default function DataPrivacyPage() {
           <div style={{ letterSpacing: 5, fontWeight: 800, opacity: 0.62, fontSize: 13 }}>SUP WIKI</div>
           <h1 style={{ margin: '20px 0 12px', fontSize: 42, lineHeight: 1.15 }}>数据与隐私说明</h1>
           <p style={{ margin: 0, maxWidth: 720, color: 'rgba(255,255,255,0.78)', lineHeight: 1.8 }}>
-            公开赛事资料用于成绩查询和历史归档；本人可以申请认领、更正、隐藏、匿名化或删除相关前台展示。
+            公开赛事资料用于成绩查询和历史归档；本人可以申请认领、更正、隐藏主页，或隐藏与公开自己的成绩积分展示。
           </p>
         </section>
         <div style={{ display: 'grid', gap: 14 }}>

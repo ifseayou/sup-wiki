@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@/components/UserContext';
 import ResultStatusBadge from '@/components/ResultStatusBadge';
+import Tooltip from '@/components/Tooltip';
 
 const PAGE_SIZE = 10;
 const NON_FINISH_CODES = new Set(['DNS', 'DNF', 'DQ', 'DSQ', 'DNQ', 'OTL']);
@@ -17,7 +18,7 @@ interface EventResultRow {
   gender_group: string;
   discipline: string;
   round_label: string | null;
-  rank_position: number | null;
+  rank_position: number | string | null;
   result_label: string | null;
   finish_time: string;
   result_status_code: string | null;
@@ -31,6 +32,8 @@ interface EventResultRow {
   athlete_name: string | null;
   athlete_photo: string | null;
   privacy_actions?: string[];
+  results_points_hidden?: boolean;
+  privacy_notice?: string | null;
 }
 
 interface PointStandingRow {
@@ -45,10 +48,12 @@ interface PointStandingRow {
   athlete_photo: string | null;
   team_name: string | null;
   endurance_rank: string | null;
-  endurance_points: number | null;
+  endurance_points: number | string | null;
   sprint_rank: string | null;
-  sprint_points: number | null;
-  total_points: number | null;
+  sprint_points: number | string | null;
+  total_points: number | string | null;
+  results_points_hidden?: boolean;
+  privacy_notice?: string | null;
 }
 
 interface ResultModule {
@@ -201,6 +206,7 @@ function SmallIcon({ type }: { type: 'search' | 'grid' | 'rotate' | 'list' }) {
 }
 
 function RankBadge({ rank }: { rank: number | string | null }) {
+  if (String(rank || '') === '隐藏') return <HiddenValue />;
   const numeric = Number(rank);
   if (!rank || numeric >= 9000 || Number.isNaN(numeric)) return <span className="text-[#9B9187]">-</span>;
   if (numeric <= 3) {
@@ -223,6 +229,14 @@ function RankBadge({ rank }: { rank: number | string | null }) {
     <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-[#E6D9C9] bg-white px-2 font-semibold text-[#5B4A38]">
       {numeric}
     </span>
+  );
+}
+
+function HiddenValue({ tip = '该运动员已选择隐藏成绩&积分' }: { tip?: string | null }) {
+  return (
+    <Tooltip tip={tip || '该运动员已选择隐藏成绩&积分'} dotted={false}>
+      <span className="inline-flex items-center rounded-full border border-[#E1D0B8] bg-[#FFF8ED] px-2.5 py-1 text-xs font-semibold text-[#8A6A45]">隐藏</span>
+    </Tooltip>
   );
 }
 
@@ -309,10 +323,12 @@ function PrivacyActions({ row }: { row: EventResultRow }) {
 }
 
 function ResultValue({ row }: { row: EventResultRow }) {
+  if (row.results_points_hidden) return <HiddenValue tip={row.privacy_notice} />;
   return <ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} />;
 }
 
 function ResultPaceValue({ row }: { row: EventResultRow }) {
+  if (row.results_points_hidden) return <HiddenValue tip={row.privacy_notice} />;
   return <>{row.is_long_distance ? (row.pace_display || '-') : '-'}</>;
 }
 
@@ -716,7 +732,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                     const members = parseMembers(row.team_members);
                     return (
                       <div key={row.result_id} className="flex items-center gap-4 rounded-xl border border-[#E9DFD1] bg-gradient-to-br from-[#FFF9EC] via-white to-[#FFFDF8] p-4 shadow-sm">
-                        <PodiumBadge rank={displayRank(row)} />
+                        {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <PodiumBadge rank={displayRank(row)} />}
                         <div className="min-w-0 flex-1">
                           <AthleteCell
                             athleteId={row.athlete_id}
@@ -754,20 +770,22 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                         const members = parseMembers(row.team_members);
                         return (
                           <tr key={row.result_id} className="border-t border-[#EEE4D8]">
-                            <td className="px-5 py-3"><RankBadge rank={displayRank(row)} /></td>
+                            <td className="px-5 py-3">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={displayRank(row)} />}</td>
                             <td className="px-5 py-3 text-[#655D56]">
-                              <AthleteCell
-                                athleteId={row.athlete_id}
-                                name={row.athlete_name || row.athlete_name_snapshot}
-                                photo={row.athlete_photo}
-                                members={members}
-                                meta={row.round_label || null}
-                              />
+                              {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : (
+                                <AthleteCell
+                                  athleteId={row.athlete_id}
+                                  name={row.athlete_name || row.athlete_name_snapshot}
+                                  photo={row.athlete_photo}
+                                  members={members}
+                                  meta={row.round_label || null}
+                                />
+                              )}
                             </td>
                             <td className="px-5 py-3 text-right font-bold text-[#8A612F]"><ResultValue row={row} /></td>
                             <td className="px-5 py-3 text-right font-semibold text-[#6F6255]"><ResultPaceValue row={row} /></td>
                             <td className="px-5 py-3 text-[#655D56]"><TeamNameValue row={row} /></td>
-                            <td className="px-5 py-3 text-[#655D56]">{row.result_label || '-'}</td>
+                            <td className="px-5 py-3 text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.result_label || '-'}</td>
                             <td className="px-5 py-3"><PrivacyActions row={row} /></td>
                           </tr>
                         );
@@ -785,21 +803,23 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                       <div key={row.result_id} className="rounded-xl border border-[#E2D7C8] bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <AthleteCell
-                              athleteId={row.athlete_id}
-                              name={row.athlete_name || row.athlete_name_snapshot}
-                              photo={row.athlete_photo}
-                              members={members}
-                              meta={row.round_label || null}
-                            />
+                              {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : (
+                                <AthleteCell
+                                  athleteId={row.athlete_id}
+                                  name={row.athlete_name || row.athlete_name_snapshot}
+                                  photo={row.athlete_photo}
+                                  members={members}
+                                  meta={row.round_label || null}
+                                />
+                              )}
                           </div>
-                          <RankBadge rank={displayRank(row)} />
+                          {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={displayRank(row)} />}
                         </div>
                         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                           <div><div className="text-xs text-[#8A8078]">成绩</div><div className="mt-1 font-semibold text-[#8A612F]"><ResultValue row={row} /></div></div>
                           <div><div className="text-xs text-[#8A8078]">配速</div><div className="mt-1 text-[#655D56]"><ResultPaceValue row={row} /></div></div>
                           <div><div className="text-xs text-[#8A8078]">队伍</div><div className="mt-1 text-[#655D56]"><TeamNameValue row={row} /></div></div>
-                          <div><div className="text-xs text-[#8A8078]">说明</div><div className="mt-1 text-[#655D56]">{row.result_label || '-'}</div></div>
+                          <div><div className="text-xs text-[#8A8078]">说明</div><div className="mt-1 text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.result_label || '-'}</div></div>
                           <div className="col-span-2"><div className="text-xs text-[#8A8078]">处理</div><div className="mt-1"><PrivacyActions row={row} /></div></div>
                         </div>
                       </div>
@@ -815,21 +835,23 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                     <div key={row.result_id} className="p-4">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <AthleteCell
-                            athleteId={row.athlete_id}
-                            name={row.athlete_name || row.athlete_name_snapshot}
-                            photo={row.athlete_photo}
-                            members={members}
-                            meta={row.round_label || null}
-                          />
+                          {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : (
+                            <AthleteCell
+                              athleteId={row.athlete_id}
+                              name={row.athlete_name || row.athlete_name_snapshot}
+                              photo={row.athlete_photo}
+                              members={members}
+                              meta={row.round_label || null}
+                            />
+                          )}
                         </div>
-                        <RankBadge rank={displayRank(row)} />
+                        {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={displayRank(row)} />}
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div><div className="text-xs text-[#8A8078]">成绩</div><div className="mt-1 font-semibold text-[#8A612F]"><ResultValue row={row} /></div></div>
                         <div><div className="text-xs text-[#8A8078]">配速</div><div className="mt-1 text-[#655D56]"><ResultPaceValue row={row} /></div></div>
                         <div><div className="text-xs text-[#8A8078]">队伍</div><div className="mt-1 text-[#655D56]"><TeamNameValue row={row} /></div></div>
-                        <div><div className="text-xs text-[#8A8078]">说明</div><div className="mt-1 text-[#655D56]">{row.result_label || '-'}</div></div>
+                        <div><div className="text-xs text-[#8A8078]">说明</div><div className="mt-1 text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.result_label || '-'}</div></div>
                         <div className="col-span-2"><div className="text-xs text-[#8A8078]">处理</div><div className="mt-1"><PrivacyActions row={row} /></div></div>
                       </div>
                     </div>
@@ -857,19 +879,21 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                   <tbody>
                     {displayedPointRows.map((row) => (
                       <tr key={row.standing_id} className="border-t border-[#EEE4D8]">
-                        <td className="px-5 py-3"><RankBadge rank={row.rank_position ?? row.status_rank} /></td>
+                        <td className="px-5 py-3">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={row.rank_position ?? row.status_rank} />}</td>
                         <td className="px-5 py-3 text-[#655D56]">
-                          <AthleteCell
-                            athleteId={row.athlete_id}
-                            name={row.athlete_name || row.athlete_name_snapshot}
-                            photo={row.athlete_photo}
-                            teamName={row.team_name || '个人'}
-                          />
+                          {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : (
+                            <AthleteCell
+                              athleteId={row.athlete_id}
+                              name={row.athlete_name || row.athlete_name_snapshot}
+                              photo={row.athlete_photo}
+                              teamName={row.team_name || '个人'}
+                            />
+                          )}
                         </td>
                         <td className="px-5 py-3 text-[#655D56]">{row.team_name || '个人'}</td>
-                        <td className="px-5 py-3 text-right text-[#655D56]">{row.endurance_rank || '-'}{row.endurance_points != null ? ` / ${row.endurance_points}` : ''}</td>
-                        <td className="px-5 py-3 text-right text-[#655D56]">{row.sprint_rank || '-'}{row.sprint_points != null ? ` / ${row.sprint_points}` : ''}</td>
-                        <td className="px-5 py-3 text-right font-semibold text-[#8A612F]">{row.total_points ?? '-'}</td>
+                        <td className="px-5 py-3 text-right text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.endurance_rank || '-'}{row.endurance_points != null ? ` / ${row.endurance_points}` : ''}</>}</td>
+                        <td className="px-5 py-3 text-right text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.sprint_rank || '-'}{row.sprint_points != null ? ` / ${row.sprint_points}` : ''}</>}</td>
+                        <td className="px-5 py-3 text-right font-semibold text-[#8A612F]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.total_points ?? '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -879,18 +903,20 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                 {displayedPointRows.map((row) => (
                   <div key={row.standing_id} className="p-4">
                     <div className="mb-3 flex items-start justify-between gap-3">
-                      <AthleteCell
-                        athleteId={row.athlete_id}
-                        name={row.athlete_name || row.athlete_name_snapshot}
-                        photo={row.athlete_photo}
-                        teamName={row.team_name || '个人'}
-                      />
-                      <RankBadge rank={row.rank_position ?? row.status_rank} />
+                      {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : (
+                        <AthleteCell
+                          athleteId={row.athlete_id}
+                          name={row.athlete_name || row.athlete_name_snapshot}
+                          photo={row.athlete_photo}
+                          teamName={row.team_name || '个人'}
+                        />
+                      )}
+                      {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={row.rank_position ?? row.status_rank} />}
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div><div className="text-xs text-[#8A8078]">耐力</div><div className="text-[#655D56]">{row.endurance_rank || '-'}{row.endurance_points != null ? `/${row.endurance_points}` : ''}</div></div>
-                      <div><div className="text-xs text-[#8A8078]">冲刺</div><div className="text-[#655D56]">{row.sprint_rank || '-'}{row.sprint_points != null ? `/${row.sprint_points}` : ''}</div></div>
-                      <div><div className="text-xs text-[#8A8078]">总分</div><div className="font-semibold text-[#8A612F]">{row.total_points ?? '-'}</div></div>
+                      <div><div className="text-xs text-[#8A8078]">耐力</div><div className="text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.endurance_rank || '-'}{row.endurance_points != null ? `/${row.endurance_points}` : ''}</>}</div></div>
+                      <div><div className="text-xs text-[#8A8078]">冲刺</div><div className="text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.sprint_rank || '-'}{row.sprint_points != null ? `/${row.sprint_points}` : ''}</>}</div></div>
+                      <div><div className="text-xs text-[#8A8078]">总分</div><div className="font-semibold text-[#8A612F]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.total_points ?? '-'}</div></div>
                     </div>
                   </div>
                 ))}

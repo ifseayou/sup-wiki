@@ -19,15 +19,15 @@ interface ClaimStatus {
 const actionLabels: Record<string, string> = {
   hide_athlete: '隐藏主页',
   restore_frontend: '展示主页',
-  anonymize_name: '匿名化展示',
-  delete_frontend: '删除前台展示',
+  hide_results_points: '隐藏成绩&积分',
+  restore_results_points: '公开成绩与积分',
 };
 
 const actionTips: Record<string, string> = {
   hide_athlete: '其他用户不能查看个人主页资料，自己仍可查看资料和成绩，确认后立即生效。',
   restore_frontend: '恢复个人主页展示，其他用户将可以正常查看公开资料和主页成绩。',
-  anonymize_name: '公开成绩中的姓名进入匿名或隐藏展示，需要提交隐私处理。',
-  delete_frontend: '从前台移除运动员主页展示，影响较大，需要提交隐私处理。',
+  hide_results_points: '其他用户在成绩查询、积分查询和赛事组别中只能看到必要的组别、项目、赛事、队伍或来源信息，其余成绩与积分字段显示为隐藏。',
+  restore_results_points: '公开成绩与积分展示，其他用户可在成绩查询、积分查询和赛事组别中正常查看。',
 };
 
 export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) {
@@ -67,10 +67,11 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
     router.refresh();
   }, [athleteId, router, status?.is_owner, status?.privacy_mode]);
 
-  async function submitPrivacyAction(requestType: 'hide_athlete' | 'restore_frontend') {
+  async function submitPrivacyAction(requestType: 'hide_athlete' | 'restore_frontend' | 'hide_results_points' | 'restore_results_points') {
     if (!token) return;
     setProcessingAction(requestType);
     setHideError('');
+    const isResultsAction = requestType === 'hide_results_points' || requestType === 'restore_results_points';
     try {
       const res = await fetch('/api/user/privacy-requests', {
         method: 'POST',
@@ -79,16 +80,31 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
           target_type: 'athlete',
           target_id: athleteId,
           request_type: requestType,
-          description: requestType === 'restore_frontend' ? '本人确认展示运动员主页' : '本人确认隐藏运动员主页',
+          description: requestType === 'restore_frontend'
+            ? '本人确认展示运动员主页'
+            : requestType === 'hide_results_points'
+              ? '本人确认隐藏成绩与积分'
+              : requestType === 'restore_results_points'
+                ? '本人确认公开成绩与积分'
+                : '本人确认隐藏运动员主页',
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || (requestType === 'restore_frontend' ? '展示主页失败' : '隐藏主页失败'));
+      if (!res.ok) throw new Error(data.error || (isResultsAction ? '成绩与积分隐私切换失败' : requestType === 'restore_frontend' ? '展示主页失败' : '隐藏主页失败'));
       setShowHideModal(false);
-      setStatus((prev) => prev ? { ...prev, privacy_mode: requestType === 'restore_frontend' ? 'claimed' : 'hidden' } : prev);
+      setStatus((prev) => prev ? {
+        ...prev,
+        privacy_mode: requestType === 'restore_frontend' ? 'claimed' : requestType === 'hide_athlete' ? 'hidden' : prev.privacy_mode,
+        privacy_actions: prev.privacy_actions?.map((action) => {
+          if (requestType === 'hide_results_points' && action === 'hide_results_points') return 'restore_results_points';
+          if (requestType === 'restore_results_points' && action === 'restore_results_points') return 'hide_results_points';
+          if (requestType === 'restore_frontend' && action === 'restore_frontend') return 'hide_athlete';
+          return action;
+        }),
+      } : prev);
       loadStatus();
     } catch (error) {
-      setHideError(error instanceof Error ? error.message : requestType === 'restore_frontend' ? '展示主页失败' : '隐藏主页失败');
+      setHideError(error instanceof Error ? error.message : isResultsAction ? '成绩与积分隐私切换失败' : requestType === 'restore_frontend' ? '展示主页失败' : '隐藏主页失败');
     } finally {
       setProcessingAction('');
     }
@@ -97,9 +113,7 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
   if (loading || !status) return null;
 
   const showClaim = Boolean(status.can_claim || (!status.has_owner && !status.viewer_has_owned_athlete));
-  const actions = (Array.isArray(status.privacy_actions) ? status.privacy_actions : [])
-    .map((action) => action === 'hide_athlete' && status.privacy_mode === 'hidden' ? 'restore_frontend' : action)
-    .filter((action) => actionLabels[action]);
+  const actions = (Array.isArray(status.privacy_actions) ? status.privacy_actions : []).filter((action) => actionLabels[action]);
   if (!showClaim && actions.length === 0) return null;
 
   return (
@@ -128,6 +142,17 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
           <button
             type="button"
             onClick={() => submitPrivacyAction('restore_frontend')}
+            disabled={Boolean(processingAction)}
+            className="inline-flex h-11 items-center justify-center rounded-lg border border-[#D8CDBE] bg-white px-4 text-sm font-semibold text-[#6B4A24] transition hover:bg-[#FAF6EF] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {processingAction === action ? '处理中...' : actionLabels[action]}
+          </button>
+        </Tooltip>
+      ) : action === 'hide_results_points' || action === 'restore_results_points' ? (
+        <Tooltip key={action} tip={actionTips[action]} dotted={false} align="end">
+          <button
+            type="button"
+            onClick={() => submitPrivacyAction(action)}
             disabled={Boolean(processingAction)}
             className="inline-flex h-11 items-center justify-center rounded-lg border border-[#D8CDBE] bg-white px-4 text-sm font-semibold text-[#6B4A24] transition hover:bg-[#FAF6EF] disabled:cursor-not-allowed disabled:opacity-55"
           >

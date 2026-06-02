@@ -161,6 +161,14 @@ export async function GET(
       const visibleRows = await filterAndMaskRaceResults(rows, viewer);
       const total = Number(countRows[0]?.total || 0);
       const rowsWithPace = visibleRows.map((row) => {
+        if (row.results_points_hidden) {
+          return {
+            ...row,
+            rank_position: null,
+            pace_display: '隐藏',
+            is_long_distance: false,
+          };
+        }
         const pace = getResultPaceDisplay({
           discipline: row.discipline,
           gender_group: row.gender_group,
@@ -243,7 +251,8 @@ export async function GET(
       );
 
       const total = Number(countRows[0]?.total || 0);
-      const pointRows = await maskAthleteIdentityRows(rawPointRows);
+      const viewer = await getViewerOwnedAthleteIds(request);
+      const pointRows = await maskAthleteIdentityRows(rawPointRows, viewer);
       const preview = applyPublicPreview(pointRows, access);
       await writeSearchLog(request, {
         entry: 'event_results',
@@ -333,8 +342,15 @@ export async function GET(
 
     const viewer = await getViewerOwnedAthleteIds(request);
     const visibleRows = await filterAndMaskRaceResults(rows, viewer);
-    const pointRows = await maskAthleteIdentityRows(rawPointRows);
+    const pointRows = await maskAthleteIdentityRows(rawPointRows, viewer);
     const rowsWithPace = visibleRows.map((row) => {
+      if (row.results_points_hidden) {
+        return {
+          ...row,
+          pace_display: '隐藏',
+          is_long_distance: false,
+        };
+      }
       const pace = getResultPaceDisplay({
         discipline: row.discipline,
         gender_group: row.gender_group,

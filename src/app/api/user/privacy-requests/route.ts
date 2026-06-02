@@ -4,7 +4,15 @@ import { requireUser } from '@/lib/user-auth';
 import { athleteOwnerCondition } from '@/lib/result-privacy';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
-const REQUEST_TYPES = new Set(['correction', 'hide_athlete', 'anonymize_name', 'delete_frontend', 'restore_frontend']);
+const REQUEST_TYPES = new Set([
+  'correction',
+  'hide_athlete',
+  'anonymize_name',
+  'delete_frontend',
+  'restore_frontend',
+  'hide_results_points',
+  'restore_results_points',
+]);
 const TARGET_TYPES = new Set(['athlete', 'result']);
 
 function cleanText(value: unknown, max = 1000) {
@@ -74,7 +82,7 @@ export async function POST(request: NextRequest) {
     if (!TARGET_TYPES.has(targetType) || !Number.isInteger(targetId) || targetId <= 0) {
       return NextResponse.json({ error: '无效处理对象' }, { status: 400 });
     }
-    const isOwnerDirectPrivacy = ['hide_athlete', 'restore_frontend'].includes(requestType) && targetType === 'athlete' && athleteId;
+    const isOwnerDirectPrivacy = ['hide_athlete', 'restore_frontend', 'hide_results_points', 'restore_results_points'].includes(requestType) && targetType === 'athlete' && athleteId;
     let ownerCanComplete = false;
     if (isOwnerDirectPrivacy) {
       const [ownerRows] = await pool.execute<RowDataPacket[]>(
@@ -89,7 +97,11 @@ export async function POST(request: NextRequest) {
     const description = cleanText(body.description, 2000) || (ownerCanComplete
       ? requestType === 'restore_frontend'
         ? '本人确认展示运动员主页'
-        : '本人确认隐藏运动员主页'
+        : requestType === 'hide_results_points'
+          ? '本人确认隐藏成绩与积分'
+          : requestType === 'restore_results_points'
+            ? '本人确认公开成绩与积分'
+            : '本人确认隐藏运动员主页'
       : null);
     if (!description) return NextResponse.json({ error: '请填写说明' }, { status: 400 });
     const status = ownerCanComplete ? 'completed' : 'pending';
@@ -116,7 +128,11 @@ export async function POST(request: NextRequest) {
         ownerCanComplete
           ? requestType === 'restore_frontend'
             ? '本人确认展示主页，系统自动完成'
-            : '本人确认隐藏主页，系统自动完成'
+            : requestType === 'hide_results_points'
+              ? '本人确认隐藏成绩与积分，系统自动完成'
+              : requestType === 'restore_results_points'
+                ? '本人确认公开成绩与积分，系统自动完成'
+                : '本人确认隐藏主页，系统自动完成'
           : null,
       ]
     );
@@ -131,10 +147,22 @@ export async function POST(request: NextRequest) {
          VALUES (?, ?, ?, ?, ?)`,
         [
           inserted.insertId,
-          requestType === 'restore_frontend' ? 'owner_completed_restore_frontend' : 'owner_completed_hide_athlete',
+          requestType === 'restore_frontend'
+            ? 'owner_completed_restore_frontend'
+            : requestType === 'hide_results_points'
+              ? 'owner_completed_hide_results_points'
+              : requestType === 'restore_results_points'
+                ? 'owner_completed_restore_results_points'
+                : 'owner_completed_hide_athlete',
           user.user_id,
           user.nickname || null,
-          requestType === 'restore_frontend' ? '本人点击后立即展示主页' : '本人确认后立即隐藏主页',
+          requestType === 'restore_frontend'
+            ? '本人点击后立即展示主页'
+            : requestType === 'hide_results_points'
+              ? '本人点击后立即隐藏成绩与积分'
+              : requestType === 'restore_results_points'
+                ? '本人点击后立即公开成绩与积分'
+                : '本人确认后立即隐藏主页',
         ]
       );
     }

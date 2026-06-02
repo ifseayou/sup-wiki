@@ -53,8 +53,12 @@ export async function GET(
       viewer_has_owned_athlete: Boolean(ownedAthleteId),
       owned_athlete_id: ownedAthleteId ? String(ownedAthleteId) : '',
       privacy_mode: privacyMode,
+      results_points_hidden: Boolean(privacy?.resultsHidden),
       privacy_actions: isOwner
-        ? ['hide_athlete', 'anonymize_name', 'delete_frontend']
+        ? [
+            privacy?.hidden ? 'restore_frontend' : 'hide_athlete',
+            privacy?.resultsHidden ? 'restore_results_points' : 'hide_results_points',
+          ]
         : hasOwner || hiddenAndUnclaimed
           ? []
           : [],

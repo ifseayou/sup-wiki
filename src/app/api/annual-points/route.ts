@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import { writeSearchLog } from '@/lib/search-log';
-import { maskAthleteIdentityRows } from '@/lib/result-privacy';
+import { getViewerOwnedAthleteIds, maskAthleteIdentityRows } from '@/lib/result-privacy';
 import type { RowDataPacket } from 'mysql2';
 
 type PointType = 'athlete' | 'club';
@@ -137,7 +137,8 @@ export async function GET(request: NextRequest) {
          ORDER BY s.group_name ASC, COALESCE(s.rank_position, 999999) ASC, s.total_points DESC, s.standing_id ASC
          LIMIT ${queryPageSize} OFFSET ${queryOffset}`;
     const [rawItems] = await pool.execute<RowDataPacket[]>(itemSql, params);
-    const items = type === 'athlete' ? await maskAthleteIdentityRows(rawItems) : rawItems;
+    const viewer = type === 'athlete' ? await getViewerOwnedAthleteIds(request) : undefined;
+    const items = type === 'athlete' ? await maskAthleteIdentityRows(rawItems, viewer) : rawItems;
 
     const [groupRows] = await pool.execute<RowDataPacket[]>(
       type === 'club'

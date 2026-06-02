@@ -315,7 +315,9 @@ export default async function AthleteDetailPage({
             <div className="flex min-h-[280px] items-center justify-center rounded-xl border border-cream-200 bg-cream-100">
               <div className="text-center">
                 <div className="mx-auto grid size-24 place-items-center rounded-full bg-white text-4xl font-black text-brown-400 shadow-sm">{displayName.slice(0, 1)}</div>
-                <div className="mt-4 text-sm font-semibold text-brown-600">公开成绩最小化展示</div>
+                <div className="mt-4 text-sm font-semibold text-brown-600">
+                  {restrictedByPrivacy ? '该运动员已隐藏个人主页' : '公开成绩最小化展示'}
+                </div>
               </div>
             </div>
           ) : (
@@ -467,12 +469,12 @@ export default async function AthleteDetailPage({
         </div>
       )}
 
-      {/* ── 生平介绍（Markdown 渲染）─────────────────────────── */}
+      {/* ── 个人简介（Markdown 渲染）─────────────────────────── */}
       {!isMinimalProfile && bioHtml && (
         <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '28px 32px', marginBottom: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <div style={{ width: 3, height: 20, background: '#7A6145', borderRadius: 2 }} />
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', margin: 0 }}>生平介绍</h2>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', margin: 0 }}>个人简介</h2>
           </div>
           <div
             className="article-guide-body"

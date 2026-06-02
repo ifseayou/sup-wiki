@@ -9,8 +9,8 @@ import { useUser } from '@/components/UserContext';
 const requestLabels: Record<string, string> = {
   correction: '我要更正',
   hide_athlete: '我要隐藏',
-  anonymize_name: '我要匿名化',
-  delete_frontend: '我要删除前台展示',
+  hide_results_points: '我要隐藏成绩&积分',
+  restore_results_points: '我要公开成绩&积分',
 };
 
 function PrivacyRequestContent() {
@@ -68,7 +68,7 @@ function PrivacyRequestContent() {
           </div>
         ) : (
           <div className="mt-6 grid gap-4">
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={7} placeholder="请说明你希望更正/隐藏/匿名化/删除的原因，越具体越容易处理。" className="w-full rounded-xl border border-[#D8CDBE] bg-white px-4 py-3 text-sm outline-none focus:border-[#8B7355]" />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={7} placeholder="请说明你希望更正或隐藏的原因，越具体越容易处理。" className="w-full rounded-xl border border-[#D8CDBE] bg-white px-4 py-3 text-sm outline-none focus:border-[#8B7355]" />
             <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="联系方式（可选，仅管理员审核使用）" className="h-12 rounded-xl border border-[#D8CDBE] bg-white px-4 text-sm outline-none focus:border-[#8B7355]" />
             {message && <div className="rounded-lg bg-[#F7F1E8] px-3 py-2 text-sm text-[#6B4A24]">{message}</div>}
             <button disabled={submitting || !description.trim()} onClick={submit} className="h-12 rounded-xl bg-[#6B3E1E] px-5 text-sm font-semibold text-white disabled:opacity-45">
