@@ -8,6 +8,8 @@ import { StretchInline, StretchAnimationsStyle } from '@/components/StretchAnima
 import { TechniqueInline } from '@/components/TechniqueAssessmentCard';
 import BoardAnatomyGuide from '@/components/BoardAnatomyGuide';
 import TrainingCertGuide from '@/components/TrainingCertGuide';
+import ArticleViewTracker from '@/components/ArticleViewTracker';
+import { formatChinaDate } from '@/lib/china-time';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,6 +107,23 @@ async function getLearnDoc(slug: string) {
   }
 }
 
+async function getContentViewStats(contentType: string, contentId: number) {
+  try {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT COUNT(*) AS view_count, COUNT(DISTINCT visitor_hash) AS visitor_count
+       FROM sup_content_views
+       WHERE content_type = ? AND content_id = ?`,
+      [contentType, contentId]
+    );
+    return {
+      viewCount: Number(rows[0]?.view_count || 0),
+      visitorCount: Number(rows[0]?.visitor_count || 0),
+    };
+  } catch {
+    return { viewCount: 0, visitorCount: 0 };
+  }
+}
+
 export default async function LearnDocDetailPage({
   params,
 }: { params: Promise<{ slug: string }> }) {
@@ -115,9 +134,11 @@ export default async function LearnDocDetailPage({
   const cat = categoryLabels[doc.category] || { name: doc.category, icon: '📄' };
   const diff = difficultyLabels[doc.difficulty] || { label: doc.difficulty, color: '#8A8078', bg: '#F0EAE0' };
   const contentHtml = doc.content ? marked.parse(doc.content) as string : '';
+  const viewStats = await getContentViewStats('learn_doc', doc.article_id);
 
   return (
     <div style={{ maxWidth: 820, margin: '0 auto', padding: '40px 24px 64px' }}>
+      <ArticleViewTracker contentType="learn_doc" contentId={doc.article_id} />
       {/* Breadcrumb */}
       <nav style={{ marginBottom: 24, fontSize: 13, color: '#8A8078' }}>
         <Link href="/" style={{ color: '#8A8078', textDecoration: 'none' }}>首页</Link>
@@ -154,7 +175,7 @@ export default async function LearnDocDetailPage({
         )}
 
         <p style={{ fontSize: 12, color: '#A08060', marginTop: 12 }}>
-          最后更新：{new Date(doc.updated_at).toLocaleDateString('zh-CN')}
+          最后更新：{formatChinaDate(doc.updated_at)}
         </p>
       </header>
 
@@ -184,6 +205,9 @@ export default async function LearnDocDetailPage({
 
       {/* 返回 */}
       <div style={{ marginTop: 48, paddingTop: 20, borderTop: '1px solid #EDE5D8' }}>
+        <div style={{ marginBottom: 14, fontSize: 12, color: '#9A8C7C' }}>
+          浏览 {viewStats.viewCount.toLocaleString('zh-CN')} 次 · 访客 {viewStats.visitorCount.toLocaleString('zh-CN')} 人
+        </div>
         <Link
           href="/learn/docs"
           style={{

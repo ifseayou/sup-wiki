@@ -60,6 +60,8 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT
          c.*,
+         DATE_FORMAT(c.submitted_birth_date, '%Y-%m-%d') AS submitted_birth_date,
+         DATE_FORMAT(CONVERT_TZ(c.created_at, '+00:00', '+08:00'), '%Y-%m-%d %H:%i:%s') AS created_at_display,
          COALESCE(
            NULLIF(c.submitted_hometown_province, ''),
            CASE WHEN JSON_VALID(c.submitted_profile_json) THEN JSON_UNQUOTE(JSON_EXTRACT(c.submitted_profile_json, '$.hometown.province')) ELSE NULL END
@@ -75,7 +77,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
          pc.submitted_name AS previous_submitted_name,
          pc.submitted_avatar_url AS previous_submitted_avatar_url,
          pc.submitted_birth_year AS previous_submitted_birth_year,
-         pc.submitted_birth_date AS previous_submitted_birth_date,
+         DATE_FORMAT(pc.submitted_birth_date, '%Y-%m-%d') AS previous_submitted_birth_date,
          COALESCE(
            NULLIF(pc.submitted_hometown_province, ''),
            CASE WHEN JSON_VALID(pc.submitted_profile_json) THEN JSON_UNQUOTE(JSON_EXTRACT(pc.submitted_profile_json, '$.hometown.province')) ELSE NULL END

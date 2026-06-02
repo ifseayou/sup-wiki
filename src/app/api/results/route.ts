@@ -4,6 +4,8 @@ import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import { getResultPaceDisplay, isNormalResultFinish, toResultNumber } from '@/lib/result-pace';
+import { writeSearchLog } from '@/lib/search-log';
+import { filterAndMaskRaceResults, getViewerOwnedAthleteIds } from '@/lib/result-privacy';
 import type { RowDataPacket } from 'mysql2';
 
 type ResultItemRow = RowDataPacket & {
@@ -102,6 +104,7 @@ async function loadPreviousTimes(items: ResultItemRow[]) {
 }
 
 export async function GET(request: NextRequest) {
+  const startedAt = Date.now();
   try {
     const access = await resolveResultAccess(request);
     if (access.authenticated && access.remaining === 0 && access.previewLimit === 0) {
@@ -179,7 +182,7 @@ export async function GET(request: NextRequest) {
          (SELECT c.slug FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_slug,
          (SELECT c.name FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_name,
          er.source_title, er.source_url, er.source_locator, er.review_status,
-         e.name AS event_name, e.start_date, e.city, e.province, e.star_level, e.score_coefficient,
+         e.name AS event_name, e.name_en AS event_name_en, e.start_date, e.city, e.province, e.star_level, e.score_coefficient, e.source_scope,
          a.name AS athlete_name, a.photo AS athlete_photo,
          src.source_url AS source_file_url, src.file_name AS source_file_name, src.file_type AS source_file_type,
          (
@@ -198,8 +201,10 @@ export async function GET(request: NextRequest) {
       params
     );
 
-    const previousTimes = await loadPreviousTimes(items);
-    const enrichedItems = items.map((item) => {
+    const viewer = await getViewerOwnedAthleteIds(request);
+    const visibleItems = await filterAndMaskRaceResults(items as unknown as Array<Record<string, unknown>>, viewer) as unknown as ResultItemRow[];
+    const previousTimes = await loadPreviousTimes(visibleItems);
+    const enrichedItems = visibleItems.map((item) => {
       const timeSeconds = toResultNumber(item.time_seconds);
       const previousTime = previousTimes.get(Number(item.result_id));
       const gapSeconds = timeSeconds !== null && previousTime !== undefined
@@ -263,6 +268,17 @@ export async function GET(request: NextRequest) {
         }))
       : enrichedItems;
     const preview = applyPublicPreview(responseItems, access);
+
+    await writeSearchLog(request, {
+      entry: 'race_results',
+      keyword: search || '',
+      resultCount: total,
+      durationMs: Date.now() - startedAt,
+      detail: {
+        path: request.nextUrl.pathname,
+        query: Object.fromEntries(request.nextUrl.searchParams.entries()),
+      },
+    });
 
     return NextResponse.json({
       items: preview.items,

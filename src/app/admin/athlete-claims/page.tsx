@@ -39,6 +39,7 @@ interface ClaimRow {
   submitted_bib_number: string | null;
   verified_bib_number: string | null;
   created_at: string;
+  created_at_display?: string;
 }
 
 interface ClaimDiffField {
@@ -240,7 +241,7 @@ export default function AdminAthleteClaimsPage() {
                 <div><strong>项目组别：</strong>{[item.discipline, item.gender_group].filter(Boolean).join(' · ') || '-'}</div>
                 <div><strong>成绩：</strong>{item.finish_time || '-'}</div>
                 <div><strong>号码牌：</strong>{item.submitted_bib_number || '-'} / 数据库 {item.verified_bib_number || '-'}</div>
-                <div><strong>提交时间：</strong>{item.created_at?.slice(0, 19).replace('T', ' ')}</div>
+                <div><strong>提交时间：</strong>{item.created_at_display || item.created_at || '-'}</div>
               </div>
             </div>
             {(item.submitted_sup_photo_urls || []).length > 0 && (

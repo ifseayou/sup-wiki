@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAdminAuth } from '@/app/admin/layout';
+import { formatChinaDateTime } from '@/lib/china-time';
 
 interface GroupItem {
   code: string;
@@ -72,7 +73,7 @@ function formatPoint(value: string | number | null | undefined) {
 
 function shortDate(value: string | null | undefined) {
   if (!value) return '—';
-  return new Date(value).toLocaleString('zh-CN', { hour12: false });
+  return formatChinaDateTime(value) || '—';
 }
 
 export default function AnnualPointsAdminPage() {

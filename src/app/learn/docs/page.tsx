@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
+import { formatChinaDate } from '@/lib/china-time';
 import type { RowDataPacket } from 'mysql2';
 
 export const dynamic = 'force-dynamic';
@@ -128,7 +129,7 @@ export default async function LearnDocsPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
                   <span style={{ fontSize: 12, color: '#A08060', fontWeight: 500 }}>阅读全文 →</span>
                   <span style={{ fontSize: 11, color: '#C0B4A4' }}>
-                    {new Date(doc.updated_at).toLocaleDateString('zh-CN')}
+                    {formatChinaDate(doc.updated_at)}
                   </span>
                 </div>
               </Link>

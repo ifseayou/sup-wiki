@@ -37,6 +37,8 @@ interface ResultRow {
   pace_display: string | null;
   is_long_distance: boolean;
   score_locked?: boolean;
+  privacy_actions?: string[];
+  athlete_is_claimed?: boolean;
 }
 
 interface FilterOption {
@@ -294,6 +296,35 @@ function AthleteCell({ row, members }: { row: ResultRow; members: string[] }) {
   );
   if (!row.athlete_id) return body;
   return <Link href={`/athletes/${row.athlete_id}`} className="block no-underline">{body}</Link>;
+}
+
+function privacyActionHref(row: ResultRow, action: string) {
+  if (action === 'claim' && row.athlete_id) return `/athletes/${row.athlete_id}/claim`;
+  const params = new URLSearchParams({
+    request_type: action,
+    target_type: 'result',
+    target_id: String(row.result_id),
+    result_id: String(row.result_id),
+    event_id: String(row.event_id),
+    title: row.event_name || row.athlete_name || row.athlete_name_snapshot || '赛事成绩',
+  });
+  if (row.athlete_id) params.set('athlete_id', String(row.athlete_id));
+  return `/privacy-request?${params.toString()}`;
+}
+
+function PrivacyActions({ row }: { row: ResultRow }) {
+  const actions = Array.isArray(row.privacy_actions) ? row.privacy_actions : [];
+  if (!actions.length) return <span className="text-xs text-[#B0A090]">-</span>;
+  const labels: Record<string, string> = { claim: '认领', correction: '更正', anonymize_name: '匿名' };
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {actions.map((action) => (
+        <Link key={action} href={privacyActionHref(row, action)} className="rounded-full border border-[#E2D4C0] bg-white px-2.5 py-1 text-xs font-semibold text-[#7A5530] no-underline hover:bg-[#FFF8ED]">
+          {labels[action] || action}
+        </Link>
+      ))}
+    </div>
+  );
 }
 
 function AnnualAthleteCell({ row }: { row: AnnualPointRow }) {
@@ -1050,6 +1081,7 @@ function ResultsContent() {
                     <th className="px-4 py-4 text-right">平均配速</th>
                     <th className="px-4 py-4">赛事</th>
                     <th className="px-4 py-4">队伍</th>
+                    <th className="px-4 py-4">处理</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1080,6 +1112,7 @@ function ResultsContent() {
                           <div className="mt-1 text-xs text-[#A09284]">{[row.province, row.city].filter(Boolean).join(' · ')} {row.start_date?.slice(0, 10)}</div>
                         </td>
                         <td className="px-4 py-3 text-[#5B5148]"><TeamNameValue row={row} /></td>
+                        <td className="px-4 py-3"><PrivacyActions row={row} /></td>
                       </tr>
                     );
                   })}
@@ -1095,7 +1128,7 @@ function ResultsContent() {
                       <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-24 rounded bg-[#D8C7AF] blur-[2px]" /></td>
                       <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-20 rounded bg-[#E7DAC9] blur-[2px]" /></td>
                       <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-16 rounded bg-[#E7DAC9] blur-[2px]" /></td>
-                      <td className="px-4 py-4" colSpan={2}>
+                      <td className="px-4 py-4" colSpan={3}>
                         <Link href={`/login?redirect=${encodeURIComponent('/results')}`} className="inline-flex rounded-md bg-[#6B3E1E] px-3 py-1.5 text-xs font-semibold text-white no-underline">
                           登录查看隐藏成绩
                         </Link>

@@ -25,6 +25,8 @@ interface AthleteCenterRow extends RowDataPacket {
   best_discipline: string | null;
   recent_event_name: string | null;
   recent_event_date: string | Date | null;
+  has_owner: number | null;
+  privacy_mode: 'public' | 'hidden' | 'anonymous' | 'deleted' | null;
   tier_key: AthleteTier;
 }
 
@@ -83,12 +85,26 @@ function formatDate(value?: string | Date | null) {
 }
 
 function toAthleteView(row: AthleteCenterRow): AthleteView {
+  const minimal = !Number(row.has_owner || 0) || row.privacy_mode === 'hidden' || row.privacy_mode === 'anonymous';
+  const anonymized = row.privacy_mode === 'anonymous';
   const tier = row.tier_key || 'base';
   const resultCount = Number(row.result_count || 0);
   const levelLabel = tier === 'elite' ? 'L4' : tier === 'training' ? 'L3' : tier === 'squad' ? 'L2' : 'L1';
 
   return {
     ...row,
+    name: anonymized ? '已隐藏选手' : row.name,
+    name_en: minimal ? null : row.name_en,
+    province: minimal ? null : row.province,
+    city: minimal ? null : row.city,
+    photo: minimal ? null : row.photo,
+    result_count: minimal ? 0 : row.result_count,
+    event_count: minimal ? 0 : row.event_count,
+    top10_count: minimal ? 0 : row.top10_count,
+    best_rank: minimal ? null : row.best_rank,
+    best_finish_time: minimal ? null : row.best_finish_time,
+    recent_event_name: minimal ? null : row.recent_event_name,
+    recent_event_date: minimal ? null : row.recent_event_date,
     nationality: normalizeNationality(row.nationality),
     tier,
     tierLabel: tierLabels[tier],
@@ -133,7 +149,8 @@ function buildAthleteQuery(filters: {
     outerParams.push(filters.tier);
   }
 
-  const where = outerConditions.length ? `WHERE ${outerConditions.join(' AND ')}` : '';
+  outerConditions.push("privacy_mode <> 'deleted'");
+  const where = `WHERE ${outerConditions.join(' AND ')}`;
   const cte = `WITH stats AS (
       SELECT
         er.athlete_id,
@@ -155,6 +172,31 @@ function buildAthleteQuery(filters: {
       SELECT
         a.athlete_id, a.name, a.name_en, a.gender, a.nationality, a.province, a.city, a.photo,
         a.discipline, a.icf_ranking,
+        CASE WHEN EXISTS(
+          SELECT 1 FROM sup_athlete_profile_owners owner
+          WHERE owner.athlete_id = a.athlete_id AND owner.status = 'active' AND owner.role = 'owner'
+        ) THEN 1 ELSE 0 END AS has_owner,
+        CASE
+          WHEN EXISTS(
+            SELECT 1 FROM sup_privacy_requests pr
+            WHERE pr.target_type = 'athlete' AND pr.target_id = a.athlete_id
+              AND pr.request_type = 'delete_frontend'
+              AND pr.status IN ('approved', 'completed')
+          ) THEN 'deleted'
+          WHEN EXISTS(
+            SELECT 1 FROM sup_privacy_requests pr
+            WHERE pr.target_type = 'athlete' AND pr.target_id = a.athlete_id
+              AND pr.request_type = 'hide_athlete'
+              AND (pr.status IN ('approved', 'completed') OR pr.status = 'pending')
+          ) THEN 'hidden'
+          WHEN EXISTS(
+            SELECT 1 FROM sup_privacy_requests pr
+            WHERE pr.target_type = 'athlete' AND pr.target_id = a.athlete_id
+              AND pr.request_type = 'anonymize_name'
+              AND pr.status IN ('approved', 'completed')
+          ) THEN 'anonymous'
+          ELSE 'public'
+        END AS privacy_mode,
         COALESCE(stats.result_count, 0) AS result_count,
         COALESCE(stats.event_count, 0) AS event_count,
         COALESCE(stats.top10_count, 0) AS top10_count,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { extractToken, isAdmin, verifyToken } from '@/lib/auth';
 import { normalizeUserLevel } from '@/lib/user-levels';
+import type { ResultSetHeader } from 'mysql2';
 
 const LEVELS = new Set(['free', 'vip', 'svip', 'admin', 'blocked']);
 const STATUSES = new Set(['active', 'blocked']);
@@ -26,6 +27,21 @@ export async function PATCH(
 
   try {
     const body = await request.json();
+    const action = String(body.action || '').trim();
+    if (action === 'unbind_athlete') {
+      const athleteId = Number(body.athlete_id || 0);
+      if (!Number.isInteger(athleteId) || athleteId <= 0) {
+        return NextResponse.json({ error: '无效运动员 ID' }, { status: 400 });
+      }
+      const [result] = await pool.execute<ResultSetHeader>(
+        `UPDATE sup_athlete_profile_owners
+         SET status = 'suspended', updated_at = NOW()
+         WHERE user_id = ? AND athlete_id = ? AND role = 'owner' AND status = 'active'`,
+        [userId, athleteId]
+      );
+      return NextResponse.json({ success: true, affectedRows: result.affectedRows });
+    }
+
     const level = normalizeUserLevel(String(body.user_level || 'free'));
     const status = String(body.status || 'active');
     if (!LEVELS.has(level) || !STATUSES.has(status)) {

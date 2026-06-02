@@ -12,9 +12,21 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const conditions: string[] = [];
     const params: (string | number)[] = [];
     if (search) {
-      conditions.push('(u.nickname LIKE ? OR u.email LIKE ?)');
+      conditions.push(`(
+        u.nickname LIKE ?
+        OR u.email LIKE ?
+        OR CAST(u.user_id AS CHAR) = ?
+        OR EXISTS (
+          SELECT 1
+          FROM sup_athlete_profile_owners so
+          INNER JOIN sup_athletes sa ON sa.athlete_id = so.athlete_id
+          WHERE so.user_id = u.user_id
+            AND so.status = 'active'
+            AND (sa.name LIKE ? OR sa.name_en LIKE ? OR CAST(sa.athlete_id AS CHAR) = ?)
+        )
+      )`);
       const like = `%${search}%`;
-      params.push(like, like);
+      params.push(like, like, search, like, like, search);
     }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -48,7 +60,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
            SEPARATOR '\n'
          ) AS owned_athletes_raw
        FROM sup_users u
-       LEFT JOIN sup_user_result_query_usage today ON today.user_id = u.user_id AND today.usage_date = CURDATE()
+       LEFT JOIN sup_user_result_query_usage today ON today.user_id = u.user_id AND today.usage_date = DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+08:00'))
        LEFT JOIN sup_athlete_profile_owners owner ON owner.user_id = u.user_id AND owner.status = 'active'
        LEFT JOIN sup_athletes athlete ON athlete.athlete_id = owner.athlete_id
        LEFT JOIN sup_athlete_profile_claims claim ON claim.user_id = u.user_id

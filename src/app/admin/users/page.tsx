@@ -76,6 +76,14 @@ export default function AdminUsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, page, submittedSearch]);
 
+  useEffect(() => {
+    const nextSearch = new URLSearchParams(window.location.search).get('search')?.trim() || '';
+    if (!nextSearch) return;
+    setSearch(nextSearch);
+    setSubmittedSearch(nextSearch);
+    setPage(1);
+  }, []);
+
   function submitSearch() {
     const nextSearch = search.trim();
     setSubmittedSearch(nextSearch);
@@ -112,17 +120,32 @@ export default function AdminUsersPage() {
     load(page, submittedSearch);
   }
 
+  async function unbindAthlete(user: UserRow, athlete: NonNullable<UserRow['owned_athletes']>[number]) {
+    if (!window.confirm(`确认解绑用户「${user.nickname || user.email || user.user_id}」与运动员「${athlete.name}」？`)) return;
+    const res = await fetch(`/api/admin/users/${user.user_id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: 'unbind_athlete', athlete_id: athlete.athlete_id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.error || '解绑失败');
+      return;
+    }
+    load(page, submittedSearch);
+  }
+
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', marginBottom: 18 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 24, color: '#2A2118' }}>用户管理</h1>
           <p style={{ margin: '6px 0 0', color: '#8B8580', fontSize: 13 }}>
-            普通 5 次/天，VIP 20 次/天，SVIP 200 次/天，管理员与 i_add_u 不限次数。
+            普通 2 次/天，VIP 20 次/天，SVIP 200 次/天，管理员与 i_add_u 不限次数。
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }} placeholder="搜索昵称 / 邮箱" style={{ height: 36, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 10px' }} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }} placeholder="昵称 / 邮箱 / 绑定运动员" style={{ height: 36, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 10px' }} />
           <button onClick={submitSearch} style={{ height: 36, border: '1px solid #8B7355', borderRadius: 8, background: '#8B7355', color: '#fff', padding: '0 14px' }}>查询</button>
         </div>
       </div>
@@ -188,8 +211,8 @@ export default function AdminUsersPage() {
                   {Array.isArray(user.owned_athletes) && user.owned_athletes.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
                       {user.owned_athletes.map((athlete) => (
+                        <div key={athlete.athlete_id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <a
-                          key={athlete.athlete_id}
                           href={`/athletes/${athlete.athlete_id}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -206,6 +229,13 @@ export default function AdminUsersPage() {
                         >
                           #{athlete.athlete_id} {athlete.name}
                         </a>
+                          <button
+                            onClick={() => unbindAthlete(user, athlete)}
+                            style={{ border: '1px solid #E4D8C9', borderRadius: 999, background: '#fff', color: '#9B5B2F', padding: '2px 8px', fontSize: 12, cursor: 'pointer' }}
+                          >
+                            解绑
+                          </button>
+                        </div>
                       ))}
                     </div>
                   ) : (

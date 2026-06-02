@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAdminAuth } from '@/app/admin/layout';
 import { readAdminResponse } from '@/lib/admin-api-client';
+import { formatChinaDateTime } from '@/lib/china-time';
 
 type PrivacyRequest = {
   id: number;
@@ -54,7 +55,7 @@ const statusTone: Record<string, string> = {
 
 function formatDate(value: string) {
   if (!value) return '-';
-  return value.slice(0, 19).replace('T', ' ');
+  return formatChinaDateTime(value) || '-';
 }
 
 function actionsFor(item: PrivacyRequest): PrivacyAction[] {
@@ -199,4 +200,3 @@ export default function PrivacyRequestsPage() {
     </div>
   );
 }
-

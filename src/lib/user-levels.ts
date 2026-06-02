@@ -10,7 +10,7 @@ export const USER_LEVEL_LABELS: Record<UserLevel, string> = {
 };
 
 export const DEFAULT_RESULT_QUERY_LIMITS: Record<UserLevel, number | null> = {
-  free: 5,
+  free: 2,
   vip: 20,
   svip: 200,
   admin: null,

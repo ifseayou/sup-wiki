@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getNationalityAliases, normalizeNationality } from '@/lib/nationality';
+import { buildAthleteOwnerMap, buildPrivacyMap } from '@/lib/result-privacy';
 import type { RowDataPacket } from 'mysql2';
 import type { Athlete, Discipline, PaginatedResponse } from '@/types';
 
@@ -83,12 +84,27 @@ export async function GET(request: NextRequest) {
 
     const parseArr = (v: unknown) => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
     const parseObj = (v: unknown) => (v && typeof v === 'object') ? v : (v ? JSON.parse(String(v)) : {});
-    const parsedAthletes = athletes.map((a) => ({
-      ...a,
-      nationality: normalizeNationality(a.nationality),
-      achievements: parseArr(a.achievements),
-      social_links: parseObj(a.social_links),
-    }));
+    const [ownerMap, privacyMap] = await Promise.all([
+      buildAthleteOwnerMap(athletes.map((item) => item.athlete_id)),
+      buildPrivacyMap('athlete', athletes.map((item) => item.athlete_id)),
+    ]);
+    const parsedAthletes = athletes
+      .filter((a) => !privacyMap.get(Number(a.athlete_id))?.deleted)
+      .map((a) => {
+        const privacy = privacyMap.get(Number(a.athlete_id));
+        const minimal = !(ownerMap.get(Number(a.athlete_id)) || []).length || privacy?.hidden || privacy?.anonymized;
+        return {
+          ...a,
+          name: privacy?.anonymized ? '已隐藏选手' : a.name,
+          name_en: minimal ? null : a.name_en,
+          photo: minimal ? null : a.photo,
+          bio: minimal ? '' : a.bio,
+          nationality: normalizeNationality(a.nationality),
+          achievements: minimal ? [] : parseArr(a.achievements),
+          social_links: minimal ? { privacy_mode: privacy?.hidden ? 'hidden' : 'minimal' } : parseObj(a.social_links),
+          is_claimed: !minimal,
+        };
+      });
 
     const response: PaginatedResponse<Athlete> = {
       items: parsedAthletes as unknown as Athlete[],

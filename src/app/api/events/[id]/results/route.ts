@@ -4,6 +4,8 @@ import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import { getResultPaceDisplay } from '@/lib/result-pace';
+import { writeSearchLog } from '@/lib/search-log';
+import { filterAndMaskRaceResults, getViewerOwnedAthleteIds } from '@/lib/result-privacy';
 import type { RowDataPacket } from 'mysql2';
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -31,12 +33,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const startedAt = Date.now();
   try {
-    const access = await resolveResultAccess(request);
-    if (access.authenticated && access.remaining === 0 && access.previewLimit === 0) {
-      return NextResponse.json({ error: '今日成绩查询次数已用完，请明天再试', access }, { status: 429 });
-    }
-
     const { id } = await params;
     const eventId = Number(id);
     if (!Number.isInteger(eventId) || eventId <= 0) {
@@ -44,6 +42,10 @@ export async function GET(
     }
 
     const section = request.nextUrl.searchParams.get('section') || 'modules';
+    const access = await resolveResultAccess(request, { consume: section !== 'modules' });
+    if (section !== 'modules' && access.authenticated && access.remaining === 0 && access.previewLimit === 0) {
+      return NextResponse.json({ error: '今日成绩查询次数已用完，请明天再试', access }, { status: 429 });
+    }
 
     if (section === 'modules') {
       const [resultModules] = await pool.execute<RowDataPacket[]>(
@@ -62,7 +64,7 @@ export async function GET(
            AND er.is_verified = 1
            AND ${localResultSourceCondition}
          GROUP BY er.discipline, er.gender_group, er.board_class
-         ORDER BY er.discipline ASC, er.gender_group ASC, er.board_class ASC`,
+         ORDER BY total DESC, er.discipline ASC, er.gender_group ASC, er.board_class ASC`,
         [eventId]
       );
 
@@ -129,6 +131,9 @@ export async function GET(
            er.source_title, er.source_url, er.source_locator, er.source_note,
            a.name AS athlete_name,
            a.photo AS athlete_photo,
+           e.name AS event_name,
+           e.name_en AS event_name_en,
+           e.source_scope,
            src.source_url AS source_file_url,
            src.file_name AS source_file_name,
            (
@@ -151,8 +156,10 @@ export async function GET(
         commonParams
       );
 
+      const viewer = await getViewerOwnedAthleteIds(request);
+      const visibleRows = await filterAndMaskRaceResults(rows, viewer);
       const total = Number(countRows[0]?.total || 0);
-      const rowsWithPace = rows.map((row) => {
+      const rowsWithPace = visibleRows.map((row) => {
         const pace = getResultPaceDisplay({
           discipline: row.discipline,
           gender_group: row.gender_group,
@@ -168,6 +175,16 @@ export async function GET(
         };
       });
       const preview = applyPublicPreview(rowsWithPace, access);
+      await writeSearchLog(request, {
+        entry: 'event_results',
+        keyword: [discipline, genderGroup, boardClass].filter(Boolean).join(' '),
+        resultCount: total,
+        durationMs: Date.now() - startedAt,
+        detail: {
+          path: request.nextUrl.pathname,
+          query: Object.fromEntries(request.nextUrl.searchParams.entries()),
+        },
+      });
       return NextResponse.json({
         section,
         discipline,
@@ -224,6 +241,16 @@ export async function GET(
 
       const total = Number(countRows[0]?.total || 0);
       const preview = applyPublicPreview(pointRows, access);
+      await writeSearchLog(request, {
+        entry: 'event_results',
+        keyword: groupName,
+        resultCount: total,
+        durationMs: Date.now() - startedAt,
+        detail: {
+          path: request.nextUrl.pathname,
+          query: Object.fromEntries(request.nextUrl.searchParams.entries()),
+        },
+      });
       return NextResponse.json({
         section,
         group_name: groupName,
@@ -249,10 +276,13 @@ export async function GET(
          er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name,
          (SELECT c.slug FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_slug,
          (SELECT c.name FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_name,
-         er.source_title, er.source_url, er.source_locator, er.source_note,
-         a.name AS athlete_name,
-         a.photo AS athlete_photo,
-         src.source_url AS source_file_url,
+           er.source_title, er.source_url, er.source_locator, er.source_note,
+           a.name AS athlete_name,
+           a.photo AS athlete_photo,
+           e.name AS event_name,
+           e.name_en AS event_name_en,
+           e.source_scope,
+           src.source_url AS source_file_url,
          src.file_name AS source_file_name,
          (
            SELECT JSON_ARRAYAGG(JSON_OBJECT('athlete_id', erm.athlete_id, 'name', erm.member_name, 'member_order', erm.member_order))
@@ -294,7 +324,9 @@ export async function GET(
       [eventId]
     );
 
-    const rowsWithPace = rows.map((row) => {
+    const viewer = await getViewerOwnedAthleteIds(request);
+    const visibleRows = await filterAndMaskRaceResults(rows, viewer);
+    const rowsWithPace = visibleRows.map((row) => {
       const pace = getResultPaceDisplay({
         discipline: row.discipline,
         gender_group: row.gender_group,
@@ -310,6 +342,16 @@ export async function GET(
     });
     const resultPreview = applyPublicPreview(rowsWithPace, access);
     const pointPreview = applyPublicPreview(pointRows, access);
+    await writeSearchLog(request, {
+      entry: 'event_results',
+      keyword: `event:${eventId}`,
+      resultCount: rowsWithPace.length + pointRows.length,
+      durationMs: Date.now() - startedAt,
+      detail: {
+        path: request.nextUrl.pathname,
+        query: Object.fromEntries(request.nextUrl.searchParams.entries()),
+      },
+    });
     return NextResponse.json({
       section,
       items: resultPreview.items,

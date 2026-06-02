@@ -6,6 +6,7 @@ import { useAdminAuth } from '@/app/admin/layout';
 type SearchLog = {
   id: number;
   user_id: number | null;
+  email: string;
   nickname: string;
   entry: string;
   keyword: string;
@@ -15,6 +16,7 @@ type SearchLog = {
   ip: string;
   user_agent: string;
   created_at: string;
+  created_at_display: string;
 };
 
 const entryLabels: Record<string, string> = {
@@ -32,10 +34,6 @@ async function readJsonSafely(res: Response) {
   } catch {
     throw new Error(`接口返回非 JSON 内容（HTTP ${res.status}）`);
   }
-}
-
-function formatTime(value: string) {
-  return String(value || '').slice(0, 19).replace('T', ' ');
 }
 
 export default function SearchLogsPage() {
@@ -102,7 +100,7 @@ export default function SearchLogsPage() {
 
       <div className="mb-5 grid gap-3 rounded-2xl border border-cream-200 bg-cream-50 p-4 md:grid-cols-3 xl:grid-cols-6">
         <input value={keyword} onChange={e => { setKeyword(e.target.value); setPage(1); }} placeholder="关键词" className="h-10 rounded-lg border border-cream-300 bg-white px-3 text-sm" />
-        <input value={user} onChange={e => { setUser(e.target.value); setPage(1); }} placeholder="用户昵称 / ID" className="h-10 rounded-lg border border-cream-300 bg-white px-3 text-sm" />
+        <input value={user} onChange={e => { setUser(e.target.value); setPage(1); }} placeholder="用户邮箱 / 昵称 / ID" className="h-10 rounded-lg border border-cream-300 bg-white px-3 text-sm" />
         <select value={entry} onChange={e => { setEntry(e.target.value); setPage(1); }} className="h-10 rounded-lg border border-cream-300 bg-white px-3 text-sm">
           <option value="">全部入口</option>
           {Object.entries(entryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -130,10 +128,15 @@ export default function SearchLogsPage() {
           <tbody>
             {items.map(item => (
               <tr key={item.id} className="border-t border-cream-100 align-top">
-                <td className="px-4 py-3 text-warm-gray-500">{formatTime(item.created_at)}</td>
+                <td className="px-4 py-3 text-warm-gray-500">{item.created_at_display || item.created_at}</td>
                 <td className="px-4 py-3 font-medium text-brown-700">{entryLabels[item.entry] || item.entry}</td>
                 <td className="px-4 py-3 font-semibold text-brown-800">{item.keyword || '无关键词'}</td>
-                <td className="px-4 py-3 text-warm-gray-600">{item.nickname || (item.user_id ? `#${item.user_id}` : '未登录')}</td>
+                <td className="px-4 py-3 text-warm-gray-600">
+                  {item.email ? (
+                    <a href={`/admin/users?search=${encodeURIComponent(item.email)}`} className="font-medium text-brown-700 hover:underline">{item.email}</a>
+                  ) : item.nickname || (item.user_id ? `#${item.user_id}` : '未登录')}
+                  {item.email && item.nickname ? <div className="mt-1 text-xs text-warm-gray-400">{item.nickname}</div> : null}
+                </td>
                 <td className="px-4 py-3 text-brown-700">{item.result_count} 条{item.duration_ms !== null ? ` · ${item.duration_ms}ms` : ''}</td>
                 <td className="px-4 py-3 text-xs text-warm-gray-500">
                   <div>{item.detail?.path || ''}</div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAdminAuth } from '@/app/admin/layout';
 import { readAdminResponse } from '@/lib/admin-api-client';
+import { formatChinaDateTime } from '@/lib/china-time';
 
 type Feedback = {
   id: number;
@@ -82,7 +83,7 @@ export default function MiniFeedbackPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
               <div>
                 <div style={{ fontWeight: 700, color: '#2A2118' }}>{item.nickname || '微信用户'} · {'★'.repeat(item.rating || 0)}{'☆'.repeat(Math.max(0, 5 - (item.rating || 0)))}</div>
-                <div style={{ marginTop: 4, color: '#8B8580', fontSize: 13 }}>{String(item.created_at || '').slice(0, 19).replace('T', ' ')} · {item.willing_to_share ? '愿意分享' : '暂不分享'}</div>
+                <div style={{ marginTop: 4, color: '#8B8580', fontSize: 13 }}>{formatChinaDateTime(item.created_at) || '-'} · {item.willing_to_share ? '愿意分享' : '暂不分享'}</div>
               </div>
               <select value={item.status} onChange={e => updateStatus(item.id, e.target.value)} style={{ height: 34, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 8px' }}>
                 {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}

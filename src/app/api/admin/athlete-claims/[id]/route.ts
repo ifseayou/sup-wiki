@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { extractToken, isAdmin, verifyToken } from '@/lib/auth';
+import { normalizeDateOnly } from '@/lib/china-time';
 import type { RowDataPacket } from 'mysql2';
 
 function ensureAdmin(request: NextRequest) {
@@ -70,7 +71,11 @@ export async function PATCH(
   try {
     await conn.beginTransaction();
     const [claimRows] = await conn.execute<RowDataPacket[]>(
-      `SELECT c.*, a.social_links, a.photos AS current_photos
+      `SELECT
+         c.*,
+         DATE_FORMAT(c.submitted_birth_date, '%Y-%m-%d') AS submitted_birth_date,
+         a.social_links,
+         a.photos AS current_photos
        FROM sup_athlete_profile_claims c
        INNER JOIN sup_athletes a ON a.athlete_id = c.athlete_id
        WHERE c.claim_id = ?
@@ -105,9 +110,10 @@ export async function PATCH(
     const mergedPhotos = mergePhotoUrls(claim.current_photos, submittedSupPhotoUrls);
     const hometownProvince = claim.submitted_hometown_province || getNestedString(submittedProfile, ['hometown', 'province']);
     const hometownCity = claim.submitted_hometown_city || getNestedString(submittedProfile, ['hometown', 'city']);
+    const submittedBirthDate = normalizeDateOnly(claim.submitted_birth_date);
     const publicProfile = {
       ...(parseJsonObject(socialLinks.public_profile)),
-      birth_date: claim.submitted_birth_date || null,
+      birth_date: submittedBirthDate,
       birth_year: claim.submitted_birth_year || null,
       hometown_province: hometownProvince || null,
       hometown_city: hometownCity || null,

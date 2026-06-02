@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAdminAuth } from '@/app/admin/layout';
+import { formatChinaDateTime } from '@/lib/china-time';
 
 interface Submission {
   submission_id: number;
@@ -166,7 +167,7 @@ export default function AdminIndustrySubmissionsPage() {
                       )}
                       {item.location_note && <div>城市/地址：{item.location_note}</div>}
                       {item.contact_info && <div>审核联系方式：{item.contact_info}</div>}
-                      <div>提交时间：{item.created_at?.slice(0, 19).replace('T', ' ')}</div>
+                      <div>提交时间：{formatChinaDateTime(item.created_at) || '-'}</div>
                       {item.created_club_id && <div>生成俱乐部：<Link href={`/admin/clubs?search=${encodeURIComponent(item.name)}`}>#{item.created_club_id}</Link></div>}
                       {item.created_professional_id && <div>生成专业人员：<Link href={`/admin/professionals?search=${encodeURIComponent(item.name)}`}>#{item.created_professional_id}</Link></div>}
                     </div>

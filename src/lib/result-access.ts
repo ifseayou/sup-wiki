@@ -26,7 +26,8 @@ export interface ResultAccess {
   previewLimit: number | null;
 }
 
-export async function resolveResultAccess(request: NextRequest): Promise<ResultAccess> {
+export async function resolveResultAccess(request: NextRequest, options: { consume?: boolean } = {}): Promise<ResultAccess> {
+  const consume = options.consume !== false;
   const user = getUserFromRequest(request);
   if (!user) {
     return {
@@ -73,7 +74,7 @@ export async function resolveResultAccess(request: NextRequest): Promise<ResultA
   const [usageRows] = await pool.execute<RowDataPacket[]>(
     `SELECT query_count
      FROM sup_user_result_query_usage
-     WHERE user_id = ? AND usage_date = CURDATE()
+     WHERE user_id = ? AND usage_date = DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+08:00'))
      LIMIT 1`,
     [user.user_id]
   );
@@ -91,9 +92,21 @@ export async function resolveResultAccess(request: NextRequest): Promise<ResultA
     };
   }
 
+  if (!consume) {
+    return {
+      authenticated: true,
+      userId: user.user_id,
+      level,
+      limit,
+      used: usedBefore,
+      remaining: Math.max(0, limit - usedBefore),
+      previewLimit: null,
+    };
+  }
+
   await pool.execute(
     `INSERT INTO sup_user_result_query_usage (user_id, usage_date, query_count)
-     VALUES (?, CURDATE(), 1)
+     VALUES (?, DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+08:00')), 1)
      ON DUPLICATE KEY UPDATE query_count = query_count + 1, updated_at = CURRENT_TIMESTAMP`,
     [user.user_id]
   );

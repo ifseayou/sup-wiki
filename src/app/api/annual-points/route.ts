@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
+import { writeSearchLog } from '@/lib/search-log';
 import type { RowDataPacket } from 'mysql2';
 
 type PointType = 'athlete' | 'club';
@@ -22,6 +23,7 @@ function normalizePointScope(value: string | null): PointScope {
 }
 
 export async function GET(request: NextRequest) {
+  const startedAt = Date.now();
   try {
     const access = await resolveResultAccess(request);
     if (access.authenticated && access.remaining === 0 && access.previewLimit === 0) {
@@ -52,13 +54,11 @@ export async function GET(request: NextRequest) {
            FROM sup_annual_club_point_standings
            GROUP BY year
            ORDER BY year DESC`
-        : `SELECT s.year, COUNT(*) AS total
-           FROM sup_annual_point_standings s
-           INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
-           ${pointScope === 'all' ? '' : 'WHERE src.point_scope = ?'}
-           GROUP BY s.year
-           ORDER BY s.year DESC`,
-      type === 'club' || pointScope === 'all' ? [] : [pointScope]
+        : `SELECT year, COUNT(*) AS total
+           FROM sup_annual_point_standings
+           GROUP BY year
+           ORDER BY year DESC`,
+      []
     );
     const availableYears = new Set(yearRows.map((row) => Number(row.year)));
     const defaultYear = Number(yearRows[0]?.year || new Date().getFullYear() - 1);
@@ -144,16 +144,25 @@ export async function GET(request: NextRequest) {
            WHERE year = ?`
         : `SELECT group_code, group_name, COUNT(*) AS total
            FROM sup_annual_point_standings s
-           INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
            WHERE s.year = ?
-             ${pointScope === 'all' ? '' : 'AND src.point_scope = ?'}
            GROUP BY group_code, group_name
            ORDER BY total DESC, group_name ASC`,
-      type === 'club' || pointScope === 'all' ? [year] : [year, pointScope]
+      [year]
     );
 
     const total = Number(countRows[0]?.total || 0);
     const preview = applyPublicPreview(items, access);
+    await writeSearchLog(request, {
+      entry: 'annual_points',
+      keyword: search || athleteName || String(athleteId || ''),
+      resultCount: total,
+      durationMs: Date.now() - startedAt,
+      detail: {
+        path: request.nextUrl.pathname,
+        query: Object.fromEntries(request.nextUrl.searchParams.entries()),
+      },
+    });
+
     return NextResponse.json({
       type,
       pointScope: type === 'club' ? 'domestic' : pointScope,

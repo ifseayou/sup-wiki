@@ -6,6 +6,7 @@ import AthleteClaimEntry from '@/components/AthleteClaimEntry';
 import AthletePhotoCarousel from '@/components/AthletePhotoCarousel';
 import pool from '@/lib/db';
 import { normalizeNationality } from '@/lib/nationality';
+import { getAthletePrivacyState } from '@/lib/result-privacy';
 import type { RowDataPacket } from 'mysql2';
 import { marked } from 'marked';
 
@@ -194,7 +195,11 @@ export default async function AthleteDetailPage({
 
   const athlete = await getAthlete(athleteId);
   if (!athlete) notFound();
-  const annualPoint = await getAthleteAnnualPointSummary(athleteId, athlete.name);
+  const { privacy, hasOwner } = await getAthletePrivacyState(athleteId);
+  if (privacy.deleted) notFound();
+  const isMinimalProfile = !hasOwner || privacy.hidden || privacy.anonymized;
+  const displayName = privacy.anonymized ? '已隐藏选手' : athlete.name;
+  const annualPoint = isMinimalProfile ? null : await getAthleteAnnualPointSummary(athleteId, athlete.name);
 
   const rawAchievements = Array.isArray(athlete.achievements)
     ? athlete.achievements
@@ -220,7 +225,7 @@ export default async function AthleteDetailPage({
   const extraPhotos: string[] = Array.isArray(athlete.photos)
     ? athlete.photos
     : (athlete.photos ? JSON.parse(String(athlete.photos)) : []);
-  const galleryPhotos = Array.from(new Set([athlete.photo, ...extraPhotos].filter(Boolean) as string[]));
+  const galleryPhotos = isMinimalProfile ? [] : Array.from(new Set([athlete.photo, ...extraPhotos].filter(Boolean) as string[]));
 
   const rawRaceTimes: RaceTime[] = [];
 
@@ -257,7 +262,7 @@ export default async function AthleteDetailPage({
         <span>/</span>
         <Link href="/athletes" className="text-warm-gray-400 no-underline hover:text-brown-600">运动员</Link>
         <span>/</span>
-        <span className="font-medium text-brown-800">{athlete.name}</span>
+        <span className="font-medium text-brown-800">{displayName}</span>
       </nav>
 
       {claim === 'submitted' && (
@@ -268,12 +273,21 @@ export default async function AthleteDetailPage({
 
       <section className="mb-8 overflow-hidden rounded-xl border border-cream-200 bg-[radial-gradient(circle_at_top_right,#F5E7D4,transparent_34%),#FEFCF9] shadow-[0_20px_60px_rgba(68,51,35,0.08)]">
         <div className="grid gap-7 p-4 sm:p-5 lg:grid-cols-[280px_1fr_240px] lg:p-7">
-          <AthletePhotoCarousel name={athlete.name} images={galleryPhotos} />
+          {isMinimalProfile ? (
+            <div className="flex min-h-[280px] items-center justify-center rounded-xl border border-cream-200 bg-cream-100">
+              <div className="text-center">
+                <div className="mx-auto grid size-24 place-items-center rounded-full bg-white text-4xl font-black text-brown-400 shadow-sm">{displayName.slice(0, 1)}</div>
+                <div className="mt-4 text-sm font-semibold text-brown-600">公开成绩最小化展示</div>
+              </div>
+            </div>
+          ) : (
+            <AthletePhotoCarousel name={athlete.name} images={galleryPhotos} />
+          )}
 
           <div className="flex min-w-0 flex-col justify-center py-2">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="font-[var(--font-display)] text-5xl font-medium leading-tight text-brown-800 sm:text-6xl">
-                {athlete.name}
+                {displayName}
               </h1>
               {athlete.icf_ranking && (
                 <span className="rounded-full border border-[#AED6F1] bg-[#EBF5FB] px-3 py-1 text-xs font-semibold text-[#1A5276]">
@@ -284,18 +298,21 @@ export default async function AthleteDetailPage({
             {athlete.name_en && <div className="mt-1 font-[var(--font-display)] text-2xl italic text-warm-gray-400">{athlete.name_en}</div>}
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              {athlete.nationality && <span className="rounded-full bg-cream-100 px-3 py-1 text-sm text-warm-gray-600">{displayNationality(athlete.nationality)}</span>}
-              {livingLocation && <span className="rounded-full bg-cream-100 px-3 py-1 text-sm text-warm-gray-600">现居 · {livingLocation}</span>}
+              {!isMinimalProfile && athlete.nationality && <span className="rounded-full bg-cream-100 px-3 py-1 text-sm text-warm-gray-600">{displayNationality(athlete.nationality)}</span>}
+              {!isMinimalProfile && livingLocation && <span className="rounded-full bg-cream-100 px-3 py-1 text-sm text-warm-gray-600">现居 · {livingLocation}</span>}
               <span className="rounded-full border border-cream-200 bg-cream-100 px-3 py-1 text-sm text-brown-600">{displayDiscipline}</span>
+              {!hasOwner && <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm text-amber-700">待本人认领</span>}
             </div>
 
-            {heroFacts && <p className="mt-5 text-base text-warm-gray-500">{heroFacts}</p>}
+            {!isMinimalProfile && heroFacts && <p className="mt-5 text-base text-warm-gray-500">{heroFacts}</p>}
 
             <div className="mt-6">
-              <div className="mb-2 text-sm font-semibold text-brown-800">一句话介绍自己</div>
+              <div className="mb-2 text-sm font-semibold text-brown-800">{isMinimalProfile ? '隐私说明' : '一句话介绍自己'}</div>
               <div className="relative pl-6 text-lg font-medium leading-8 text-brown-800">
                 <span className="absolute left-0 top-0 font-[var(--font-display)] text-4xl text-cream-300">“</span>
-                {introShort || '这位运动员还没有补充个人介绍'}
+                {isMinimalProfile
+                  ? '该档案来自公开赛事成绩，尚未由本人认领。平台当前仅展示最小必要赛事记录；本人可申请认领、更新资料、隐藏、匿名化或删除前台展示。'
+                  : introShort || '这位运动员还没有补充个人介绍'}
                 <span className="ml-2 font-[var(--font-display)] text-4xl text-cream-300">”</span>
               </div>
             </div>
@@ -348,7 +365,7 @@ export default async function AthleteDetailPage({
         </div>
       </section>
 
-      <AthleteResultsPanel athleteId={athleteId} athleteName={athlete.name} />
+      {!isMinimalProfile && <AthleteResultsPanel athleteId={athleteId} athleteName={athlete.name} />}
 
       {/* ── 关键项目耗时 ──────────────────────────────────── */}
       {distanceKeys.length > 0 && (
@@ -412,7 +429,7 @@ export default async function AthleteDetailPage({
       )}
 
       {/* ── 生平介绍（Markdown 渲染）─────────────────────────── */}
-      {bioHtml && (
+      {!isMinimalProfile && bioHtml && (
         <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '28px 32px', marginBottom: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <div style={{ width: 3, height: 20, background: '#7A6145', borderRadius: 2 }} />

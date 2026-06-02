@@ -1,29 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
+import { ensureSearchLogTable } from '@/lib/search-log';
 import type { RowDataPacket } from 'mysql2';
-
-async function ensureSearchLogTable() {
-  await pool.execute(`
-    CREATE TABLE IF NOT EXISTS sup_search_logs (
-      log_id BIGINT NOT NULL AUTO_INCREMENT,
-      user_id BIGINT NULL,
-      nickname VARCHAR(120) NULL,
-      entry VARCHAR(64) NOT NULL,
-      keyword VARCHAR(255) NOT NULL DEFAULT '',
-      detail JSON NULL,
-      result_count INT NOT NULL DEFAULT 0,
-      duration_ms INT NULL,
-      ip VARCHAR(64) NULL,
-      user_agent VARCHAR(500) NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (log_id),
-      KEY idx_entry_created (entry, created_at),
-      KEY idx_keyword_created (keyword, created_at),
-      KEY idx_user_created (user_id, created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-}
 
 function parseDetail(value: unknown) {
   if (!value) return {};
@@ -55,29 +34,36 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params.push(`%${keyword}%`);
     }
     if (user) {
-      conditions.push('(l.nickname LIKE ? OR CAST(l.user_id AS CHAR) = ?)');
-      params.push(`%${user}%`, user);
+      conditions.push('(l.nickname LIKE ? OR u.nickname LIKE ? OR u.email LIKE ? OR CAST(l.user_id AS CHAR) = ?)');
+      params.push(`%${user}%`, `%${user}%`, `%${user}%`, user);
     }
     if (entry) {
       conditions.push('l.entry = ?');
       params.push(entry);
     }
     if (start) {
-      conditions.push('l.created_at >= ?');
-      params.push(`${start} 00:00:00`);
+      conditions.push("DATE(CONVERT_TZ(l.created_at, '+00:00', '+08:00')) >= ?");
+      params.push(start);
     }
     if (end) {
-      conditions.push('l.created_at <= ?');
-      params.push(`${end} 23:59:59`);
+      conditions.push("DATE(CONVERT_TZ(l.created_at, '+00:00', '+08:00')) <= ?");
+      params.push(end);
     }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const [countRows] = await pool.execute<RowDataPacket[]>(
-      `SELECT COUNT(*) AS total FROM sup_search_logs l ${where}`,
+      `SELECT COUNT(*) AS total
+       FROM sup_search_logs l
+       LEFT JOIN sup_users u ON u.user_id = l.user_id
+       ${where}`,
       params
     );
     const [rows] = await pool.execute<RowDataPacket[]>(
-      `SELECT l.*, u.nickname AS user_nickname
+      `SELECT
+         l.*,
+         u.nickname AS user_nickname,
+         u.email AS user_email,
+         DATE_FORMAT(CONVERT_TZ(l.created_at, '+00:00', '+08:00'), '%Y-%m-%d %H:%i:%s') AS created_at_display
        FROM sup_search_logs l
        LEFT JOIN sup_users u ON u.user_id = l.user_id
        ${where}
@@ -90,6 +76,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
       items: rows.map(row => ({
         id: row.log_id,
         user_id: row.user_id,
+        email: row.user_email || '',
         nickname: row.nickname || row.user_nickname || '',
         entry: row.entry || '',
         keyword: row.keyword || '',
@@ -99,6 +86,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
         ip: row.ip || '',
         user_agent: row.user_agent || '',
         created_at: row.created_at,
+        created_at_display: row.created_at_display || '',
       })),
       total: Number(countRows[0]?.total || 0),
       page,

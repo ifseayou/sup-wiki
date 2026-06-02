@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAdminAuth } from '@/app/admin/layout';
 import { readAdminResponse } from '@/lib/admin-api-client';
+import { formatChinaDateTime } from '@/lib/china-time';
 
 interface SubmissionRow {
   submission_id: number;
@@ -249,7 +250,7 @@ export default function EventResultSubmissionsAdminPage() {
                     <span className="rounded-full bg-white px-2.5 py-1 text-xs text-warm-gray-500">{formatSize(batch.totalSize)}</span>
                   </div>
                   <div className="mt-2 text-xs text-warm-gray-500">
-                    {batch.user} · {batch.email} · {new Date(batch.created_at).toLocaleString('zh-CN')} · 批次 {batch.batch_id}
+                    {batch.user} · {batch.email} · {formatChinaDateTime(batch.created_at) || '-'} · 批次 {batch.batch_id}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {Object.entries(statusCounts).map(([key, value]) => (
@@ -284,7 +285,7 @@ export default function EventResultSubmissionsAdminPage() {
                     </div>
                     <div>
                       <span className={`rounded-full border px-2 py-1 text-xs ${statusTone[item.status] || 'border-cream-200 bg-cream-100 text-brown-700'}`}>{statusLabels[item.status] || item.status}</span>
-                      <div className="mt-2 text-xs text-warm-gray-400">{new Date(item.created_at).toLocaleString('zh-CN')}</div>
+                      <div className="mt-2 text-xs text-warm-gray-400">{formatChinaDateTime(item.created_at) || '-'}</div>
                     </div>
                     <textarea
                       defaultValue={item.admin_note || ''}
