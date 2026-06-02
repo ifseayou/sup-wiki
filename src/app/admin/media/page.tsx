@@ -297,6 +297,11 @@ export default function MediaAdminPage() {
                       <span className="max-w-full truncate rounded-full bg-cream-100 px-2 py-0.5 text-[11px] text-warm-gray-500">
                         {item.folder || 'misc'}
                       </span>
+                      {item.athlete_upload?.athlete_id ? (
+                        <span className="max-w-full truncate rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700" title={`运动员 #${item.athlete_upload.athlete_id}`}>
+                          {item.athlete_upload.athlete_name || `运动员 #${item.athlete_upload.athlete_id}`} 上传
+                        </span>
+                      ) : null}
                     </div>
                     <div className="mt-2 truncate text-[11px] text-warm-gray-400">{item.created_at?.slice(0, 10) || ''}</div>
                     <div className="mt-3 flex items-center gap-3">

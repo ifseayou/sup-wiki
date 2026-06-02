@@ -7,6 +7,11 @@ export interface MediaAsset {
   url: string;
   folder: string | null;
   module?: string | null;
+  athlete_upload?: {
+    athlete_id: number;
+    athlete_name: string;
+    created_at?: string;
+  } | null;
   filename: string | null;
   alt_text: string | null;
   mime_type: string | null;

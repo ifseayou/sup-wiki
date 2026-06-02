@@ -4,6 +4,73 @@ import pool from '@/lib/db';
 import { inferMediaModule, normalizeMediaModule } from '@/lib/media-modules';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 
+function parseJsonObject(value: unknown) {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeUrls(value: unknown) {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
+  if (typeof value === 'string' && value.trim()) return [value.trim()];
+  return [];
+}
+
+async function tableExists(tableName: string) {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total
+       FROM information_schema.tables
+      WHERE table_schema = DATABASE() AND table_name = ?`,
+    [tableName]
+  );
+  return Number(rows[0]?.total || 0) > 0;
+}
+
+async function enrichAthleteUploads(items: RowDataPacket[]) {
+  const urls = items.map((item) => String(item.url || '').trim()).filter(Boolean);
+  if (urls.length === 0 || !(await tableExists('sup_athlete_profile_claims'))) return items;
+  const placeholders = urls.map(() => '?').join(',');
+  const [claimRows] = await pool.execute<RowDataPacket[]>(
+    `SELECT c.athlete_id, c.submitted_avatar_url, c.submitted_profile_json, c.created_at, a.name AS athlete_name
+       FROM sup_athlete_profile_claims c
+       LEFT JOIN sup_athletes a ON a.athlete_id = c.athlete_id
+      WHERE c.submitted_avatar_url IN (${placeholders})
+         OR c.submitted_profile_json IS NOT NULL
+      ORDER BY c.created_at DESC
+      LIMIT 1200`,
+    urls
+  );
+  const urlSet = new Set(urls);
+  const uploadMap = new Map<string, { athlete_id: number; athlete_name: string; created_at: string }>();
+  for (const row of claimRows) {
+    const profile = parseJsonObject(row.submitted_profile_json);
+    const allUrls = [
+      ...normalizeUrls(row.submitted_avatar_url),
+      ...normalizeUrls(profile.sup_photos),
+      ...normalizeUrls(profile.photos),
+      ...normalizeUrls(profile.avatar_url),
+      ...normalizeUrls(profile.photo),
+    ];
+    for (const url of allUrls) {
+      if (!urlSet.has(url) || uploadMap.has(url)) continue;
+      uploadMap.set(url, {
+        athlete_id: Number(row.athlete_id || 0),
+        athlete_name: String(row.athlete_name || ''),
+        created_at: row.created_at ? String(row.created_at) : '',
+      });
+    }
+  }
+  return items.map((item) => {
+    const upload = uploadMap.get(String(item.url || ''));
+    return upload ? { ...item, athlete_upload: upload } : item;
+  });
+}
+
 export const GET = withAdmin(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
@@ -51,7 +118,8 @@ export const GET = withAdmin(async (request: NextRequest) => {
       return acc;
     }, {});
 
-    return NextResponse.json({ items, total, page, pageSize, totalPages: Math.ceil(total / pageSize), moduleCounts });
+    const enrichedItems = await enrichAthleteUploads(items);
+    return NextResponse.json({ items: enrichedItems, total, page, pageSize, totalPages: Math.ceil(total / pageSize), moduleCounts });
   } catch (error) {
     console.error('获取图片库失败:', error);
     return NextResponse.json({ error: '获取图片库失败' }, { status: 500 });

@@ -5,6 +5,7 @@ import EntityManager from '@/components/admin/EntityManager';
 import ImageUpload, { MultiImageUpload } from '@/components/admin/ImageUpload';
 import RegionSelect from '@/components/admin/RegionSelect';
 import { genderLabel } from '@/lib/athlete-gender';
+import { normalizeNationality } from '@/lib/nationality';
 import { useAdminAuth } from '../layout';
 
 function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
@@ -124,18 +125,104 @@ function renderGender(value: unknown, row: Record<string, unknown>) {
   );
 }
 
-const columns = [
+function privacyLabel(value: unknown) {
+  const mode = String(value || 'public');
+  if (mode === 'hidden') return { text: '隐藏主页', cls: 'bg-amber-50 text-amber-700 ring-amber-100' };
+  if (mode === 'anonymous') return { text: '匿名姓名', cls: 'bg-sky-50 text-sky-700 ring-sky-100' };
+  if (mode === 'deleted') return { text: '删除前台', cls: 'bg-red-50 text-red-700 ring-red-100' };
+  return { text: '公开', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-100' };
+}
+
+function buildColumns(token: string) {
+  async function setPrivacy(row: Record<string, unknown>, mode: 'public' | 'hidden' | 'anonymous' | 'deleted') {
+    const athleteId = Number(row.athlete_id || 0);
+    if (!athleteId) return;
+    if (mode === 'deleted' && !window.confirm('确认删除该运动员的前台展示？后台数据会保留。')) return;
+    const res = await fetch('/api/admin/athletes', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: 'set_privacy', athlete_id: athleteId, privacy_mode: mode }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      window.alert(data.error || '隐私设置失败');
+      return;
+    }
+    window.location.reload();
+  }
+
+  return [
   { key: 'name', label: '运动员', render: renderAthleteName },
   { key: 'gender', label: '性别', render: renderGender },
+  { key: 'nationality', label: '国籍', sortable: true, render: (v: unknown) => normalizeNationality(v) || '—' },
   { key: 'province', label: '籍贯', render: (_v: unknown, row: Record<string, unknown>) => formatLocation(row.province, row.city) },
   { key: 'living_city', label: '现居城市', render: (_v: unknown, row: Record<string, unknown>) => formatLocation(row.living_province, row.living_city) },
-  { key: 'latest_annual_rank', label: '国内年度排名', render: (_v: unknown, row: Record<string, unknown>) => formatAnnualRank(row) },
+  { key: 'latest_annual_rank', label: '国内年度排名', sortable: true, render: (_v: unknown, row: Record<string, unknown>) => formatAnnualRank(row) },
   { key: 'is_claimed', label: '认领', render: (v: unknown) => Number(v) > 0 ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">已认领</span> : <span className="rounded-full bg-cream-100 px-2 py-0.5 text-xs text-warm-gray-400">未认领</span> },
   { key: 'discipline', label: '项目', render: (v: unknown) => ({'race':'竞速','surf':'冲浪','distance':'长距离','technical':'技巧'}[String(v)] || String(v)) },
-];
+  {
+    key: 'privacy_mode',
+    label: '隐私',
+    render: (v: unknown, row: Record<string, unknown>) => {
+      const current = String(v || 'public');
+      const label = privacyLabel(current);
+      const actions: Array<{ mode: 'public' | 'hidden' | 'anonymous' | 'deleted'; text: string }> = [
+        { mode: 'public', text: '公开' },
+        { mode: 'hidden', text: '隐藏' },
+        { mode: 'anonymous', text: '匿名' },
+        { mode: 'deleted', text: '删除展示' },
+      ];
+      return (
+        <div className="min-w-40">
+          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${label.cls}`}>{label.text}</span>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {actions.map((action) => (
+              <button
+                key={action.mode}
+                type="button"
+                disabled={current === action.mode}
+                onClick={() => setPrivacy(row, action.mode)}
+                className="rounded-md border border-[#E4D8C8] bg-white px-2 py-1 text-[11px] text-[#5E554D] hover:border-[#0F5C52] hover:text-[#0F5C52] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {action.text}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    },
+  },
+  ];
+}
 const defaultFormData = { athlete_id: undefined, name: '', name_en: '', gender: 'unknown', gender_source: 'manual', gender_confidence: null, nationality: '', province: '', city: '', photo: '', photos: [], bio: '', discipline: 'race', icf_ranking: '', achievements: [], social_links: {} };
+
+const athleteFilters = [
+  {
+    key: 'gender',
+    placeholder: '全部性别',
+    options: [
+      { value: 'male', label: '男' },
+      { value: 'female', label: '女' },
+      { value: 'mixed', label: '混合/团体' },
+      { value: 'unknown', label: '未知' },
+    ],
+  },
+  { key: 'nationality', placeholder: '筛选国籍', type: 'search' as const, endpoint: '/api/admin/athletes/filter-options?type=nationality', options: [] },
+  { key: 'city', placeholder: '筛选城市', type: 'search' as const, endpoint: '/api/admin/athletes/filter-options?type=city', options: [] },
+  {
+    key: 'rankBucket',
+    placeholder: '全部排名',
+    options: [
+      { value: 'top10', label: '前 10' },
+      { value: 'top50', label: '前 50' },
+      { value: 'top100', label: '前 100' },
+      { value: 'ranked', label: '有排名' },
+      { value: 'unranked', label: '无排名' },
+    ],
+  },
+];
 
 export default function AthletesAdminPage() {
   const { token } = useAdminAuth();
-  return <EntityManager entityName="运动员" apiPath="/api/admin/athletes" columns={columns} FormComponent={AthleteForm} defaultFormData={defaultFormData} token={token} searchPlaceholder="搜索姓名 / 英文名..." enableBulkActions />;
+  return <EntityManager entityName="运动员" apiPath="/api/admin/athletes" columns={buildColumns(token)} FormComponent={AthleteForm} defaultFormData={defaultFormData} token={token} searchPlaceholder="搜索姓名 / 英文名 / 国籍..." additionalFilters={athleteFilters} enableBulkActions />;
 }
