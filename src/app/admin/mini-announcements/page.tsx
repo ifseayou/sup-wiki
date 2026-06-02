@@ -72,7 +72,12 @@ export default function MiniAnnouncementsPage() {
           <label style={labelStyle}>跑马灯文字</label>
           <input value={form.ticker} onChange={e => setForm({ ...form, ticker: e.target.value })} style={inputStyle} placeholder="留空默认使用标题" />
           <label style={labelStyle}>详情内容</label>
-          <textarea value={form.detail} onChange={e => setForm({ ...form, detail: e.target.value })} style={{ ...inputStyle, height: 160, paddingTop: 10 }} />
+          <textarea
+            value={form.detail}
+            onChange={e => setForm({ ...form, detail: e.target.value })}
+            style={{ ...inputStyle, height: 180, paddingTop: 10, lineHeight: 1.6 }}
+            placeholder={'每行一段，或用 1. 2. 3. 分段；小程序公告详情和分享图会按段落排版。'}
+          />
           <label style={labelStyle}>排序</label>
           <input type="number" value={form.sort_order} onChange={e => setForm({ ...form, sort_order: Number(e.target.value) })} style={inputStyle} />
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>

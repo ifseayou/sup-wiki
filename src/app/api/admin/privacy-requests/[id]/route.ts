@@ -7,6 +7,7 @@ const ACTIONS = new Set([
   'approve_hide_athlete',
   'approve_anonymize_name',
   'approve_delete_frontend',
+  'approve_restore_frontend',
   'approve_correction',
   'needs_more_info',
   'reject',
@@ -24,6 +25,7 @@ function nextType(action: string, current: string) {
   if (action === 'approve_hide_athlete') return 'hide_athlete';
   if (action === 'approve_anonymize_name') return 'anonymize_name';
   if (action === 'approve_delete_frontend') return 'delete_frontend';
+  if (action === 'approve_restore_frontend') return 'restore_frontend';
   if (action === 'approve_correction') return 'correction';
   return current;
 }

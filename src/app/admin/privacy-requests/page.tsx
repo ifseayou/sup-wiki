@@ -42,6 +42,7 @@ const typeLabels: Record<string, string> = {
   hide_athlete: '隐藏主页',
   anonymize_name: '姓名匿名化',
   delete_frontend: '删除前台展示',
+  restore_frontend: '恢复前台展示',
 };
 
 const statusTone: Record<string, string> = {
@@ -63,6 +64,7 @@ function actionsFor(item: PrivacyRequest): PrivacyAction[] {
     hide_athlete: { action: 'approve_hide_athlete', label: '通过并隐藏主页', tone: 'primary' },
     anonymize_name: { action: 'approve_anonymize_name', label: '通过并匿名姓名', tone: 'primary', confirm: '确认将该运动员姓名匿名化？' },
     delete_frontend: { action: 'approve_delete_frontend', label: '通过并删除前台展示', tone: 'danger', confirm: '确认删除该条前台展示？后台数据会保留。' },
+    restore_frontend: { action: 'approve_restore_frontend', label: '通过并恢复展示', tone: 'primary', confirm: '确认恢复该资料的前台展示？' },
     correction: { action: 'approve_correction', label: '通过更正', tone: 'primary' },
     claim: { action: 'approve_correction', label: '通过处理', tone: 'primary' },
   };

@@ -187,9 +187,9 @@ export const GET = withAdmin(async (request: NextRequest) => {
          NULL AS latest_annual_rank,
          NULL AS latest_annual_points,`}
          CASE
-           WHEN privacy.deleted_count > 0 THEN 'deleted'
-           WHEN privacy.hidden_count > 0 THEN 'hidden'
-           WHEN privacy.anon_count > 0 THEN 'anonymous'
+           WHEN privacy.latest_type = 'delete_frontend' THEN 'deleted'
+           WHEN privacy.latest_type = 'hide_athlete' THEN 'hidden'
+           WHEN privacy.latest_type = 'anonymize_name' THEN 'anonymous'
            ELSE 'public'
          END AS privacy_mode
        ${fromSql}
@@ -202,13 +202,13 @@ export const GET = withAdmin(async (request: NextRequest) => {
        ${hasPrivacy ? `LEFT JOIN (
          SELECT
            target_id AS athlete_id,
-           SUM(CASE WHEN request_type = 'delete_frontend' AND status IN ('approved','completed') THEN 1 ELSE 0 END) AS deleted_count,
-           SUM(CASE WHEN request_type = 'hide_athlete' AND status IN ('pending','approved','completed') THEN 1 ELSE 0 END) AS hidden_count,
-           SUM(CASE WHEN request_type = 'anonymize_name' AND status IN ('approved','completed') THEN 1 ELSE 0 END) AS anon_count
+           SUBSTRING_INDEX(GROUP_CONCAT(request_type ORDER BY request_id DESC SEPARATOR ','), ',', 1) AS latest_type
          FROM sup_privacy_requests
          WHERE target_type = 'athlete'
+           AND request_type IN ('hide_athlete', 'anonymize_name', 'delete_frontend', 'restore_frontend')
+           AND status IN ('approved','completed')
          GROUP BY target_id
-       ) privacy ON privacy.athlete_id = a.athlete_id` : `LEFT JOIN (SELECT NULL AS athlete_id, 0 AS deleted_count, 0 AS hidden_count, 0 AS anon_count) privacy ON 1 = 0`}
+       ) privacy ON privacy.athlete_id = a.athlete_id` : `LEFT JOIN (SELECT NULL AS athlete_id, 'restore_frontend' AS latest_type) privacy ON 1 = 0`}
        ${where}
        ORDER BY ${orderBy}
        LIMIT ${pageSize} OFFSET ${offset}`,
@@ -246,7 +246,7 @@ export const PATCH = withAdmin(async (request: NextRequest) => {
             SET status = 'rejected', handler_name = '管理员', handler_note = '管理员直接切换隐私状态', handled_at = NOW()
           WHERE target_type = 'athlete'
             AND target_id = ?
-            AND request_type IN ('hide_athlete', 'anonymize_name', 'delete_frontend')
+            AND request_type IN ('hide_athlete', 'anonymize_name', 'delete_frontend', 'restore_frontend')
             AND status IN ('pending', 'approved', 'completed')`,
         [athleteId]
       );
@@ -263,6 +263,20 @@ export const PATCH = withAdmin(async (request: NextRequest) => {
             `INSERT INTO sup_privacy_request_logs (request_id, action, actor_name, note)
              VALUES (?, 'admin_set_privacy', '管理员', ?)`,
             [insertResult.insertId, `设置为 ${mode}`]
+          );
+        }
+      } else {
+        const [insertResult] = await pool.execute<ResultSetHeader>(
+          `INSERT INTO sup_privacy_requests
+            (nickname, request_type, target_type, target_id, athlete_id, description, status, handler_name, handler_note, handled_at)
+           VALUES ('管理员', 'restore_frontend', 'athlete', ?, ?, '后台直接恢复前台展示', 'completed', '管理员', '后台运动员管理直接设置', NOW())`,
+          [athleteId, athleteId]
+        );
+        if (hasPrivacyLogs) {
+          await pool.execute(
+            `INSERT INTO sup_privacy_request_logs (request_id, action, actor_name, note)
+             VALUES (?, 'admin_set_privacy', '管理员', '设置为 public')`,
+            [insertResult.insertId]
           );
         }
       }
