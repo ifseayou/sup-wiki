@@ -66,6 +66,11 @@ CREATE TABLE IF NOT EXISTS sup_athletes (
     achievements JSON,
     race_times JSON,
     icf_ranking INT,
+    elite_event_status ENUM('none','formal') NOT NULL DEFAULT 'none',
+    elite_event_groups JSON,
+    elite_event_note VARCHAR(255),
+    elite_event_source_title VARCHAR(255),
+    elite_event_updated_at TIMESTAMP NULL,
     social_links JSON,
     status ENUM('draft', 'published') DEFAULT 'published',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -74,6 +79,7 @@ CREATE TABLE IF NOT EXISTS sup_athletes (
     INDEX idx_athletes_gender (gender, status),
     INDEX idx_athletes_region (province, city),
     INDEX idx_athletes_ranking (icf_ranking),
+    INDEX idx_athletes_elite_event (elite_event_status, status),
     INDEX idx_athletes_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

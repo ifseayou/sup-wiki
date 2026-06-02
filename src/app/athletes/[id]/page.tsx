@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Tooltip from '@/components/Tooltip';
+import OfficialEliteBadge from '@/components/OfficialEliteBadge';
 import AthleteResultsPanel from '@/components/AthleteResultsPanel';
 import AthleteClaimEntry from '@/components/AthleteClaimEntry';
 import AthletePhotoCarousel from '@/components/AthletePhotoCarousel';
@@ -24,6 +25,10 @@ interface AthleteRow extends RowDataPacket {
   achievements: string | null;
   race_times: string | null;
   icf_ranking: number | null;
+  elite_event_status: 'none' | 'formal' | null;
+  elite_event_groups: string[] | string | null;
+  elite_event_note: string | null;
+  elite_event_source_title: string | null;
   social_links: string | null;
 }
 
@@ -90,6 +95,17 @@ function parseJsonObject(value: unknown) {
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
   } catch {
     return {};
+  }
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed.map((item) => String(item).trim()).filter(Boolean) : [];
+  } catch {
+    return String(value).split(/[、,，;]/).map((item) => item.trim()).filter(Boolean);
   }
 }
 
@@ -200,6 +216,9 @@ export default async function AthleteDetailPage({
   const isMinimalProfile = !hasOwner || privacy.hidden || privacy.anonymized;
   const displayName = privacy.anonymized ? '已隐藏选手' : athlete.name;
   const annualPoint = isMinimalProfile ? null : await getAthleteAnnualPointSummary(athleteId, athlete.name);
+  const hideIdentitySignals = privacy.hidden || privacy.anonymized;
+  const eliteEventGroups = hideIdentitySignals ? [] : parseStringArray(athlete.elite_event_groups);
+  const showOfficialEliteBadge = !hideIdentitySignals && athlete.elite_event_status === 'formal';
 
   const rawAchievements = Array.isArray(athlete.achievements)
     ? athlete.achievements
@@ -289,6 +308,7 @@ export default async function AthleteDetailPage({
               <h1 className="font-[var(--font-display)] text-5xl font-medium leading-tight text-brown-800 sm:text-6xl">
                 {displayName}
               </h1>
+              {showOfficialEliteBadge && <OfficialEliteBadge groups={eliteEventGroups} />}
               {athlete.icf_ranking && (
                 <span className="rounded-full border border-[#AED6F1] bg-[#EBF5FB] px-3 py-1 text-xs font-semibold text-[#1A5276]">
                   <Tooltip tip="国际皮划艇联合会 (International Canoe Federation) 世界排名">ICF #{athlete.icf_ranking}</Tooltip>

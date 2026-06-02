@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
+import OfficialEliteBadge from '@/components/OfficialEliteBadge';
 import pool from '@/lib/db';
 import { normalizeAthleteGender, genderLabel } from '@/lib/athlete-gender';
 import { getNationalityAliases, normalizeNationality } from '@/lib/nationality';
@@ -17,6 +18,10 @@ interface AthleteCenterRow extends RowDataPacket {
   photo: string | null;
   discipline: string | null;
   icf_ranking: number | null;
+  elite_event_status: 'none' | 'formal' | null;
+  elite_event_groups: string[] | string | null;
+  elite_event_note: string | null;
+  elite_event_source_title: string | null;
   result_count: number | null;
   event_count: number | null;
   top10_count: number | null;
@@ -84,9 +89,21 @@ function formatDate(value?: string | Date | null) {
   return String(value).slice(0, 10);
 }
 
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed.map((item) => String(item).trim()).filter(Boolean) : [];
+  } catch {
+    return String(value).split(/[、,，;]/).map((item) => item.trim()).filter(Boolean);
+  }
+}
+
 function toAthleteView(row: AthleteCenterRow): AthleteView {
   const minimal = !Number(row.has_owner || 0) || row.privacy_mode === 'hidden' || row.privacy_mode === 'anonymous';
   const anonymized = row.privacy_mode === 'anonymous';
+  const hideIdentitySignals = row.privacy_mode !== 'public';
   const tier = row.tier_key || 'base';
   const resultCount = Number(row.result_count || 0);
   const levelLabel = tier === 'elite' ? 'L4' : tier === 'training' ? 'L3' : tier === 'squad' ? 'L2' : 'L1';
@@ -106,6 +123,8 @@ function toAthleteView(row: AthleteCenterRow): AthleteView {
     recent_event_name: minimal ? null : row.recent_event_name,
     recent_event_date: minimal ? null : row.recent_event_date,
     nationality: normalizeNationality(row.nationality),
+    elite_event_status: hideIdentitySignals ? 'none' : row.elite_event_status,
+    elite_event_groups: hideIdentitySignals ? [] : parseStringArray(row.elite_event_groups),
     tier,
     tierLabel: tierLabels[tier],
     levelLabel,
@@ -171,7 +190,8 @@ function buildAthleteQuery(filters: {
     athlete_metrics AS (
       SELECT
         a.athlete_id, a.name, a.name_en, a.gender, a.nationality, a.province, a.city, a.photo,
-        a.discipline, a.icf_ranking,
+        a.discipline, a.icf_ranking, a.elite_event_status, a.elite_event_groups,
+        a.elite_event_note, a.elite_event_source_title,
         CASE WHEN EXISTS(
           SELECT 1 FROM sup_athlete_profile_owners owner
           WHERE owner.athlete_id = a.athlete_id AND owner.status = 'active' AND owner.role = 'owner'
@@ -378,6 +398,16 @@ function TierBadge({ tier }: { tier: AthleteTier }) {
   return <span className={`inline-flex rounded-md border px-2.5 py-1 text-xs font-bold ${tierStyles[tier]}`}>{tierLabels[tier]}</span>;
 }
 
+function AthleteNameWithEliteBadge({ athlete, className = '' }: { athlete: AthleteView; className?: string }) {
+  const isOfficialElite = athlete.elite_event_status === 'formal';
+  return (
+    <span className={`flex min-w-0 items-center gap-2 ${className}`}>
+      <span className="truncate">{athlete.name}</span>
+      {isOfficialElite && <OfficialEliteBadge groups={athlete.elite_event_groups} />}
+    </span>
+  );
+}
+
 function buildPageHref(params: Record<string, string>, page: number) {
   const next = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -569,7 +599,7 @@ export default async function AthletesPage({
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="truncate text-lg font-black text-[#2F251C]">{athlete.name}</div>
+                          <AthleteNameWithEliteBadge athlete={athlete} className="text-lg font-black text-[#2F251C]" />
                           <div className="mt-1 text-xs text-[#A09284]">{[genderLabel(athlete.gender), athlete.nationality, athlete.city].filter(Boolean).join(' · ') || '资料待补充'}</div>
                         </div>
                         <TierBadge tier={athlete.tier} />
@@ -616,7 +646,7 @@ export default async function AthletesPage({
                         <Link href={`/athletes/${athlete.athlete_id}`} className="flex items-center gap-3 no-underline">
                           <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#F2E3CF] ring-1 ring-[#E6D4BD]"><AthleteAvatar athlete={athlete} size="small" /></span>
                           <span className="min-w-0">
-                            <span className="block truncate font-bold text-[#3A2B20]">{athlete.name}</span>
+                            <AthleteNameWithEliteBadge athlete={athlete} className="font-bold text-[#3A2B20]" />
                             <span className="text-xs text-[#A09284]">{[athlete.nationality, athlete.city].filter(Boolean).join(' · ') || '-'}</span>
                           </span>
                         </Link>

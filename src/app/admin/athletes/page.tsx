@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import EntityManager from '@/components/admin/EntityManager';
 import ImageUpload, { MultiImageUpload } from '@/components/admin/ImageUpload';
+import OfficialEliteBadge from '@/components/OfficialEliteBadge';
 import RegionSelect from '@/components/admin/RegionSelect';
 import { genderLabel } from '@/lib/athlete-gender';
 import { normalizeNationality } from '@/lib/nationality';
@@ -101,13 +102,18 @@ function renderAthleteName(_value: unknown, row: Record<string, unknown>) {
   const name = String(row.name || '未命名运动员');
   const nameEn = String(row.name_en || '').trim();
   const photo = String(row.photo || '').trim();
+  const isOfficialElite = row.elite_event_status === 'formal';
+  const eliteGroups = Array.isArray(row.elite_event_groups) ? row.elite_event_groups as string[] : [];
   return (
     <div className="flex min-w-48 items-center gap-3">
       <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#E8DDCF] bg-[#F4EFE7] text-sm font-semibold text-[#7A6245]">
         {photo ? <img src={photo} alt={name} className="h-full w-full object-cover" /> : name.slice(0, 1)}
       </div>
       <div className="min-w-0">
-        <div className="truncate font-semibold text-[#2E3D38]">{name}</div>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate font-semibold text-[#2E3D38]">{name}</span>
+          {isOfficialElite && <OfficialEliteBadge groups={eliteGroups} />}
+        </div>
         <div className="mt-0.5 truncate text-xs text-[#9A9085]">
           #{String(row.athlete_id || '—')}{nameEn ? ` · ${nameEn}` : ''}
         </div>

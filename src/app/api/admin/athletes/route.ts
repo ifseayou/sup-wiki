@@ -31,6 +31,7 @@ function normalizeAthlete(row: RowDataPacket) {
     ...row,
     nationality: normalizeNationality(row.nationality),
     photos: parseJsonArray(row.photos),
+    elite_event_groups: parseJsonArray(row.elite_event_groups),
     achievements: parseJsonArray(row.achievements),
     social_links: parseJsonObject(row.social_links),
   };
@@ -169,7 +170,9 @@ export const GET = withAdmin(async (request: NextRequest) => {
       `SELECT
          a.athlete_id, a.name, a.name_en, a.gender, a.gender_source, a.gender_confidence,
          a.nationality, a.province, a.city, a.photo, a.photos, a.bio, a.discipline,
-         a.icf_ranking, a.achievements, a.social_links, a.status, a.updated_at,
+         a.icf_ranking, a.elite_event_status, a.elite_event_groups, a.elite_event_note,
+         a.elite_event_source_title, a.elite_event_updated_at,
+         a.achievements, a.social_links, a.status, a.updated_at,
          ${hasClaims ? `COALESCE(
            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.social_links, '$.public_profile.living_province')), 'null'),
            latest_claim.submitted_living_province
