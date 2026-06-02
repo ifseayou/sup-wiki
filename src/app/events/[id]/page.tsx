@@ -38,6 +38,7 @@ interface EventRow extends RowDataPacket {
   result_status: string | null;
   result_source_note: string | null;
   result_source_links: string | null;
+  event_guide: string | null;
 }
 
 interface EventStats extends RowDataPacket {
@@ -77,6 +78,34 @@ function parseJsonArray<T = unknown>(value: unknown): T[] {
   }
 }
 
+type EventGuide = {
+  summary?: string;
+  source?: { title?: string; note?: string };
+  highlights?: Array<{ label?: string; value?: string; note?: string }>;
+  sections?: Array<{ title?: string; items?: string[] }>;
+  images?: Array<{ title?: string; url?: string; caption?: string }>;
+};
+
+function parseJsonObject<T>(value: unknown): T | null {
+  if (!value) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) return value as T;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as T : null;
+  } catch {
+    return null;
+  }
+}
+
+function hasEventGuide(guide: EventGuide | null) {
+  return Boolean(
+    guide?.summary ||
+    guide?.highlights?.length ||
+    guide?.sections?.length ||
+    guide?.images?.some((image) => image.url)
+  );
+}
+
 async function getEvent(id: string) {
   try {
     const [rows] = await pool.execute<EventRow[]>(
@@ -91,11 +120,89 @@ async function getEvent(id: string) {
       schedule: parseJsonArray<{ date: string; time: string; event: string }>(e.schedule),
       disciplines: parseJsonArray<string>(e.disciplines),
       result_source_links: parseJsonArray<{ title: string; url: string }>(e.result_source_links),
+      event_guide: parseJsonObject<EventGuide>(e.event_guide),
     };
   } catch (error) {
     console.error('获取赛事详情失败:', error);
     return null;
   }
+}
+
+function EventGuidePanel({ guide }: { guide: EventGuide }) {
+  const highlights = guide.highlights?.filter((item) => item.label || item.value || item.note) || [];
+  const sections = guide.sections?.filter((item) => item.title && item.items?.length) || [];
+  const images = guide.images?.filter((item) => item.url) || [];
+
+  return (
+    <section id="guide" className="mt-8 overflow-hidden rounded-[28px] border border-[#D9C8B3] bg-[#FEFCF8] shadow-[0_18px_50px_rgba(88,63,36,0.09)]">
+      <div className="border-b border-[#E6DCCC] bg-[#F7EFE3] px-6 py-5 sm:px-8">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#B58A48]">Participant Guide</div>
+        <h2 className="mt-2 text-2xl font-semibold text-[#2E2118]">参赛指南</h2>
+        {guide.summary && <p className="mt-3 max-w-4xl text-sm leading-7 text-[#655D56]">{guide.summary}</p>}
+      </div>
+
+      {highlights.length > 0 && (
+        <div className="grid gap-3 px-6 py-6 sm:grid-cols-2 lg:grid-cols-3 lg:px-8">
+          {highlights.map((item, index) => (
+            <div key={`${item.label}-${index}`} className="rounded-2xl border border-[#E7D8C5] bg-white p-4">
+              <div className="text-xs font-semibold text-[#A07A4B]">{item.label}</div>
+              <div className="mt-2 text-base font-semibold text-[#2E2118]">{item.value}</div>
+              {item.note && <div className="mt-2 text-xs leading-5 text-[#8A8078]">{item.note}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {sections.length > 0 && (
+        <div className="grid gap-4 px-6 pb-6 lg:grid-cols-2 lg:px-8">
+          {sections.map((section, index) => (
+            <div key={`${section.title}-${index}`} className="rounded-2xl border border-[#E4D8C8] bg-[#FFFCF7] p-5">
+              <h3 className="text-lg font-semibold text-[#2E2118]">{section.title}</h3>
+              <ul className="mt-4 space-y-3 text-sm leading-7 text-[#655D56]">
+                {(section.items || []).map((item, itemIndex) => (
+                  <li key={`${item}-${itemIndex}`} className="flex gap-3">
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#B58A48]" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {images.length > 0 && (
+        <div className="border-t border-[#E6DCCC] px-6 py-6 lg:px-8">
+          <h3 className="text-lg font-semibold text-[#2E2118]">路线与动线图</h3>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {images.map((image, index) => (
+              <a
+                key={`${image.url}-${index}`}
+                href={image.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group overflow-hidden rounded-2xl border border-[#E4D8C8] bg-white no-underline transition hover:border-[#B58A48]"
+              >
+                <div className="aspect-[16/10] bg-[#F2E8DA]">
+                  <img src={image.url} alt={image.title || '赛事指南图片'} className="h-full w-full object-contain transition group-hover:scale-[1.015]" />
+                </div>
+                <div className="border-t border-[#EDE3D5] px-4 py-3">
+                  <div className="font-semibold text-[#2E2118]">{image.title || `赛事指南图片 ${index + 1}`}</div>
+                  {image.caption && <div className="mt-1 text-xs leading-5 text-[#8A8078]">{image.caption}</div>}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {guide.source?.title && (
+        <div className="border-t border-[#E6DCCC] px-6 py-4 text-xs leading-5 text-[#8A8078] lg:px-8">
+          来源：{guide.source.title}{guide.source.note ? ` · ${guide.source.note}` : ''}
+        </div>
+      )}
+    </section>
+  );
 }
 
 async function getEventStats(eventId: number) {
@@ -175,6 +282,8 @@ export default async function EventDetailPage({
     ? `${formatDate(event.start_date)}${event.end_date ? ` — ${formatDate(event.end_date)}` : ''}`
     : '待公布';
   const placeLabel = [event.venue, event.city, event.province].filter(Boolean).join('，') || event.location || '待公布';
+  const eventGuide = event.event_guide as EventGuide | null;
+  const showEventGuide = hasEventGuide(eventGuide);
   const needsResultBook = event.event_status === 'completed' && (stats.resultCount === 0 || event.result_status === 'none' || !event.result_status);
   const resultBookUploadHref = buildResultBookUploadHref(event, dateLabel, placeLabel);
 
@@ -192,6 +301,7 @@ export default async function EventDetailPage({
         <div className="mb-4 flex flex-wrap gap-7 border-b border-[#E6DCCC] text-sm font-semibold text-[#655D56]">
           {[
             { href: '#overview', label: '赛事概览', icon: 'calendar' as const },
+            ...(showEventGuide ? [{ href: '#guide', label: '参赛指南', icon: 'pin' as const }] : []),
             { href: '#results', label: '成绩档案', icon: 'trophy' as const },
             { href: '#notes', label: '赛事说明', icon: 'file' as const },
           ].map((tab) => (
@@ -314,6 +424,8 @@ export default async function EventDetailPage({
             </aside>
           </div>
         </section>
+
+        {showEventGuide && eventGuide && <EventGuidePanel guide={eventGuide} />}
 
         <div id="results">
           <EventResultsPanel eventId={event.event_id} />

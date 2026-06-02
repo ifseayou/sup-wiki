@@ -52,7 +52,7 @@ const navGroups = [
   {
     key: 'industry',
     label: '行业组织',
-    icon: '◌',
+    icon: '◉',
     items: [
       { href: '/admin/industry-submissions', label: '入驻审核' },
       { href: '/admin/club-claims', label: '俱乐部认领' },
@@ -95,6 +95,7 @@ const navGroups = [
     items: [
       { href: '/admin/users', label: '用户管理' },
       { href: '/admin/mini-feedback', label: '用户反馈' },
+      { href: '/admin/search-logs', label: '搜索日志' },
       { href: '/admin/mini-announcements', label: '首页公告' },
       { href: '/admin/privacy-requests', label: '隐私请求' },
     ],

@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AdminFilterSelect from '@/components/admin/AdminFilterSelect';
+import AdminSearchableFilter from '@/components/admin/AdminSearchableFilter';
+import { readAdminResponse } from '@/lib/admin-api-client';
 
 // ---- Types ----
 interface Column {
@@ -23,6 +25,8 @@ interface EntityManagerProps {
   additionalFilters?: {
     key: string;
     placeholder: string;
+    type?: 'select' | 'text' | 'search';
+    endpoint?: string;
     options: { label: string; value: string }[];
   }[];
   enableBulkActions?: boolean;
@@ -216,8 +220,6 @@ export default function EntityManager({
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const idKey = Object.keys(defaultFormData).find(k => k.endsWith('_id')) || 'id';
-  const lastQueryKeyRef = useRef<string>('');
-
   useEffect(() => {
     if (initialQueryValue('action') === 'new') {
       setIsNew(true);
@@ -250,9 +252,6 @@ export default function EntityManager({
   );
 
   useEffect(() => {
-    if (lastQueryKeyRef.current === queryKey) return;
-    lastQueryKeyRef.current = queryKey;
-
     let cancelled = false;
 
     async function run() {
@@ -271,7 +270,6 @@ export default function EntityManager({
           params.set('sortOrder', sortOrder);
         }
         const res = await fetch(`${apiPath}?${params}`, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
         if (cancelled) return;
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) {
@@ -280,10 +278,10 @@ export default function EntityManager({
             window.location.reload();
             return;
           }
-          throw new Error(data.error || `${entityName}列表加载失败`);
         }
-        setItems(data.items || []);
-        setTotal(data.total || 0);
+        const data = await readAdminResponse(res);
+        setItems(Array.isArray(data.items) ? data.items as Record<string, unknown>[] : []);
+        setTotal(Number(data.total || 0));
         setSelectedIds(new Set());
       } catch (error) {
         if (cancelled) return;
@@ -320,10 +318,11 @@ export default function EntityManager({
     if (!getItemPath) return;
     try {
       const res = await fetch(getItemPath(id), { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (res.ok && data.item) {
-        setEditItem(data.item);
-        setFormData(data.item);
+      const data = await readAdminResponse(res);
+      if (data.item && typeof data.item === 'object') {
+        const detail = data.item as Record<string, unknown>;
+        setEditItem(detail);
+        setFormData(detail);
       }
     } catch {
       setMsg(`${entityName}详情加载失败，正在使用列表数据编辑`);
@@ -376,11 +375,10 @@ export default function EntityManager({
         setMsg(status === 'published' ? '已发布' : '已保存为草稿');
         setTimeout(() => setMsg(''), 3000);
       } else {
-        const err = await res.json();
-        setMsg(`失败: ${err.error || '未知错误'}`);
+        await readAdminResponse(res);
       }
-    } catch {
-      setMsg('网络错误');
+    } catch (error) {
+      setMsg(`失败: ${error instanceof Error ? error.message : '网络错误'}`);
     } finally {
       setSaving(false);
     }
@@ -452,10 +450,7 @@ export default function EntityManager({
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action, ids }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || '批量操作失败');
-      }
+      const data = await readAdminResponse(res);
       setMsg(`已处理 ${data.affectedRows ?? ids.length} 条${entityName}`);
       setSelectedIds(new Set());
       refreshItems();
@@ -486,7 +481,7 @@ export default function EntityManager({
 
   return (
     <div className="space-y-5">
-      <div className="sticky top-0 z-30 -mx-7 -mt-7 border-b border-[#E5D9C9] bg-[#F7F3EC]/94 px-7 pb-4 pt-7 backdrop-blur">
+      <div className="sticky -top-7 z-50 -mx-7 -mt-7 border-b border-[#E5D9C9] bg-[#F7F3EC] px-7 pb-5 pt-7 shadow-[0_12px_24px_rgba(74,58,38,0.06)]">
         {/* Page header */}
         <div className="flex flex-col gap-4 rounded-t-2xl border border-b-0 border-[#E4D8C8] bg-[#FFFDF9] px-5 py-5 shadow-[0_12px_32px_rgba(74,58,38,0.05)] md:flex-row md:items-center md:justify-between">
           <div>
@@ -523,16 +518,43 @@ export default function EntityManager({
               ]}
             />
             {filters.map((filter) => (
-              <AdminFilterSelect
-                key={filter.key}
-                value={extraFilterValues[filter.key] || ''}
-                placeholder={filter.placeholder}
-                onChange={(value) => {
-                  setExtraFilterValues((prev) => ({ ...prev, [filter.key]: value }));
-                  setPage(1);
-                }}
-                options={[{ label: filter.placeholder, value: '' }, ...filter.options]}
-              />
+              filter.type === 'search' ? (
+                <AdminSearchableFilter
+                  key={filter.key}
+                  value={extraFilterValues[filter.key] || ''}
+                  placeholder={filter.placeholder}
+                  endpoint={filter.endpoint || apiPath}
+                  token={token}
+                  onChange={(value) => {
+                    setExtraFilterValues((prev) => ({ ...prev, [filter.key]: value }));
+                    setPage(1);
+                  }}
+                  className="w-full sm:w-44"
+                />
+              ) : filter.type === 'text' ? (
+                <input
+                  key={filter.key}
+                  type="text"
+                  placeholder={filter.placeholder}
+                  value={extraFilterValues[filter.key] || ''}
+                  onChange={(event) => {
+                    setExtraFilterValues((prev) => ({ ...prev, [filter.key]: event.target.value }));
+                    setPage(1);
+                  }}
+                  className="h-10 w-full rounded-lg border border-[#D8CCBA] bg-white px-3 text-sm text-[#3A2F24] outline-none transition-all placeholder:text-[#B1A69A] focus:border-[#0F5C52] focus:ring-2 focus:ring-[#0F5C52]/10 sm:w-44"
+                />
+              ) : (
+                <AdminFilterSelect
+                  key={filter.key}
+                  value={extraFilterValues[filter.key] || ''}
+                  placeholder={filter.placeholder}
+                  onChange={(value) => {
+                    setExtraFilterValues((prev) => ({ ...prev, [filter.key]: value }));
+                    setPage(1);
+                  }}
+                  options={[{ label: filter.placeholder, value: '' }, ...filter.options]}
+                />
+              )
             ))}
             <div className="ml-auto rounded-lg border border-[#E8DDCF] bg-[#F8F3EC] px-3 py-2 text-sm text-[#8B8175]">
               共 <span className="font-semibold text-[#263D36]">{total}</span> 条
@@ -583,7 +605,7 @@ export default function EntityManager({
       )}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-[#E4D8C8] bg-[#FFFDF9] shadow-[0_16px_38px_rgba(74,58,38,0.06)]">
+      <div className="relative z-0 overflow-hidden rounded-2xl border border-[#E4D8C8] bg-[#FFFDF9] shadow-[0_16px_38px_rgba(74,58,38,0.06)]">
         {loading ? (
           <div className="p-12 text-center text-[#8B8175]">加载中...</div>
         ) : items.length === 0 ? (

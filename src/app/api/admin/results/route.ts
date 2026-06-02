@@ -5,6 +5,7 @@ import { parseFinishTimeToSeconds, parseTeamMembersInput, syncAthleteRaceTimes }
 import { normalizeClubTeamName, syncClubTeamAliasesForEvent } from '@/lib/club-team-normalization';
 import { getResultStatusLabel, normalizeResultStatusCode } from '@/lib/result-status';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
+import { getNationalityAliases, normalizeNationality } from '@/lib/nationality';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
 function numberOrNull(value: unknown) {
@@ -56,6 +57,13 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search')?.trim();
     const eventId = searchParams.get('event_id');
+    const eventSearch = searchParams.get('event_search')?.trim();
+    const athleteName = searchParams.get('athlete_name')?.trim();
+    const memberName = searchParams.get('member_name')?.trim();
+    const nationality = searchParams.get('nationality')?.trim();
+    const city = searchParams.get('city')?.trim();
+    const discipline = searchParams.get('discipline')?.trim();
+    const genderGroup = searchParams.get('gender_group')?.trim();
     const statusCode = searchParams.get('result_status_code')?.trim();
     const reviewStatus = searchParams.get('review_status')?.trim();
     const page = Math.max(1, Number(searchParams.get('page') || 1));
@@ -65,29 +73,74 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const params: (string | number)[] = [];
 
     if (search) {
-      conditions.push(`(er.athlete_name_snapshot LIKE ? OR e.name LIKE ? OR er.discipline LIKE ? OR er.team_name LIKE ?
+      conditions.push(`(er.athlete_name_snapshot LIKE ? OR e.name LIKE ? OR er.discipline LIKE ? OR er.gender_group LIKE ? OR er.nationality_snapshot LIKE ? OR er.team_name LIKE ?
         OR EXISTS (SELECT 1 FROM sup_event_result_members erm WHERE erm.result_id = er.result_id AND erm.member_name LIKE ?))`);
       const like = `%${search}%`;
-      params.push(like, like, like, like, like);
+      params.push(like, like, like, like, like, like, like);
     }
     if (eventId) { conditions.push('er.event_id = ?'); params.push(Number(eventId)); }
+    if (eventSearch) { conditions.push('e.name LIKE ?'); params.push(`%${eventSearch}%`); }
+    if (athleteName) { conditions.push('er.athlete_name_snapshot LIKE ?'); params.push(`%${athleteName}%`); }
+    if (memberName) {
+      conditions.push('EXISTS (SELECT 1 FROM sup_event_result_members erm_filter WHERE erm_filter.result_id = er.result_id AND erm_filter.member_name LIKE ?)');
+      params.push(`%${memberName}%`);
+    }
+    if (nationality) {
+      const aliases = getNationalityAliases(nationality);
+      conditions.push(`(er.nationality_snapshot IN (${aliases.map(() => '?').join(',')}) OR a.nationality IN (${aliases.map(() => '?').join(',')}))`);
+      params.push(...aliases, ...aliases);
+    }
+    if (city) {
+      conditions.push(`(
+        a.province LIKE ? OR a.city LIKE ?
+        OR COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.social_links, '$.public_profile.living_province')), 'null'), latest_claim.submitted_living_province) LIKE ?
+        OR COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.social_links, '$.public_profile.living_city')), 'null'), latest_claim.submitted_living_city) LIKE ?
+      )`);
+      const like = `%${city}%`;
+      params.push(like, like, like, like);
+    }
+    if (discipline) { conditions.push('er.discipline LIKE ?'); params.push(`%${discipline}%`); }
+    if (genderGroup) { conditions.push('er.gender_group LIKE ?'); params.push(`%${genderGroup}%`); }
     if (statusCode) { conditions.push('er.result_status_code = ?'); params.push(statusCode); }
     if (reviewStatus) { conditions.push('er.review_status = ?'); params.push(reviewStatus); }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const fromSql = `FROM sup_event_results er
+       INNER JOIN sup_events e ON e.event_id = er.event_id
+       LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
+       LEFT JOIN (
+         SELECT c.claim_id, c.athlete_id, c.submitted_living_province, c.submitted_living_city
+         FROM sup_athlete_profile_claims c
+         INNER JOIN (
+           SELECT athlete_id, MAX(claim_id) AS claim_id
+           FROM sup_athlete_profile_claims
+           WHERE status = 'approved'
+           GROUP BY athlete_id
+         ) latest ON latest.claim_id = c.claim_id
+       ) latest_claim ON latest_claim.athlete_id = a.athlete_id`;
 
     const [countRows] = await pool.execute<RowDataPacket[]>(
-      `SELECT COUNT(*) AS total FROM sup_event_results er INNER JOIN sup_events e ON e.event_id = er.event_id ${where}`,
+      `SELECT COUNT(*) AS total ${fromSql} ${where}`,
       params
     );
     const [items] = await pool.execute<RowDataPacket[]>(
       `SELECT er.*, e.name AS event_name, e.start_date, src.file_name AS source_file_name,
+        COALESCE(er.nationality_snapshot, a.nationality) AS display_nationality,
+        COALESCE(
+          NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.social_links, '$.public_profile.living_province')), 'null'),
+          latest_claim.submitted_living_province,
+          a.province
+        ) AS display_province,
+        COALESCE(
+          NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.social_links, '$.public_profile.living_city')), 'null'),
+          latest_claim.submitted_living_city,
+          a.city
+        ) AS display_city,
         (
           SELECT JSON_ARRAYAGG(JSON_OBJECT('athlete_id', erm.athlete_id, 'name', erm.member_name, 'member_order', erm.member_order))
           FROM sup_event_result_members erm
           WHERE erm.result_id = er.result_id
         ) AS team_members
-       FROM sup_event_results er
-       INNER JOIN sup_events e ON e.event_id = er.event_id
+       ${fromSql}
        LEFT JOIN sup_event_result_sources src ON src.source_id = er.source_id
        ${where}
        ORDER BY ${resultDefaultOrderBy({ includeEventDate: true })}
@@ -95,7 +148,17 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params
     );
     const total = Number(countRows[0]?.total || 0);
-    return NextResponse.json({ items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
+    return NextResponse.json({
+      items: items.map((item) => ({
+        ...item,
+        nationality_snapshot: normalizeNationality(item.nationality_snapshot),
+        display_nationality: normalizeNationality(item.display_nationality),
+      })),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    });
   } catch (error) {
     console.error('获取成绩明细失败:', error);
     return NextResponse.json({ error: '获取成绩明细失败' }, { status: 500 });
@@ -117,6 +180,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
     await connection.beginTransaction();
     const athleteId = await resolveAthleteId(connection, athleteName, numberOrNull(body.athlete_id));
     const statusCode = normalizeResultStatusCode(body.result_status_code || finishTime);
+    const normalizedNationality = normalizeNationality(body.nationality_snapshot);
     const [inserted] = await connection.execute<ResultSetHeader>(
       `INSERT INTO sup_event_results (
         event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
@@ -129,7 +193,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
         discipline, textOrNull(body.board_class), textOrNull(body.round_label), rankPosition, textOrNull(body.result_label),
         finishTime, statusCode, textOrNull(body.result_status_note) || (statusCode ? getResultStatusLabel(statusCode) : null),
         parseFinishTimeToSeconds(finishTime), body.points === '' || body.points == null ? null : Number(body.points),
-        textOrNull(body.team_name) || '个人', normalizeClubTeamName(textOrNull(body.team_name) || '个人') || null, textOrNull(body.nationality_snapshot), textOrNull(body.source_type) || 'official',
+        textOrNull(body.team_name) || '个人', normalizeClubTeamName(textOrNull(body.team_name) || '个人') || null, normalizedNationality, textOrNull(body.source_type) || 'official',
         numberOrNull(body.source_id), textOrNull(body.source_title), textOrNull(body.source_locator), textOrNull(body.source_url),
         textOrNull(body.source_note), body.parse_confidence == null ? 1 : Number(body.parse_confidence),
         textOrNull(body.review_status) || 'confirmed', body.is_verified === false ? 0 : 1,

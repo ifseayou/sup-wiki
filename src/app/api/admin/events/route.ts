@@ -201,7 +201,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
       website, registration_url, contact_info, images, schedule, disciplines,
       price_range, max_participants, status = 'draft', event_status = 'upcoming',
       star_level, score_coefficient, source_scope, result_status = 'none',
-      result_source_note, result_source_links, results,
+      result_source_note, result_source_links, event_guide, results,
     } = body;
 
     if (!name || !slug) {
@@ -217,9 +217,9 @@ export const POST = withAdmin(async (request: NextRequest) => {
           start_date, end_date, registration_deadline, organizer, description, requirements,
           website, registration_url, contact_info, images, schedule, disciplines,
           price_range, max_participants, star_level, score_coefficient, source_scope,
-          result_status, result_source_note, result_source_links, result_last_verified_at,
+          result_status, result_source_note, result_source_links, event_guide, result_last_verified_at,
           status, event_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           name, name_en || null, slug, event_type || 'race',
           location || null, province || null, city || null, venue || null,
@@ -236,6 +236,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
           result_status,
           result_source_note || null,
           JSON.stringify(parseSourceLinksInput(result_source_links)),
+          event_guide ? JSON.stringify(event_guide) : null,
           result_status && result_status !== 'none' ? new Date() : null,
           status,
           event_status,

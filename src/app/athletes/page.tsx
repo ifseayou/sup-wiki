@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
 import { normalizeAthleteGender, genderLabel } from '@/lib/athlete-gender';
+import { getNationalityAliases, normalizeNationality } from '@/lib/nationality';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import type { RowDataPacket } from 'mysql2';
 
@@ -88,6 +89,7 @@ function toAthleteView(row: AthleteCenterRow): AthleteView {
 
   return {
     ...row,
+    nationality: normalizeNationality(row.nationality),
     tier,
     tierLabel: tierLabels[tier],
     levelLabel,
@@ -117,8 +119,9 @@ function buildAthleteQuery(filters: {
     baseParams.push(filters.discipline);
   }
   if (filters.nationality && filters.nationality !== 'all') {
-    baseConditions.push('a.nationality = ?');
-    baseParams.push(filters.nationality);
+    const aliases = getNationalityAliases(filters.nationality);
+    baseConditions.push(`a.nationality IN (${aliases.map(() => '?').join(',')})`);
+    baseParams.push(...aliases);
   }
   const normalizedGender = normalizeAthleteGender(filters.gender);
   if (normalizedGender !== 'unknown') {
@@ -286,9 +289,17 @@ async function getFeaturedAthletes(filters: {
 
 async function getNationalities() {
   const [rows] = await pool.execute<RowDataPacket[]>(
-    "SELECT DISTINCT nationality FROM sup_athletes WHERE status = 'published' AND nationality IS NOT NULL AND nationality <> '' ORDER BY FIELD(nationality, '中国') DESC, nationality ASC"
+    "SELECT nationality, COUNT(*) AS count FROM sup_athletes WHERE status = 'published' AND nationality IS NOT NULL AND nationality <> '' GROUP BY nationality"
   );
-  return rows.map((row) => String(row.nationality));
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const nationality = normalizeNationality(row.nationality);
+    if (!nationality) continue;
+    counts.set(nationality, (counts.get(nationality) || 0) + Number(row.count || 0));
+  }
+  return [...counts.entries()]
+    .sort((a, b) => Number(b[0] === '中国') - Number(a[0] === '中国') || b[1] - a[1] || a[0].localeCompare(b[0], 'zh-CN'))
+    .map(([nationality]) => nationality);
 }
 
 function Icon({ name }: { name: 'board' | 'users' | 'medal' | 'team' | 'trophy' | 'search' | 'rotate' | 'chevron' }) {

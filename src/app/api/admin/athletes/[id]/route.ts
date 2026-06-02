@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
+import { normalizeNationality } from '@/lib/nationality';
 import type { ResultSetHeader } from 'mysql2';
 
 export const PUT = withAdmin(async (request: NextRequest) => {
@@ -12,7 +13,10 @@ export const PUT = withAdmin(async (request: NextRequest) => {
     const fields: string[] = [];
     const values: (string | number | null)[] = [];
     for (const f of allowed) {
-      if (body[f] !== undefined) { fields.push(`${f} = ?`); values.push(body[f]); }
+      if (body[f] !== undefined) {
+        fields.push(`${f} = ?`);
+        values.push(f === 'nationality' ? normalizeNationality(body[f]) : body[f]);
+      }
     }
     if (body.achievements !== undefined) { fields.push('achievements = ?'); values.push(JSON.stringify(body.achievements)); }
     if (body.social_links !== undefined) { fields.push('social_links = ?'); values.push(JSON.stringify(body.social_links)); }

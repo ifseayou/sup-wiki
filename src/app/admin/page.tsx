@@ -38,6 +38,17 @@ const quickActions = [
   { label: '用户管理', href: '/admin/users', icon: '👤' },
 ];
 
+const statusLabels: Record<string, string> = {
+  pending: '待处理',
+  reviewing: '处理中',
+  approved: '已通过',
+  rejected: '已驳回',
+  imported: '已入库',
+  ignored: '已忽略',
+  confirmed: '已确认',
+  needs_review: '需复核',
+};
+
 const draftLabels: Record<string, string> = {
   brands: '品牌',
   products: '产品',
@@ -103,36 +114,36 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-6">
-        <section className="bg-cream-50 border border-cream-200 rounded-xl p-6">
-          <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-5">
+        <section className="bg-cream-50 border border-cream-200 rounded-xl p-4">
+          <div className="mb-3 flex items-center justify-between gap-4">
             <div>
               <h2 className="text-base font-semibold text-brown-800">快速操作</h2>
               <p className="mt-1 text-xs text-warm-gray-400">高频维护入口集中在这里。</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {quickActions.map(action => (
               <Link
                 key={action.href}
                 href={action.href}
-                className="flex min-h-20 flex-col justify-between rounded-xl border border-cream-300 bg-white/60 px-4 py-3 text-sm text-warm-gray-600 transition-all hover:border-brown-500 hover:text-brown-700"
+                className="flex h-12 items-center gap-2 rounded-lg border border-cream-300 bg-white/65 px-3 text-sm text-warm-gray-600 transition-all hover:border-brown-500 hover:bg-white hover:text-brown-700"
               >
-                <span className="text-lg">{action.icon}</span>
+                <span className="text-base">{action.icon}</span>
                 <span className="font-medium">{action.label}</span>
               </Link>
             ))}
           </div>
         </section>
 
-        <section className="bg-cream-50 border border-cream-200 rounded-xl p-6">
-          <h2 className="text-base font-semibold text-brown-800 mb-4">最近提交</h2>
-          <div className="space-y-3">
+        <section className="bg-cream-50 border border-cream-200 rounded-xl p-4">
+          <h2 className="text-base font-semibold text-brown-800 mb-3">最近提交</h2>
+          <div className="space-y-2">
             {(data?.recentItems || []).map((item, index) => (
-              <Link key={`${item.type}-${item.created_at}-${index}`} href={item.href} className="block rounded-lg border border-cream-200 bg-white/60 px-4 py-3 hover:border-brown-400">
+              <Link key={`${item.type}-${item.created_at}-${index}`} href={item.href} className="block rounded-lg border border-cream-200 bg-white/60 px-3 py-2.5 hover:border-brown-400">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-medium text-brown-600">{item.type}</span>
-                  <span className="text-xs text-warm-gray-400">{item.status}</span>
+                  <span className="rounded-full bg-cream-100 px-2 py-0.5 text-xs text-warm-gray-500">{statusLabels[item.status] || item.status || '未知'}</span>
                 </div>
                 <div className="mt-1 truncate text-sm text-brown-800">{item.title}</div>
               </Link>

@@ -65,6 +65,7 @@ interface AnnualPointRow {
   endurance_points?: number | string | null;
   sprint_points?: number | string | null;
   technical_points?: number | string | null;
+  point_scope?: string | null;
   source_title?: string | null;
   source_url?: string | null;
 }
@@ -476,6 +477,9 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [type, setType] = useState<'athlete' | 'club'>(searchParams.get('point_type') === 'club' ? 'club' : 'athlete');
+  const [pointScope, setPointScope] = useState<'domestic' | 'international' | 'all'>(
+    searchParams.get('point_scope') === 'international' ? 'international' : searchParams.get('point_scope') === 'all' ? 'all' : 'domestic'
+  );
   const [year, setYear] = useState(searchParams.get('point_year') || '');
   const [groupCode, setGroupCode] = useState(searchParams.get('point_group_code') || '');
   const [search, setSearch] = useState(searchParams.get('point_search') || searchParams.get('athlete') || '');
@@ -494,6 +498,11 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
     { value: 'athlete', label: '运动员积分' },
     { value: 'club', label: '俱乐部积分' },
   ], []);
+  const scopeOptions = useMemo<FilterOption[]>(() => [
+    { value: 'domestic', label: '国内积分' },
+    { value: 'international', label: '国际积分' },
+    { value: 'all', label: '全部来源' },
+  ], []);
   const yearOptions = useMemo<FilterOption[]>(() => (
     years.length
       ? years.map((item) => ({ value: String(item.year), label: `${item.year} 年`, meta: `${item.total} 条` }))
@@ -510,12 +519,14 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
         ]
   ), [groups, type]);
   const typeDisplay = typeOptions.find((option) => option.value === type)?.label || '运动员积分';
+  const scopeDisplay = scopeOptions.find((option) => option.value === pointScope)?.label || '国内积分';
   const yearDisplay = yearOptions.find((option) => option.value === year)?.label || (year ? `${year} 年` : '');
   const groupDisplay = groupOptions.find((option) => option.value === groupCode)?.label || (groupCode ? '已选组别' : '');
   const rankDisplay = pointRankOptions.find((option) => option.value === rankMax)?.label || '全部排名';
 
-  function syncPointUrl(next: Partial<{ type: 'athlete' | 'club'; year: string; groupCode: string; search: string; rankMax: string }>) {
+  function syncPointUrl(next: Partial<{ type: 'athlete' | 'club'; pointScope: 'domestic' | 'international' | 'all'; year: string; groupCode: string; search: string; rankMax: string }>) {
     const nextType = next.type ?? type;
+    const nextPointScope = next.pointScope ?? pointScope;
     const nextYear = next.year ?? year;
     const nextGroupCode = next.groupCode ?? groupCode;
     const nextSearch = next.search ?? search;
@@ -523,6 +534,7 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', 'points');
     params.set('point_type', nextType);
+    if (nextType === 'athlete') params.set('point_scope', nextPointScope); else params.delete('point_scope');
     if (nextYear) params.set('point_year', nextYear); else params.delete('point_year');
     if (nextType === 'athlete' && nextGroupCode) params.set('point_group_code', nextGroupCode); else params.delete('point_group_code');
     if (nextSearch.trim()) params.set('point_search', nextSearch.trim()); else params.delete('point_search');
@@ -532,12 +544,13 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ type, page: String(page), pageSize: String(pageSize) });
+    if (type === 'athlete') params.set('point_scope', pointScope);
     if (year) params.set('year', year);
     if (type === 'athlete' && groupCode) params.set('group_code', groupCode);
     if (search.trim()) params.set('search', search.trim());
     if (rankMax) params.set('rank_max', rankMax);
     return params.toString();
-  }, [groupCode, page, rankMax, search, type, year]);
+  }, [groupCode, page, pageSize, pointScope, rankMax, search, type, year]);
 
   useEffect(() => {
     if (loading) return;
@@ -596,8 +609,9 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
   return (
     <div className="space-y-5">
       <div className="sticky top-[56px] z-20 border border-[#E2D4C0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.2fr_1fr_1fr_auto]">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.2fr_1fr_1fr_auto]">
           <SearchSelect label="榜单类型" value={type} display={typeDisplay} staticOptions={typeOptions} onChange={(value) => resetAnd(() => { const nextType = value === 'club' ? 'club' : 'athlete'; setType(nextType); setYear(''); setGroupCode(''); syncPointUrl({ type: nextType, year: '', groupCode: '' }); })} icon="star" />
+          <SearchSelect label="积分范围" value={pointScope} display={scopeDisplay} staticOptions={scopeOptions} disabled={type === 'club'} onChange={(value) => resetAnd(() => { const nextScope = value === 'international' ? 'international' : value === 'all' ? 'all' : 'domestic'; setPointScope(nextScope); setYear(''); setGroupCode(''); syncPointUrl({ pointScope: nextScope, year: '', groupCode: '' }); })} icon="star" />
           <SearchSelect label="年份" value={year} display={yearDisplay} staticOptions={yearOptions} onChange={(value) => resetAnd(() => { setYear(value); setGroupCode(''); syncPointUrl({ year: value, groupCode: '' }); })} icon="calendar" />
           <SearchSelect label="年度组别" value={groupCode} display={groupDisplay} staticOptions={groupOptions} disabled={type === 'club'} onChange={(value) => resetAnd(() => { setGroupCode(value); syncPointUrl({ groupCode: value }); })} icon="user" />
           <div>

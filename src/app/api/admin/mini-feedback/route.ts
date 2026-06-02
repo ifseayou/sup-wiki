@@ -24,6 +24,16 @@ async function ensureFeedbackTable() {
   `);
 }
 
+async function columnExists(tableName: string, columnName: string) {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total
+       FROM information_schema.columns
+      WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
+    [tableName, columnName]
+  );
+  return Number(rows[0]?.total || 0) > 0;
+}
+
 function parseImages(value: unknown) {
   if (!value) return [];
   if (Array.isArray(value)) return value;
@@ -36,35 +46,41 @@ function parseImages(value: unknown) {
 }
 
 export const GET = withAdmin(async request => {
-  await ensureFeedbackTable();
-  const url = new URL(request.url);
-  const status = url.searchParams.get('status') || '';
-  const params: string[] = [];
-  const where = status ? 'WHERE f.status = ?' : '';
-  if (status) params.push(status);
-  const [rows] = await pool.execute<RowDataPacket[]>(
-    `SELECT f.*, u.nickname AS user_nickname, u.avatar_url
-     FROM sup_mini_feedback f
-     LEFT JOIN sup_users u ON u.user_id = f.user_id
-     ${where}
-     ORDER BY f.created_at DESC
-     LIMIT 200`,
-    params
-  );
-  return NextResponse.json({
-    items: rows.map(row => ({
-      id: row.feedback_id,
-      user_id: row.user_id,
-      nickname: row.nickname || row.user_nickname || '',
-      avatar_url: row.avatar_url || '',
-      bug_text: row.bug_text || '',
-      feature_text: row.feature_text || '',
-      rating: Number(row.rating || 0),
-      willing_to_share: Number(row.willing_to_share || 0) === 1,
-      image_urls: parseImages(row.image_urls),
-      status: row.status || 'new',
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    })),
-  });
+  try {
+    await ensureFeedbackTable();
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status') || '';
+    const params: string[] = [];
+    const where = status ? 'WHERE f.status = ?' : '';
+    if (status) params.push(status);
+    const hasUserAvatar = await columnExists('sup_users', 'avatar_url');
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT f.*, u.nickname AS user_nickname, ${hasUserAvatar ? 'u.avatar_url' : 'NULL AS avatar_url'}
+       FROM sup_mini_feedback f
+       LEFT JOIN sup_users u ON u.user_id = f.user_id
+       ${where}
+       ORDER BY f.created_at DESC
+       LIMIT 200`,
+      params
+    );
+    return NextResponse.json({
+      items: rows.map(row => ({
+        id: row.feedback_id,
+        user_id: row.user_id,
+        nickname: row.nickname || row.user_nickname || '',
+        avatar_url: row.avatar_url || '',
+        bug_text: row.bug_text || '',
+        feature_text: row.feature_text || '',
+        rating: Number(row.rating || 0),
+        willing_to_share: Number(row.willing_to_share || 0) === 1,
+        image_urls: parseImages(row.image_urls),
+        status: row.status || 'new',
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      })),
+    });
+  } catch (error) {
+    console.error('获取用户反馈失败:', error);
+    return NextResponse.json({ error: '获取用户反馈失败' }, { status: 500 });
+  }
 });

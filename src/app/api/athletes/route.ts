@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { getNationalityAliases, normalizeNationality } from '@/lib/nationality';
 import type { RowDataPacket } from 'mysql2';
 import type { Athlete, Discipline, PaginatedResponse } from '@/types';
 
@@ -47,8 +48,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (nationality) {
-      conditions.push('nationality = ?');
-      params.push(nationality);
+      const aliases = getNationalityAliases(nationality);
+      conditions.push(`nationality IN (${aliases.map(() => '?').join(',')})`);
+      params.push(...aliases);
     }
 
     if (search) {
@@ -83,6 +85,7 @@ export async function GET(request: NextRequest) {
     const parseObj = (v: unknown) => (v && typeof v === 'object') ? v : (v ? JSON.parse(String(v)) : {});
     const parsedAthletes = athletes.map((a) => ({
       ...a,
+      nationality: normalizeNationality(a.nationality),
       achievements: parseArr(a.achievements),
       social_links: parseObj(a.social_links),
     }));

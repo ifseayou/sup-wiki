@@ -4,6 +4,15 @@
 
 **线上地址：** https://sup.iaddu.cn
 
+## 双仓运维文档
+
+SUP 小程序和网站由两个仓库共同维护：`sup-wiki` 负责 Web、后台、数据库迁移和数据治理；`sport_hacker` 负责微信小程序与 Express 适配 API。涉及小程序或共享数据库时，先阅读：
+
+- `docs/ops/shared-sup-architecture.md`：双仓职责边界、线上拓扑、部署路径。
+- `docs/contracts/sup-api-contract.md`：Web 与小程序共享字段和展示口径。
+- `docs/ops/release-checklist.md`：双仓发布和冒烟测试清单。
+- `docs/ops/migration-log.md`：生产 `sup_` 表迁移记录。
+
 ## 项目目标与核心价值观
 
 这是功能迭代的最高优先级判断依据，所有需求和设计决策都应以此对齐：

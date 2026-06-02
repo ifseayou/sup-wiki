@@ -4,6 +4,7 @@ import pool from '@/lib/db';
 import { parseFinishTimeToSeconds, parseTeamMembersInput, syncAthleteRaceTimes } from '@/lib/event-results';
 import { normalizeClubTeamName, syncClubTeamAliasesForEvent } from '@/lib/club-team-normalization';
 import { getResultStatusLabel, normalizeResultStatusCode } from '@/lib/result-status';
+import { normalizeNationality } from '@/lib/nationality';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 
 function idFromRequest(request: NextRequest) {
@@ -76,6 +77,7 @@ export const PUT = withAdmin(async (request: NextRequest) => {
     const athleteId = await resolveAthleteId(connection, athleteName, numberOrNull(body.athlete_id));
     if (athleteId) touched.add(athleteId);
     const statusCode = normalizeResultStatusCode(body.result_status_code || finishTime);
+    const normalizedNationality = normalizeNationality(body.nationality_snapshot);
     const [updated] = await connection.execute<ResultSetHeader>(
       `UPDATE sup_event_results SET
         event_id = COALESCE(?, event_id),
@@ -111,7 +113,7 @@ export const PUT = withAdmin(async (request: NextRequest) => {
         discipline, textOrNull(body.board_class), textOrNull(body.round_label), rankPosition, textOrNull(body.result_label),
         finishTime, statusCode, textOrNull(body.result_status_note) || (statusCode ? getResultStatusLabel(statusCode) : null),
         parseFinishTimeToSeconds(finishTime), body.points === '' || body.points == null ? null : Number(body.points),
-        textOrNull(body.team_name) || '个人', normalizeClubTeamName(textOrNull(body.team_name) || '个人') || null, textOrNull(body.nationality_snapshot), textOrNull(body.source_type) || 'official',
+        textOrNull(body.team_name) || '个人', normalizeClubTeamName(textOrNull(body.team_name) || '个人') || null, normalizedNationality, textOrNull(body.source_type) || 'official',
         numberOrNull(body.source_id), textOrNull(body.source_title), textOrNull(body.source_locator), textOrNull(body.source_url),
         textOrNull(body.source_note), body.parse_confidence == null ? 1 : Number(body.parse_confidence),
         textOrNull(body.review_status) || 'confirmed', body.is_verified === false ? 0 : 1, id,

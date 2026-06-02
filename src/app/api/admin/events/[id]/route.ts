@@ -107,6 +107,7 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
         result_status: (value) => optionalValue(value),
         result_source_note: (value) => optionalValue(value),
         result_source_links: (value) => JSON.stringify(parseSourceLinksInput(value)),
+        event_guide: (value) => jsonValue(value),
         status: (value) => optionalValue(value),
         event_status: (value) => optionalValue(value),
       };

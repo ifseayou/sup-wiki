@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAdminAuth } from '@/app/admin/layout';
+import { readAdminResponse } from '@/lib/admin-api-client';
 
 interface ClaimRow {
   claim_id: number;
@@ -61,8 +62,27 @@ const changeLabels: Record<ClaimDiffField['change'], string> = {
   removed: '删除',
 };
 
-function formatDiffValue(value: string | string[] | null) {
+function formatDateOnly(value: string | null) {
+  if (!value) return '-';
+  const text = String(value);
+  const iso = text.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  if (iso) return iso;
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return text;
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatSubmittedBirth(item: ClaimRow) {
+  if (item.submitted_birth_date) return formatDateOnly(item.submitted_birth_date);
+  return item.submitted_birth_year ? `${item.submitted_birth_year}` : '-';
+}
+
+function formatDiffValue(key: string, value: string | string[] | null) {
   if (Array.isArray(value)) return value.length ? `${value.length} 张图片` : '-';
+  if (key.includes('birth') || key.includes('date')) return formatDateOnly(value);
   return value || '-';
 }
 
@@ -82,9 +102,9 @@ function DiffPanel({ title, items }: { title: string; items: ClaimDiffField[] })
                 {changeLabels[diff.change]}
               </span>
               <span>
-                <span style={{ color: '#9B9288' }}>{formatDiffValue(diff.before)}</span>
+                <span style={{ color: '#9B9288' }}>{formatDiffValue(diff.key, diff.before)}</span>
                 <span style={{ margin: '0 6px', color: '#B49B7B' }}>→</span>
-                <span style={{ color: '#2A2118' }}>{formatDiffValue(diff.after)}</span>
+                <span style={{ color: '#2A2118' }}>{formatDiffValue(diff.key, diff.after)}</span>
               </span>
             </div>
           ))}
@@ -111,9 +131,8 @@ export default function AdminAthleteClaimsPage() {
     if (search) params.set('search', search);
     fetch(`/api/admin/athlete-claims?${params}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '加载失败');
-        setItems(data.items || []);
+        const data = await readAdminResponse(res);
+        setItems(Array.isArray(data.items) ? data.items as ClaimRow[] : []);
       })
       .catch((err) => setError(err instanceof Error ? err.message : '加载失败'))
       .finally(() => setLoading(false));
@@ -131,9 +150,10 @@ export default function AdminAthleteClaimsPage() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ action, reviewer_note: note }),
     });
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data.error || '处理失败');
+    try {
+      await readAdminResponse(res);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '处理失败');
       return;
     }
     load();
@@ -192,21 +212,26 @@ export default function AdminAthleteClaimsPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr', gap: 14 }}>
               <div>
-                <div style={{ color: '#8B8580', fontSize: 12, marginBottom: 6 }}>头像对比</div>
+                <div style={{ color: '#8B8580', fontSize: 12, marginBottom: 6 }}>头像资料</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {[item.current_photo, item.submitted_avatar_url].map((url, index) => (
-                    <div key={index} onClick={() => url && preview(url)} style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', background: '#EFE7DC', border: '1px solid #E0D8CC', cursor: url ? 'pointer' : 'default' }}>
+                  {[
+                    { label: '当前主页', url: item.current_photo },
+                    { label: '用户提交', url: item.submitted_avatar_url },
+                  ].map(({ label, url }) => (
+                    <div key={label}>
+                    <div onClick={() => url && preview(url)} style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', background: '#EFE7DC', border: '1px solid #E0D8CC', cursor: url ? 'pointer' : 'default' }}>
                       {url ? <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                    </div>
+                    <div style={{ marginTop: 4, textAlign: 'center', fontSize: 11, color: '#8B8580' }}>{label}</div>
                     </div>
                   ))}
                 </div>
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.8, color: '#4B4238' }}>
                 <div><strong>提交姓名：</strong>{item.submitted_name || '-'}</div>
-                <div><strong>出生日期：</strong>{item.submitted_birth_date?.slice(0, 10) || item.submitted_birth_year || '-'}</div>
+                <div><strong>出生日期：</strong>{formatSubmittedBirth(item)}</div>
                 <div><strong>籍贯：</strong>{[item.submitted_hometown_province, item.submitted_hometown_city].filter(Boolean).join(' · ') || '-'}</div>
                 <div><strong>现居：</strong>{[item.submitted_living_province, item.submitted_living_city].filter(Boolean).join(' · ') || '-'}</div>
-                <div><strong>开始桨板：</strong>{item.submitted_started_sup_year || '-'}</div>
                 <div><strong>一句话：</strong>{item.submitted_intro_short || '-'}</div>
                 <div><strong>联系方式：</strong>{item.submitted_contact || '-'}</div>
               </div>

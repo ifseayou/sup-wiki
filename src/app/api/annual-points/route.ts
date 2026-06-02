@@ -4,6 +4,7 @@ import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import type { RowDataPacket } from 'mysql2';
 
 type PointType = 'athlete' | 'club';
+type PointScope = 'domestic' | 'international' | 'all';
 
 function normalizeType(value: string | null): PointType {
   return value === 'club' ? 'club' : 'athlete';
@@ -12,6 +13,12 @@ function normalizeType(value: string | null): PointType {
 function normalizeRankMax(value: string | null) {
   const rank = Number(value || 0);
   return Number.isFinite(rank) && rank > 0 ? rank : null;
+}
+
+function normalizePointScope(value: string | null): PointScope {
+  if (value === 'international') return 'international';
+  if (value === 'all') return 'all';
+  return 'domestic';
 }
 
 export async function GET(request: NextRequest) {
@@ -37,6 +44,7 @@ export async function GET(request: NextRequest) {
     const athleteId = Number(searchParams.get('athlete_id') || 0) || null;
     const athleteName = searchParams.get('athlete_name')?.trim() || '';
     const rankMax = normalizeRankMax(searchParams.get('rank_max'));
+    const pointScope = normalizePointScope(searchParams.get('point_scope'));
 
     const [yearRows] = await pool.execute<RowDataPacket[]>(
       type === 'club'
@@ -44,10 +52,13 @@ export async function GET(request: NextRequest) {
            FROM sup_annual_club_point_standings
            GROUP BY year
            ORDER BY year DESC`
-        : `SELECT year, COUNT(*) AS total
-           FROM sup_annual_point_standings
-           GROUP BY year
-           ORDER BY year DESC`
+        : `SELECT s.year, COUNT(*) AS total
+           FROM sup_annual_point_standings s
+           INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
+           ${pointScope === 'all' ? '' : 'WHERE src.point_scope = ?'}
+           GROUP BY s.year
+           ORDER BY s.year DESC`,
+      type === 'club' || pointScope === 'all' ? [] : [pointScope]
     );
     const availableYears = new Set(yearRows.map((row) => Number(row.year)));
     const defaultYear = Number(yearRows[0]?.year || new Date().getFullYear() - 1);
@@ -55,6 +66,10 @@ export async function GET(request: NextRequest) {
 
     const conditions: string[] = ['s.year = ?'];
     const params: (string | number)[] = [year];
+    if (type === 'athlete' && pointScope !== 'all') {
+      conditions.push('src.point_scope = ?');
+      params.push(pointScope);
+    }
     if (type === 'athlete' && groupCode) {
       conditions.push('s.group_code = ?');
       params.push(groupCode);
@@ -113,7 +128,7 @@ export async function GET(request: NextRequest) {
            s.standing_id, s.year, s.group_code, s.group_name, s.rank_position,
            s.athlete_id, s.athlete_name_snapshot, a.name AS athlete_name, a.photo AS athlete_photo,
            s.team_name, s.total_points, s.endurance_points, s.sprint_points, s.technical_points,
-           src.title AS source_title, src.source_url
+           src.title AS source_title, src.source_url, src.point_scope
          FROM sup_annual_point_standings s
          INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
          LEFT JOIN sup_athletes a ON a.athlete_id = s.athlete_id
@@ -128,17 +143,20 @@ export async function GET(request: NextRequest) {
            FROM sup_annual_club_point_standings
            WHERE year = ?`
         : `SELECT group_code, group_name, COUNT(*) AS total
-           FROM sup_annual_point_standings
-           WHERE year = ?
+           FROM sup_annual_point_standings s
+           INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
+           WHERE s.year = ?
+             ${pointScope === 'all' ? '' : 'AND src.point_scope = ?'}
            GROUP BY group_code, group_name
            ORDER BY total DESC, group_name ASC`,
-      [year]
+      type === 'club' || pointScope === 'all' ? [year] : [year, pointScope]
     );
 
     const total = Number(countRows[0]?.total || 0);
     const preview = applyPublicPreview(items, access);
     return NextResponse.json({
       type,
+      pointScope: type === 'club' ? 'domestic' : pointScope,
       year,
       years: yearRows,
       groups: groupRows,

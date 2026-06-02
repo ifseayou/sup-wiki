@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS sup_events (
     result_status ENUM('none','partial','top10_complete','extended_complete') DEFAULT 'none',
     result_source_note TEXT,
     result_source_links JSON,
+    event_guide JSON,
     result_last_verified_at TIMESTAMP NULL,
     status ENUM('draft', 'published') DEFAULT 'draft',
     event_status ENUM('upcoming','ongoing','completed','cancelled') DEFAULT 'upcoming',
@@ -262,6 +263,7 @@ CREATE TABLE IF NOT EXISTS sup_annual_point_sources (
     source_id BIGINT PRIMARY KEY AUTO_INCREMENT,
     source_key VARCHAR(80) NOT NULL,
     year INT NOT NULL,
+    point_scope ENUM('domestic','international') NOT NULL DEFAULT 'domestic',
     title VARCHAR(200) NOT NULL,
     source_url VARCHAR(500) NOT NULL,
     form_token VARCHAR(80) NOT NULL,
@@ -279,6 +281,18 @@ CREATE TABLE IF NOT EXISTS sup_annual_point_sources (
     UNIQUE KEY uniq_annual_point_source_key (source_key),
     INDEX idx_annual_point_sources_year (year),
     INDEX idx_annual_point_sources_status (sync_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS sup_annual_point_import_cache (
+    cache_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    cache_key VARCHAR(120) NOT NULL,
+    source_key VARCHAR(120) NOT NULL,
+    payload_json JSON NOT NULL,
+    record_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_annual_point_import_cache_key (cache_key),
+    INDEX idx_annual_point_import_cache_source (source_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS sup_annual_point_standings (

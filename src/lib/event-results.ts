@@ -2,6 +2,7 @@ import type { PoolConnection } from 'mysql2/promise';
 import type { RowDataPacket } from 'mysql2';
 import { getResultStatusLabel, normalizeResultStatusCode } from '@/lib/result-status';
 import { normalizeClubTeamName, syncClubTeamAliasesForEvent } from '@/lib/club-team-normalization';
+import { normalizeNationality } from '@/lib/nationality';
 
 export interface EventSourceLink {
   title: string;
@@ -147,7 +148,7 @@ export function normalizeEventResultsInput(value: unknown): EventResultInput[] {
         points: item.points === undefined || item.points === null || item.points === '' ? null : Number(item.points),
         team_name: item.team_name ? String(item.team_name) : '个人',
         team_members: parseTeamMembersInput(item.team_members),
-        nationality_snapshot: item.nationality_snapshot ? String(item.nationality_snapshot) : null,
+        nationality_snapshot: normalizeNationality(item.nationality_snapshot),
         source_type: item.source_type ? String(item.source_type) : null,
         source_id: item.source_id ? Number(item.source_id) : null,
         source_title: item.source_title ? String(item.source_title) : null,
@@ -221,7 +222,7 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
           athleteName,
           result.gender_group || null,
           result.team_name || null,
-          result.nationality_snapshot || null,
+          normalizeNationality(result.nationality_snapshot),
         ]
       );
     }
@@ -233,7 +234,7 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
      VALUES (?, ?, 'race', ?, 'draft')`,
     [
       athleteName,
-      result.nationality_snapshot || '中国',
+      normalizeNationality(result.nationality_snapshot) || '中国',
       `由赛事成绩录入自动生成的运动员草稿档案，待补充完整人物资料。`,
     ]
   );
@@ -249,7 +250,7 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
       athleteName,
       result.gender_group || null,
       result.team_name || null,
-      result.nationality_snapshot || null,
+      normalizeNationality(result.nationality_snapshot),
     ]
   );
 
@@ -270,7 +271,7 @@ async function resolveAthleteByName(connection: PoolConnection, name: string, re
      VALUES (?, ?, 'race', ?, 'draft')`,
     [
       cleanName,
-      result.nationality_snapshot || '中国',
+      normalizeNationality(result.nationality_snapshot) || '中国',
       `由团队赛成绩录入自动生成的运动员草稿档案，待补充完整人物资料。`,
     ]
   );
@@ -285,7 +286,7 @@ async function resolveAthleteByName(connection: PoolConnection, name: string, re
       cleanName,
       result.gender_group || null,
       result.team_name || null,
-      result.nationality_snapshot || null,
+      normalizeNationality(result.nationality_snapshot),
     ]
   );
   return athleteId;
@@ -399,7 +400,7 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
         typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
         result.team_name || '个人',
         normalizeClubTeamName(result.team_name || '个人') || null,
-        result.nationality_snapshot || null,
+        normalizeNationality(result.nationality_snapshot),
         result.source_type || 'official',
         result.source_id || null,
         result.source_title || null,
@@ -479,7 +480,7 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
         typeof result.points === 'number' && Number.isFinite(result.points) ? result.points : null,
         result.team_name || '个人',
         normalizeClubTeamName(result.team_name || '个人') || null,
-        result.nationality_snapshot || null,
+        normalizeNationality(result.nationality_snapshot),
         result.source_type || 'official',
         result.source_id || null,
         result.source_title || null,

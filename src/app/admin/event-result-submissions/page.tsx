@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAdminAuth } from '@/app/admin/layout';
+import { readAdminResponse } from '@/lib/admin-api-client';
 
 interface SubmissionRow {
   submission_id: number;
@@ -88,6 +89,7 @@ export default function EventResultSubmissionsAdminPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const batches = useMemo<SubmissionBatch[]>(() => {
     const map = new Map<string, SubmissionBatch>();
@@ -130,10 +132,17 @@ export default function EventResultSubmissionsAdminPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError('');
     fetch(`/api/admin/event-result-submissions?${query}`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => res.json())
+      .then((res) => readAdminResponse(res))
       .then((data) => {
-        if (!cancelled) setItems(data.items || []);
+        if (!cancelled) setItems(Array.isArray(data.items) ? data.items as SubmissionRow[] : []);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setItems([]);
+          setLoadError(error instanceof Error ? error.message : '获取成绩册提交失败');
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -150,9 +159,10 @@ export default function EventResultSubmissionsAdminPage() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ status: nextStatus, admin_note: adminNote }),
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setMessage(data.error || '更新失败');
+    try {
+      await readAdminResponse(res);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '更新失败');
       return;
     }
     setItems((prev) => prev.map((row) => (
@@ -224,6 +234,7 @@ export default function EventResultSubmissionsAdminPage() {
       </div>
 
       {message && <div className="mb-4 rounded-lg border border-cream-200 bg-white px-4 py-3 text-sm text-brown-700">{message}</div>}
+      {loadError && <div className="mb-4 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{loadError}</div>}
 
       <div className="space-y-4">
         {batches.map((batch) => {

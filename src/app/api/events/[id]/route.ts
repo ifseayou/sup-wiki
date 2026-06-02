@@ -35,6 +35,7 @@ interface EventRow extends RowDataPacket {
   result_status: string | null;
   result_source_note: string | null;
   result_source_links: string | null;
+  event_guide: string | null;
   result_last_verified_at: string | null;
   status: string;
   event_status: string;
@@ -109,6 +110,7 @@ export async function GET(
       schedule: parseJson(event.schedule),
       disciplines: parseJson(event.disciplines),
       result_source_links: parseJson(event.result_source_links),
+      event_guide: parseJson(event.event_guide),
       results: results.map((row) => ({
         ...row,
         athlete: row.athlete_id ? {

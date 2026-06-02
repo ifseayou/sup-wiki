@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAdminAuth } from '@/app/admin/layout';
+import { readAdminResponse } from '@/lib/admin-api-client';
 
 type Feedback = {
   id: number;
@@ -35,9 +36,8 @@ export default function MiniFeedbackPage() {
     const query = status ? `?status=${status}` : '';
     fetch(`/api/admin/mini-feedback${query}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(async res => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '加载失败');
-        setItems(data.items || []);
+        const data = await readAdminResponse(res);
+        setItems(Array.isArray(data.items) ? data.items as Feedback[] : []);
       })
       .catch(err => setError(err instanceof Error ? err.message : '加载失败'))
       .finally(() => setLoading(false));
@@ -55,7 +55,7 @@ export default function MiniFeedbackPage() {
       body: JSON.stringify({ status: nextStatus }),
     });
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
+      const data = await readAdminResponse(res).catch((error) => ({ error: error instanceof Error ? error.message : '保存失败' }));
       alert(data.error || '保存失败');
       return;
     }

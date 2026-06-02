@@ -5,6 +5,7 @@ import AthleteResultsPanel from '@/components/AthleteResultsPanel';
 import AthleteClaimEntry from '@/components/AthleteClaimEntry';
 import AthletePhotoCarousel from '@/components/AthletePhotoCarousel';
 import pool from '@/lib/db';
+import { normalizeNationality } from '@/lib/nationality';
 import type { RowDataPacket } from 'mysql2';
 import { marked } from 'marked';
 
@@ -92,8 +93,9 @@ function parseJsonObject(value: unknown) {
 }
 
 function displayNationality(value: string | null) {
-  if (!value) return '';
-  return value === '中国' ? '🇨🇳 中国' : `🌏 ${value}`;
+  const nationality = normalizeNationality(value);
+  if (!nationality) return '';
+  return nationality === '中国' ? '🇨🇳 中国' : `🌏 ${nationality}`;
 }
 
 const resultIcon = (result: string, highlight?: boolean) => {
@@ -126,6 +128,7 @@ async function getAthleteAnnualPointSummary(athleteId: number, athleteName: stri
       `SELECT MAX(year) AS year
        FROM sup_annual_point_standings
        WHERE year <= ?
+         AND source_id IN (SELECT source_id FROM sup_annual_point_sources WHERE point_scope = 'domestic')
          AND (athlete_id = ? OR athlete_name_snapshot = ?)`,
       [completedYear, athleteId, athleteName]
     );
@@ -134,7 +137,8 @@ async function getAthleteAnnualPointSummary(athleteId: number, athleteName: stri
       const [fallbackRows] = await pool.execute<RowDataPacket[]>(
         `SELECT MAX(year) AS year
          FROM sup_annual_point_standings
-         WHERE athlete_id = ? OR athlete_name_snapshot = ?`,
+         WHERE source_id IN (SELECT source_id FROM sup_annual_point_sources WHERE point_scope = 'domestic')
+           AND (athlete_id = ? OR athlete_name_snapshot = ?)`,
         [athleteId, athleteName]
       );
       year = Number(fallbackRows[0]?.year || 0);
@@ -150,6 +154,7 @@ async function getAthleteAnnualPointSummary(athleteId: number, athleteName: stri
        FROM sup_annual_point_standings s
        INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
        WHERE s.year = ?
+         AND src.point_scope = 'domestic'
          AND (s.athlete_id = ? OR s.athlete_name_snapshot = ?)
        ORDER BY
          CASE WHEN s.athlete_id = ? THEN 0 ELSE 1 END,

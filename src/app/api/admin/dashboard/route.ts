@@ -54,19 +54,19 @@ export const GET = withAdmin(async () => {
         INNER JOIN sup_athletes a ON a.athlete_id = c.athlete_id
         INNER JOIN sup_users u ON u.user_id = c.user_id
         ORDER BY c.created_at DESC
-        LIMIT 4`
+        LIMIT 3`
     );
 
     const [recentSubmissionRows] = await pool.execute<RowDataPacket[]>(
       `SELECT '成绩册提交' AS type, s.event_name AS title, s.status, s.created_at, '/admin/event-result-submissions' AS href
         FROM sup_event_result_submissions s
         ORDER BY s.created_at DESC
-        LIMIT 4`
+        LIMIT 3`
     );
 
     const recentItems = [...recentClaimRows, ...recentSubmissionRows]
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 6);
+      .slice(0, 3);
 
     const draftContent = {
       brands: brandsDraft,

@@ -93,6 +93,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     if (gender) { conditions.push('a.gender = ?'); params.push(gender); }
     if (nationality) {
       const aliases = getNationalityAliases(nationality);
+      if (!aliases.includes(nationality)) aliases.push(nationality);
       conditions.push(`a.nationality IN (${aliases.map(() => '?').join(',')})`);
       params.push(...aliases);
     }
@@ -117,7 +118,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     if (hasAnnualTables) {
       const scopeWhere = hasPointScope ? `WHERE src.point_scope = 'domestic'` : '';
       const [annualYearRows] = await pool.execute<RowDataPacket[]>(
-        `SELECT COALESCE(MAX(CASE WHEN year <= ? THEN year END), MAX(year)) AS latest_year
+        `SELECT COALESCE(MAX(CASE WHEN s.year <= ? THEN s.year END), MAX(s.year)) AS latest_year
          FROM sup_annual_point_standings s
          INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
          ${scopeWhere}`,

@@ -3,6 +3,7 @@
 import EntityManager from '@/components/admin/EntityManager';
 import Link from 'next/link';
 import RegionSelect from '@/components/admin/RegionSelect';
+import { MultiImageUpload } from '@/components/admin/ImageUpload';
 import { useAdminAuth } from '../layout';
 import {
   EVENT_RESULT_STATUS_OPTIONS,
@@ -35,10 +36,78 @@ function sourceItems(row: Record<string, unknown>) {
   return names.map((name, index) => ({ name, url: urls[index] || '' }));
 }
 
-function EventForm({ data, onChange }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
+type EventGuide = {
+  summary?: string;
+  source?: { title?: string; type?: string; note?: string };
+  highlights?: Array<{ label?: string; value?: string; note?: string }>;
+  sections?: Array<{ title?: string; items?: string[] }>;
+  images?: Array<{ title?: string; url?: string; caption?: string }>;
+};
+
+function parseJsonObject(value: unknown): EventGuide {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value as EventGuide;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function guideToHighlightText(guide: EventGuide) {
+  return (guide.highlights || [])
+    .map((item) => [item.label || '', item.value || '', item.note || ''].join(' | ').replace(/\s+\|\s+$/g, ''))
+    .join('\n');
+}
+
+function guideToSectionText(guide: EventGuide) {
+  return (guide.sections || [])
+    .flatMap((section) => (section.items || []).map((item) => `${section.title || '说明'} | ${item}`))
+    .join('\n');
+}
+
+function parseHighlightText(text: string): EventGuide['highlights'] {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [label = '', value = '', note = ''] = line.split('|').map((item) => item.trim());
+      return { label, value, note };
+    })
+    .filter((item) => item.label || item.value || item.note);
+}
+
+function parseSectionText(text: string): EventGuide['sections'] {
+  const grouped = new Map<string, string[]>();
+  for (const line of text.split('\n').map((item) => item.trim()).filter(Boolean)) {
+    const [title = '说明', ...rest] = line.split('|').map((item) => item.trim());
+    const content = rest.join(' | ').trim();
+    if (!content) continue;
+    grouped.set(title, [...(grouped.get(title) || []), content]);
+  }
+  return Array.from(grouped.entries()).map(([title, items]) => ({ title, items }));
+}
+
+function guideImageUrls(guide: EventGuide) {
+  return (guide.images || []).map((item) => item.url || '').filter(Boolean);
+}
+
+function updateEventGuide(
+  data: Record<string, unknown>,
+  onChange: (d: Record<string, unknown>) => void,
+  patch: Partial<EventGuide>
+) {
+  const current = parseJsonObject(data.event_guide);
+  onChange({ ...data, event_guide: { ...current, ...patch } });
+}
+
+function EventForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
   const inp = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
   const sourceLinksText = formatSourceLinksForTextarea(data.result_source_links);
+  const guide = parseJsonObject(data.event_guide);
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -120,6 +189,81 @@ function EventForm({ data, onChange }: { data: Record<string, unknown>; onChange
       <div>
         <label className="block text-xs text-warm-gray-400 mb-1">联系方式</label>
         <input className={inp} value={String(data.contact_info || '')} onChange={e => set('contact_info', e.target.value)} />
+      </div>
+      <div className="rounded-xl border border-cream-200 bg-white/70 p-4">
+        <h3 className="mb-1 text-sm font-medium text-brown-700">参赛指南</h3>
+        <p className="mb-4 text-xs leading-5 text-warm-gray-400">
+          用于录入选手赛前真正需要的信息，例如领物、起终点、路线图、开幕式、自带器材、交通提醒。酒店住宿等非必要信息不要录入。
+        </p>
+        <div>
+          <label className="block text-xs text-warm-gray-400 mb-1">指南摘要</label>
+          <textarea
+            className={inp}
+            rows={3}
+            value={String(guide.summary || '')}
+            onChange={(e) => updateEventGuide(data, onChange, { summary: e.target.value })}
+            placeholder="这不是成绩册，而是选手赛前须知。请概括选手应该优先关注的内容。"
+          />
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-warm-gray-400 mb-1">资料来源标题</label>
+            <input
+              className={inp}
+              value={String(guide.source?.title || '')}
+              onChange={(e) => updateEventGuide(data, onChange, { source: { ...(guide.source || {}), title: e.target.value } })}
+              placeholder="选手须知长图 / 官方通知"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-warm-gray-400 mb-1">资料来源说明</label>
+            <input
+              className={inp}
+              value={String(guide.source?.note || '')}
+              onChange={(e) => updateEventGuide(data, onChange, { source: { ...(guide.source || {}), note: e.target.value } })}
+              placeholder="例如：来自官方发布的选手须知"
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <label className="block text-xs text-warm-gray-400 mb-1">关键信息卡</label>
+          <textarea
+            className={inp}
+            rows={5}
+            value={guideToHighlightText(guide)}
+            onChange={(e) => updateEventGuide(data, onChange, { highlights: parseHighlightText(e.target.value) })}
+            placeholder={'每行一条：标签 | 内容 | 备注\n例如：领物时间 | 2026-06-05 09:00-20:00 | 武林门码头一楼售票大厅'}
+          />
+        </div>
+        <div className="mt-4">
+          <label className="block text-xs text-warm-gray-400 mb-1">分模块说明</label>
+          <textarea
+            className={inp}
+            rows={7}
+            value={guideToSectionText(guide)}
+            onChange={(e) => updateEventGuide(data, onChange, { sections: parseSectionText(e.target.value) })}
+            placeholder={'每行一条：模块标题 | 内容\n例如：领物相关 | 本人领取需携带身份证件和免责声明'}
+          />
+        </div>
+        <div className="mt-4">
+          <MultiImageUpload
+            values={guideImageUrls(guide)}
+            onChange={(urls) => updateEventGuide(data, onChange, {
+              images: urls.map((url, index) => ({
+                title: guide.images?.[index]?.title || `赛事指南图片 ${index + 1}`,
+                url,
+                caption: guide.images?.[index]?.caption || '',
+              })),
+            })}
+            folder="events"
+            module="system"
+            token={token}
+            label="线路/动线/交通图"
+            max={8}
+            sortable
+          />
+          <p className="mt-2 text-xs text-warm-gray-400">上传后如需修改图片标题，可切到 JSON 模式编辑 event_guide.images。</p>
+        </div>
       </div>
       <div className="rounded-xl border border-cream-200 bg-cream-100/60 p-4">
         <h3 className="mb-3 text-sm font-medium text-brown-700">赛事评级与结果档案</h3>
@@ -211,6 +355,15 @@ const columns = [
   { key: 'event_status', label: '赛事状态', render: (v: unknown) => ({'upcoming':'即将','ongoing':'进行中','completed':'已结束','cancelled':'已取消'}[String(v)] || String(v)) },
   { key: 'result_status', label: '结果档案', render: (v: unknown) => getEventResultStatusLabel(String(v || 'none')) },
   {
+    key: 'event_guide',
+    label: '参赛指南',
+    render: (v: unknown) => {
+      const guide = parseJsonObject(v);
+      const count = (guide.highlights?.length || 0) + (guide.sections?.length || 0) + (guide.images?.filter((item) => item.url)?.length || 0);
+      return count > 0 ? <span className="text-xs text-emerald-700">已录入</span> : <span className="text-xs text-warm-gray-400">—</span>;
+    },
+  },
+  {
     key: 'primary_source_url',
     label: '成绩来源',
     render: (v: unknown, row: Record<string, unknown>) => {
@@ -297,6 +450,7 @@ const defaultFormData = {
   result_status: 'none',
   result_source_note: '',
   result_source_links: [],
+  event_guide: {},
 };
 
 const additionalFilters = [

@@ -24,6 +24,9 @@ interface PointRow {
   technical_points: string | number | null;
   base_detail_text: string | null;
   adjustment_detail_text: string | null;
+  point_scope?: string | null;
+  source_title?: string | null;
+  source_url?: string | null;
   source_record_id: string;
   match_status: string;
   match_confidence: string | number | null;
@@ -31,6 +34,7 @@ interface PointRow {
 }
 
 interface SourceRow {
+  point_scope?: string | null;
   sync_status: string;
   total_records: number;
   imported_records: number;
@@ -53,6 +57,12 @@ const statusLabels: Record<string, string> = {
   failed: '失败',
 };
 
+const scopeLabels: Record<string, string> = {
+  domestic: '国内积分',
+  international: '国际积分',
+  all: '全部来源',
+};
+
 function formatPoint(value: string | number | null | undefined) {
   if (value == null || value === '') return '—';
   const number = Number(value);
@@ -72,6 +82,7 @@ export default function AnnualPointsAdminPage() {
   const [source, setSource] = useState<SourceRow | null>(null);
   const [years, setYears] = useState<Array<{ year: number; total: number }>>([]);
   const [year, setYear] = useState(2025);
+  const [pointScope, setPointScope] = useState<'domestic' | 'international' | 'all'>('domestic');
   const [groupCode, setGroupCode] = useState('');
   const [matchStatus, setMatchStatus] = useState('');
   const [search, setSearch] = useState('');
@@ -82,12 +93,12 @@ export default function AnnualPointsAdminPage() {
   const [message, setMessage] = useState('');
 
   const query = useMemo(() => {
-    const params = new URLSearchParams({ page: String(page), pageSize: '50', year: String(year) });
+    const params = new URLSearchParams({ page: String(page), pageSize: '50', year: String(year), point_scope: pointScope });
     if (groupCode) params.set('group_code', groupCode);
     if (matchStatus) params.set('match_status', matchStatus);
     if (search) params.set('search', search);
     return params.toString();
-  }, [groupCode, matchStatus, page, search, year]);
+  }, [groupCode, matchStatus, page, pointScope, search, year]);
 
   async function load() {
     setLoading(true);
@@ -141,7 +152,7 @@ export default function AnnualPointsAdminPage() {
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-brown-400">Annual Points</div>
             <h1 className="mt-1 text-2xl font-semibold text-brown-800">年度积分数据</h1>
-            <p className="mt-2 text-sm text-warm-gray-500">2025 从金数据同步；2022-2024 来自微信公众号历史公示 OCR 清洗，保留原始来源。</p>
+            <p className="mt-2 text-sm text-warm-gray-500">国内积分来自年度榜单；国际积分按 ICF Distance / Technical / Sprint 三项聚合，保留赛点来源。</p>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div className="rounded-xl border border-cream-200 bg-white px-4 py-3">
@@ -154,7 +165,7 @@ export default function AnnualPointsAdminPage() {
             </div>
             <div className="rounded-xl border border-cream-200 bg-white px-4 py-3">
               <div className="text-xs text-warm-gray-400">来源</div>
-              <div className="mt-1 font-semibold text-brown-800">{source?.source_count || 0}</div>
+              <div className="mt-1 font-semibold text-brown-800">{scopeLabels[pointScope]} · {source?.source_count || 0}</div>
             </div>
             <div className="rounded-xl border border-cream-200 bg-white px-4 py-3">
               <div className="text-xs text-warm-gray-400">本页筛选</div>
@@ -170,11 +181,19 @@ export default function AnnualPointsAdminPage() {
       </section>
 
       <section className="rounded-2xl border border-cream-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 lg:grid-cols-[0.7fr_1.2fr_1fr_1fr_auto_auto] lg:items-end">
+        <div className="grid gap-3 lg:grid-cols-[0.7fr_0.9fr_1.2fr_1fr_1fr_auto_auto] lg:items-end">
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-warm-gray-500">年份</span>
             <select value={year} onChange={(e) => { setYear(Number(e.target.value)); setGroupCode(''); setPage(1); }} className="h-10 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-sm outline-none focus:border-brown-300">
               {[...new Set([2025, 2024, 2023, 2022, ...years.map((item) => Number(item.year))])].map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-warm-gray-500">积分范围</span>
+            <select value={pointScope} onChange={(e) => { setPointScope(e.target.value as 'domestic' | 'international' | 'all'); setGroupCode(''); setPage(1); }} className="h-10 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-sm outline-none focus:border-brown-300">
+              <option value="domestic">国内积分</option>
+              <option value="international">国际积分</option>
+              <option value="all">全部来源</option>
             </select>
           </label>
           <label className="block">
@@ -195,8 +214,8 @@ export default function AnnualPointsAdminPage() {
               {Object.entries(matchLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          <button onClick={() => sync(true)} disabled={syncing || year !== 2025} className="h-10 rounded-lg border border-cream-300 px-4 text-sm font-medium text-brown-700 disabled:opacity-50">试抓 10 条</button>
-          <button onClick={() => sync(false)} disabled={syncing || year !== 2025} className="h-10 rounded-lg bg-brown-600 px-4 text-sm font-medium text-white disabled:opacity-50">{syncing ? '同步中…' : '同步入库'}</button>
+          <button onClick={() => sync(true)} disabled={syncing || year !== 2025 || pointScope !== 'domestic'} className="h-10 rounded-lg border border-cream-300 px-4 text-sm font-medium text-brown-700 disabled:opacity-50">试抓 10 条</button>
+          <button onClick={() => sync(false)} disabled={syncing || year !== 2025 || pointScope !== 'domestic'} className="h-10 rounded-lg bg-brown-600 px-4 text-sm font-medium text-white disabled:opacity-50">{syncing ? '同步中…' : '同步入库'}</button>
         </div>
         {message && <div className="mt-3 rounded-lg bg-cream-100 px-3 py-2 text-sm text-brown-700">{message}</div>}
       </section>
@@ -222,6 +241,7 @@ export default function AnnualPointsAdminPage() {
                 <td className="px-4 py-3">
                   <div className="font-medium text-brown-800">{item.group_name}</div>
                   <div className="text-xs text-warm-gray-400">#{item.rank_position || '—'} · {item.group_code}</div>
+                  <div className="mt-1 text-xs text-warm-gray-400">{scopeLabels[item.point_scope || 'domestic'] || item.point_scope}</div>
                 </td>
                 <td className="px-4 py-3">
                   <div className="font-medium text-brown-800">{item.athlete_name_snapshot}</div>
@@ -238,6 +258,7 @@ export default function AnnualPointsAdminPage() {
                 </td>
                 <td className="max-w-md px-4 py-3">
                   <div className="line-clamp-2 text-xs text-warm-gray-600">{item.base_detail_text || '—'}</div>
+                  {item.source_url && <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-medium text-brown-600 hover:text-brown-800">{item.source_title || '原始来源'}</a>}
                   {item.adjustment_detail_text && <div className="mt-1 line-clamp-1 text-xs text-warm-gray-400">修正：{item.adjustment_detail_text}</div>}
                 </td>
               </tr>

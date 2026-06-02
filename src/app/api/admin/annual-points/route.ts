@@ -4,6 +4,14 @@ import pool from '@/lib/db';
 import { ANNUAL_POINTS_GROUPS, syncAnnualPoints2025 } from '@/lib/annual-points';
 import type { RowDataPacket } from 'mysql2';
 
+type PointScope = 'domestic' | 'international' | 'all';
+
+function normalizePointScope(value: string | null): PointScope {
+  if (value === 'international') return 'international';
+  if (value === 'all') return 'all';
+  return 'domestic';
+}
+
 export const GET = withAdmin(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
@@ -14,9 +22,14 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const groupCode = searchParams.get('group_code') || '';
     const matchStatus = searchParams.get('match_status') || '';
     const search = searchParams.get('search') || '';
+    const pointScope = normalizePointScope(searchParams.get('point_scope'));
 
     const conditions: string[] = ['s.year = ?'];
     const params: (string | number)[] = [year];
+    if (pointScope !== 'all') {
+      conditions.push('src.point_scope = ?');
+      params.push(pointScope);
+    }
     if (groupCode) {
       conditions.push('s.group_code = ?');
       params.push(groupCode);
@@ -35,6 +48,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const [sourceRows] = await pool.execute<RowDataPacket[]>(
       `SELECT
          year,
+         ${pointScope === 'all' ? "'all'" : 'point_scope'} AS point_scope,
          MIN(sync_status) AS sync_status,
          SUM(total_records) AS total_records,
          SUM(imported_records) AS imported_records,
@@ -43,21 +57,24 @@ export const GET = withAdmin(async (request: NextRequest) => {
          COUNT(*) AS source_count
        FROM sup_annual_point_sources
        WHERE year = ?
-       GROUP BY year`,
-      [year]
+         ${pointScope === 'all' ? '' : 'AND point_scope = ?'}
+       GROUP BY year${pointScope === 'all' ? '' : ', point_scope'}`,
+      pointScope === 'all' ? [year] : [year, pointScope]
     );
 
     const [countRows] = await pool.execute<RowDataPacket[]>(
       `SELECT COUNT(*) AS total
        FROM sup_annual_point_standings s
+       INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
        LEFT JOIN sup_athletes a ON a.athlete_id = s.athlete_id
        ${where}`,
       params
     );
 
     const [items] = await pool.execute<RowDataPacket[]>(
-      `SELECT s.*, a.name AS athlete_name, a.status AS athlete_status
+      `SELECT s.*, src.point_scope, src.title AS source_title, src.source_url, a.name AS athlete_name, a.status AS athlete_status
        FROM sup_annual_point_standings s
+       INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
        LEFT JOIN sup_athletes a ON a.athlete_id = s.athlete_id
        ${where}
        ORDER BY s.group_name ASC, COALESCE(s.rank_position, 999999) ASC, s.total_points DESC, s.standing_id ASC
@@ -67,31 +84,39 @@ export const GET = withAdmin(async (request: NextRequest) => {
 
     const [groupRows] = await pool.execute<RowDataPacket[]>(
       `SELECT group_code, group_name, COUNT(*) AS total, MIN(rank_position) AS best_rank, MAX(total_points) AS top_points
-       FROM sup_annual_point_standings
-       WHERE year = ?
+       FROM sup_annual_point_standings s
+       INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
+       WHERE s.year = ?
+         ${pointScope === 'all' ? '' : 'AND src.point_scope = ?'}
        GROUP BY group_code, group_name
        ORDER BY group_name ASC`,
-      [year]
+      pointScope === 'all' ? [year] : [year, pointScope]
     );
 
     const [matchRows] = await pool.execute<RowDataPacket[]>(
       `SELECT match_status, COUNT(*) AS total
-       FROM sup_annual_point_standings
-       WHERE year = ?
+       FROM sup_annual_point_standings s
+       INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
+       WHERE s.year = ?
+         ${pointScope === 'all' ? '' : 'AND src.point_scope = ?'}
        GROUP BY match_status`,
-      [year]
+      pointScope === 'all' ? [year] : [year, pointScope]
     );
 
     const [yearRows] = await pool.execute<RowDataPacket[]>(
-      `SELECT year, COUNT(*) AS total
-       FROM sup_annual_point_standings
-       GROUP BY year
-       ORDER BY year DESC`
+      `SELECT s.year, COUNT(*) AS total
+       FROM sup_annual_point_standings s
+       INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
+       ${pointScope === 'all' ? '' : 'WHERE src.point_scope = ?'}
+       GROUP BY s.year
+       ORDER BY s.year DESC`,
+      pointScope === 'all' ? [] : [pointScope]
     );
 
     const total = Number(countRows[0]?.total || 0);
     return NextResponse.json({
       source: sourceRows[0] || null,
+      pointScope,
       years: yearRows,
       year,
       groups: groupRows.length

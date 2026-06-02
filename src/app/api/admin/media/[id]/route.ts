@@ -29,6 +29,7 @@ const TEXT_REFERENCE_FIELDS = [
   { table: 'sup_athletes', field: 'photo', label: '运动员头像' },
   { table: 'sup_athletes', field: 'photos', label: '运动员相册' },
   { table: 'sup_events', field: 'images', label: '赛事图片' },
+  { table: 'sup_events', field: 'event_guide', label: '赛事参赛指南图片' },
   { table: 'sup_products', field: 'images', label: '商品图片' },
   { table: 'sup_shop_items', field: 'images', label: '商城图片' },
   { table: 'sup_shop_items', field: 'variants', label: '商城规格图片' },
