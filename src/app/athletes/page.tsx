@@ -603,7 +603,7 @@ export default async function AthletesPage({
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <AthleteNameWithEliteBadge athlete={athlete} className="text-lg font-black text-[#2F251C]" />
-                          <div className="mt-1 text-xs text-[#A09284]">{[genderLabel(athlete.gender), athlete.nationality, athlete.city].filter(Boolean).join(' · ') || '资料待补充'}</div>
+                          <div className="mt-1 text-xs text-[#A09284]">{[genderLabel(athlete.gender), athlete.nationality].filter(Boolean).join(' · ') || '资料待补充'}</div>
                         </div>
                         <TierBadge tier={athlete.tier} />
                       </div>
@@ -650,7 +650,7 @@ export default async function AthletesPage({
                           <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#F2E3CF] ring-1 ring-[#E6D4BD]"><AthleteAvatar athlete={athlete} size="small" /></span>
                           <span className="min-w-0">
                             <AthleteNameWithEliteBadge athlete={athlete} className="font-bold text-[#3A2B20]" />
-                            <span className="text-xs text-[#A09284]">{[athlete.nationality, athlete.city].filter(Boolean).join(' · ') || '-'}</span>
+                            <span className="text-xs text-[#A09284]">{athlete.nationality || '-'}</span>
                           </span>
                         </Link>
                       </td>

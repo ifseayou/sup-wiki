@@ -9,7 +9,7 @@ const COPY: Record<EliteEventStatus, { label: string; tip: string; className: st
     className: 'border-[#D9A441] bg-[#FFF3C4] text-[#8A570D] shadow-[0_4px_12px_rgba(167,107,20,0.16)]',
   },
   reserve: {
-    label: '精英候补',
+    label: '官方精英(补)',
     tip: '中国桨板精英赛事候补运动员名单，正式名单成员优先。',
     className: 'border-[#B8BDC7] bg-[#F3F5F8] text-[#56606F] shadow-[0_4px_12px_rgba(86,96,111,0.14)]',
   },

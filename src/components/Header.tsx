@@ -7,8 +7,8 @@ import { useUser } from '@/components/UserContext';
 
 const navLinks = [
   { href: '/results', label: '查成绩' },
-  { href: '/events', label: '赛事' },
   { href: '/athletes', label: '运动员' },
+  { href: '/events', label: '赛事' },
   { href: '/clubs', label: '俱乐部' },
   { href: '/professionals', label: '专业人员' },
   { href: '/learn', label: '学习' },
