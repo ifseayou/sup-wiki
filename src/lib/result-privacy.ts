@@ -18,7 +18,7 @@ export type PrivacyState = {
 };
 
 export function privacyStatusCondition(alias = 'pr') {
-  return `(${alias}.status IN ('approved', 'completed') OR (${alias}.request_type = 'hide_athlete' AND ${alias}.status = 'pending'))`;
+  return `${alias}.status IN ('approved', 'completed')`;
 }
 
 export function athleteOwnerCondition(alias = 'o') {
@@ -162,9 +162,8 @@ function hiddenCell() {
 }
 
 function hideRaceResultDetails<T extends Record<string, unknown>>(row: T): T {
-  const base = hideResultName(row, hiddenAthleteName());
   return {
-    ...base,
+    ...row,
     bib_number: hiddenCell(),
     rank_position: null,
     result_label: hiddenCell(),
@@ -187,9 +186,6 @@ function hideRaceResultDetails<T extends Record<string, unknown>>(row: T): T {
 function hidePointStandingDetails<T extends Record<string, unknown>>(row: T): T {
   return {
     ...row,
-    athlete_name: hiddenCell(),
-    athlete_name_snapshot: hiddenCell(),
-    athlete_photo: '',
     bib_number: hiddenCell(),
     year: hiddenCell(),
     rank_position: null,
@@ -203,7 +199,6 @@ function hidePointStandingDetails<T extends Record<string, unknown>>(row: T): T 
     technical_points: hiddenCell(),
     results_points_hidden: true,
     privacy_notice: HIDDEN_RESULT_NOTICE,
-    athlete_is_claimed: true,
   };
 }
 
@@ -233,9 +228,10 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
       const viewerHasOwnedAthlete = ownedAthleteIds.size > 0;
       const resultState = resultPrivacy.get(Number(row.result_id || row.id));
       const athleteState = athletePrivacy.get(athleteId);
-      const privacy = resultState?.anonymized || resultState?.hidden || resultState?.resultsHidden ? resultState : athleteState;
-      const shouldHideByPrivacy = !isPublicForeignResult && !isMyAthlete && Boolean(privacy?.hidden || privacy?.anonymized);
-      const shouldHideResults = !isPublicForeignResult && !isMyAthlete && Boolean(privacy?.resultsHidden);
+      const shouldHideByPrivacy = !isPublicForeignResult && !isMyAthlete && Boolean(
+        resultState?.hidden || resultState?.anonymized || athleteState?.hidden || athleteState?.anonymized
+      );
+      const shouldHideResults = !isPublicForeignResult && !isMyAthlete && Boolean(resultState?.resultsHidden || athleteState?.resultsHidden);
       const shouldMaskUnclaimed = !isPublicForeignResult && !athleteIsClaimed;
       const displayLabel = shouldHideByPrivacy
         ? hiddenAthleteName()
@@ -290,7 +286,16 @@ export async function maskAthleteIdentityRows<T extends Record<string, unknown>>
       const isMyAthlete = ownedAthleteIds.has(athleteId);
       const hiddenByPrivacy = !isForeignAthlete && !isMyAthlete && Boolean(privacy?.hidden || privacy?.anonymized);
       const hiddenResults = !isForeignAthlete && !isMyAthlete && Boolean(privacy?.resultsHidden);
-      if (hiddenResults) return hidePointStandingDetails(row);
+      const identityRow = hiddenByPrivacy
+        ? {
+            ...row,
+            athlete_name: hiddenAthleteName(),
+            athlete_name_snapshot: hiddenAthleteName(),
+            athlete_photo: '',
+            athlete_is_claimed: false,
+          }
+        : row;
+      if (hiddenResults) return hidePointStandingDetails(identityRow);
       if (!hiddenByPrivacy && hasOwner) {
         return {
           ...row,
@@ -305,9 +310,7 @@ export async function maskAthleteIdentityRows<T extends Record<string, unknown>>
           is_foreign_athlete: true,
         };
       }
-      const label = hiddenByPrivacy
-        ? hiddenAthleteName()
-        : maskAthleteName(row.athlete_name || row.athlete_name_snapshot);
+      const label = maskAthleteName(row.athlete_name || row.athlete_name_snapshot);
       return {
         ...row,
         athlete_name: label,

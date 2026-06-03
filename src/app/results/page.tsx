@@ -720,7 +720,7 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
                   return (
                     <tr key={row.standing_id} className="border-b border-[#EFE5D8] transition hover:bg-[#FFF8EE]">
                       <td className="px-4 py-3 text-center">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={row.rank_position} />}</td>
-                      <td className="px-4 py-3 font-semibold text-[#3A2B20]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <AnnualAthleteCell row={row} />}</td>
+                      <td className="px-4 py-3 font-semibold text-[#3A2B20]"><AnnualAthleteCell row={row} /></td>
                       <td className="px-4 py-3 text-[#5B5148]">{row.group_name || '-'}</td>
                       <td className="px-4 py-3 text-[#5B5148]">{row.team_name || '个人'}</td>
                       <td className="px-4 py-3 text-right text-base font-bold text-[#634325]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : formatPoint(row.total_points)}</td>
@@ -1125,7 +1125,7 @@ function ResultsContent() {
                       <tr key={row.result_id} className="border-b border-[#EFE5D8] transition hover:bg-[#FFF8EE]">
                         <td className="px-4 py-3 text-center">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={row.rank_position} />}</td>
                         <td className="px-4 py-3 font-semibold text-[#3A2B20]">
-                          {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <AthleteCell row={row} members={members} />}
+                          <AthleteCell row={row} members={members} />
                         </td>
                         <td className="px-4 py-3 text-[#5B5148]">{row.gender_group || '-'}</td>
                         <td className="px-4 py-3 text-[#5B5148]">

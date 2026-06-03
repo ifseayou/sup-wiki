@@ -194,7 +194,8 @@ export const GET = withAdmin(async (request: NextRequest) => {
            WHEN privacy.latest_type = 'hide_athlete' THEN 'hidden'
            WHEN privacy.latest_type = 'anonymize_name' THEN 'anonymous'
            ELSE 'public'
-         END AS privacy_mode
+         END AS privacy_mode,
+         ${hasPrivacy ? `CASE WHEN result_privacy.latest_type = 'hide_results_points' THEN 1 ELSE 0 END` : '0'} AS results_points_hidden
        ${fromSql}
        ${hasOwners ? `LEFT JOIN (
          SELECT athlete_id, COUNT(*) AS owner_count
@@ -212,6 +213,16 @@ export const GET = withAdmin(async (request: NextRequest) => {
            AND status IN ('approved','completed')
          GROUP BY target_id
        ) privacy ON privacy.athlete_id = a.athlete_id` : `LEFT JOIN (SELECT NULL AS athlete_id, 'restore_frontend' AS latest_type) privacy ON 1 = 0`}
+       ${hasPrivacy ? `LEFT JOIN (
+         SELECT
+           target_id AS athlete_id,
+           SUBSTRING_INDEX(GROUP_CONCAT(request_type ORDER BY request_id DESC SEPARATOR ','), ',', 1) AS latest_type
+         FROM sup_privacy_requests
+         WHERE target_type = 'athlete'
+           AND request_type IN ('hide_results_points', 'restore_results_points')
+           AND status IN ('approved','completed')
+         GROUP BY target_id
+       ) result_privacy ON result_privacy.athlete_id = a.athlete_id` : ''}
        ${where}
        ORDER BY ${orderBy}
        LIMIT ${pageSize} OFFSET ${offset}`,
@@ -233,10 +244,19 @@ export const PATCH = withAdmin(async (request: NextRequest) => {
     if (action === 'set_privacy') {
       const athleteId = Number(body.athlete_id || ids[0]);
       const mode = String(body.privacy_mode || 'public');
+      const legacyRequestType = mode === 'hidden'
+        ? 'hide_athlete'
+        : mode === 'public'
+          ? 'restore_frontend'
+          : '';
+      const requestType = String(body.request_type || legacyRequestType).trim();
       if (!Number.isInteger(athleteId) || athleteId <= 0) {
         return NextResponse.json({ error: '缺少运动员 ID' }, { status: 400 });
       }
-      if (!['public', 'hidden', 'anonymous', 'deleted'].includes(mode)) {
+      const profileTypes = ['hide_athlete', 'restore_frontend'];
+      const legacyProfileTypes = ['hide_athlete', 'restore_frontend', 'anonymize_name', 'delete_frontend'];
+      const resultTypes = ['hide_results_points', 'restore_results_points'];
+      if (![...profileTypes, ...resultTypes].includes(requestType)) {
         return NextResponse.json({ error: '无效隐私设置' }, { status: 400 });
       }
       const hasPrivacy = await tableExists('sup_privacy_requests');
@@ -244,46 +264,43 @@ export const PATCH = withAdmin(async (request: NextRequest) => {
       if (!hasPrivacy) {
         return NextResponse.json({ error: '隐私请求表不存在，请先执行迁移' }, { status: 500 });
       }
+      const relatedTypes = profileTypes.includes(requestType) ? legacyProfileTypes : resultTypes;
+      const placeholders = relatedTypes.map(() => '?').join(',');
       await pool.execute(
         `UPDATE sup_privacy_requests
             SET status = 'rejected', handler_name = '管理员', handler_note = '管理员直接切换隐私状态', handled_at = NOW()
           WHERE target_type = 'athlete'
             AND target_id = ?
-            AND request_type IN ('hide_athlete', 'anonymize_name', 'delete_frontend', 'restore_frontend')
+            AND request_type IN (${placeholders})
             AND status IN ('pending', 'approved', 'completed')`,
-        [athleteId]
+        [athleteId, ...relatedTypes]
       );
-      if (mode !== 'public') {
-        const requestType = mode === 'hidden' ? 'hide_athlete' : mode === 'anonymous' ? 'anonymize_name' : 'delete_frontend';
-        const [insertResult] = await pool.execute<ResultSetHeader>(
-          `INSERT INTO sup_privacy_requests
-            (nickname, request_type, target_type, target_id, athlete_id, description, status, handler_name, handler_note, handled_at)
-           VALUES ('管理员', ?, 'athlete', ?, ?, '后台直接设置隐私状态', 'completed', '管理员', '后台运动员管理直接设置', NOW())`,
-          [requestType, athleteId, athleteId]
+      const requestDescriptions: Record<string, string> = {
+        hide_athlete: '后台直接隐藏主页',
+        restore_frontend: '后台直接展示主页',
+        hide_results_points: '后台直接隐藏成绩与积分',
+        restore_results_points: '后台直接公开成绩与积分',
+      };
+      const [insertResult] = await pool.execute<ResultSetHeader>(
+        `INSERT INTO sup_privacy_requests
+          (nickname, request_type, target_type, target_id, athlete_id, description, status, handler_name, handler_note, handled_at)
+         VALUES ('管理员', ?, 'athlete', ?, ?, ?, 'completed', '管理员', '后台运动员管理直接设置', NOW())`,
+        [requestType, athleteId, athleteId, requestDescriptions[requestType]]
+      );
+      if (hasPrivacyLogs) {
+        await pool.execute(
+          `INSERT INTO sup_privacy_request_logs (request_id, action, actor_name, note)
+           VALUES (?, 'admin_set_privacy', '管理员', ?)`,
+          [insertResult.insertId, requestDescriptions[requestType]]
         );
-        if (hasPrivacyLogs) {
-          await pool.execute(
-            `INSERT INTO sup_privacy_request_logs (request_id, action, actor_name, note)
-             VALUES (?, 'admin_set_privacy', '管理员', ?)`,
-            [insertResult.insertId, `设置为 ${mode}`]
-          );
-        }
-      } else {
-        const [insertResult] = await pool.execute<ResultSetHeader>(
-          `INSERT INTO sup_privacy_requests
-            (nickname, request_type, target_type, target_id, athlete_id, description, status, handler_name, handler_note, handled_at)
-           VALUES ('管理员', 'restore_frontend', 'athlete', ?, ?, '后台直接恢复前台展示', 'completed', '管理员', '后台运动员管理直接设置', NOW())`,
-          [athleteId, athleteId]
-        );
-        if (hasPrivacyLogs) {
-          await pool.execute(
-            `INSERT INTO sup_privacy_request_logs (request_id, action, actor_name, note)
-             VALUES (?, 'admin_set_privacy', '管理员', '设置为 public')`,
-            [insertResult.insertId]
-          );
-        }
       }
-      return NextResponse.json({ success: true, athlete_id: athleteId, privacy_mode: mode });
+      return NextResponse.json({
+        success: true,
+        athlete_id: athleteId,
+        request_type: requestType,
+        privacy_mode: requestType === 'hide_athlete' ? 'hidden' : requestType === 'restore_frontend' ? 'public' : undefined,
+        results_points_hidden: requestType === 'hide_results_points' ? 1 : requestType === 'restore_results_points' ? 0 : undefined,
+      });
     }
 
     if (!['publish', 'draft', 'delete'].includes(action)) {

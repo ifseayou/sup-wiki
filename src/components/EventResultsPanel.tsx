@@ -743,15 +743,13 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                           <tr key={row.result_id} className="border-t border-[#EEE4D8]">
                             <td className="px-5 py-3">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={displayRank(row)} />}</td>
                             <td className="px-5 py-3 text-[#655D56]">
-                              {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : (
-                                <AthleteCell
-                                  athleteId={row.athlete_id}
-                                  name={row.athlete_name || row.athlete_name_snapshot}
-                                  photo={row.athlete_photo}
-                                  members={members}
-                                  meta={row.round_label || null}
-                                />
-                              )}
+                              <AthleteCell
+                                athleteId={row.athlete_id}
+                                name={row.athlete_name || row.athlete_name_snapshot}
+                                photo={row.athlete_photo}
+                                members={members}
+                                meta={row.round_label || null}
+                              />
                             </td>
                             <td className="px-5 py-3 text-right font-bold text-[#8A612F]"><ResultValue row={row} /></td>
                             <td className="px-5 py-3 text-right font-semibold text-[#6F6255]"><ResultPaceValue row={row} /></td>
@@ -773,15 +771,13 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                       <div key={row.result_id} className="rounded-xl border border-[#E2D7C8] bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                              {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : (
-                                <AthleteCell
-                                  athleteId={row.athlete_id}
-                                  name={row.athlete_name || row.athlete_name_snapshot}
-                                  photo={row.athlete_photo}
-                                  members={members}
-                                  meta={row.round_label || null}
-                                />
-                              )}
+                              <AthleteCell
+                                athleteId={row.athlete_id}
+                                name={row.athlete_name || row.athlete_name_snapshot}
+                                photo={row.athlete_photo}
+                                members={members}
+                                meta={row.round_label || null}
+                              />
                           </div>
                           {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={displayRank(row)} />}
                         </div>
@@ -804,15 +800,13 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                     <div key={row.result_id} className="p-4">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : (
-                            <AthleteCell
-                              athleteId={row.athlete_id}
-                              name={row.athlete_name || row.athlete_name_snapshot}
-                              photo={row.athlete_photo}
-                              members={members}
-                              meta={row.round_label || null}
-                            />
-                          )}
+                          <AthleteCell
+                            athleteId={row.athlete_id}
+                            name={row.athlete_name || row.athlete_name_snapshot}
+                            photo={row.athlete_photo}
+                            members={members}
+                            meta={row.round_label || null}
+                          />
                         </div>
                         {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={displayRank(row)} />}
                       </div>
@@ -849,14 +843,12 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                       <tr key={row.standing_id} className="border-t border-[#EEE4D8]">
                         <td className="px-5 py-3">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={row.rank_position ?? row.status_rank} />}</td>
                         <td className="px-5 py-3 text-[#655D56]">
-                          {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : (
-                            <AthleteCell
-                              athleteId={row.athlete_id}
-                              name={row.athlete_name || row.athlete_name_snapshot}
-                              photo={row.athlete_photo}
-                              teamName={row.team_name || '个人'}
-                            />
-                          )}
+                          <AthleteCell
+                            athleteId={row.athlete_id}
+                            name={row.athlete_name || row.athlete_name_snapshot}
+                            photo={row.athlete_photo}
+                            teamName={row.team_name || '个人'}
+                          />
                         </td>
                         <td className="px-5 py-3 text-[#655D56]">{row.team_name || '个人'}</td>
                         <td className="px-5 py-3 text-right text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.endurance_rank || '-'}{row.endurance_points != null ? ` / ${row.endurance_points}` : ''}</>}</td>
@@ -871,14 +863,12 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                 {displayedPointRows.map((row) => (
                   <div key={row.standing_id} className="p-4">
                     <div className="mb-3 flex items-start justify-between gap-3">
-                      {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : (
-                        <AthleteCell
-                          athleteId={row.athlete_id}
-                          name={row.athlete_name || row.athlete_name_snapshot}
-                          photo={row.athlete_photo}
-                          teamName={row.team_name || '个人'}
-                        />
-                      )}
+                      <AthleteCell
+                        athleteId={row.athlete_id}
+                        name={row.athlete_name || row.athlete_name_snapshot}
+                        photo={row.athlete_photo}
+                        teamName={row.team_name || '个人'}
+                      />
                       {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={row.rank_position ?? row.status_rank} />}
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-sm">

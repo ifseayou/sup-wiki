@@ -2,6 +2,7 @@ import Link from 'next/link';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
 import { getEventStarBadgeStyle } from '@/lib/event-stars';
+import PublicFilterSelect from '@/components/PublicFilterSelect';
 
 interface EventRow extends RowDataPacket {
   event_id: number;
@@ -306,38 +307,49 @@ export default async function EventsPage({
 
         <section className="sticky top-[56px] z-20 mb-7 border border-[#E2D4C0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
           <form action="/events" className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.15fr)_120px_repeat(4,minmax(150px,0.7fr))_auto]">
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8A8078]">
-                <SearchIcon />
-              </span>
-              <input
-                name="search"
-                defaultValue={search || ''}
-                placeholder="搜索赛事名称"
-                className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 pl-11 pr-4 text-sm text-[#3D3328] outline-none transition placeholder:text-[#B5AA9C] focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20"
-                type="search"
-              />
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-[#5F4D3A]">赛事</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8A8078]">
+                  <SearchIcon />
+                </span>
+                <input
+                  name="search"
+                  defaultValue={search || ''}
+                  placeholder="搜索赛事名称"
+                  className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 pl-11 pr-4 text-sm text-[#3D3328] outline-none transition placeholder:text-[#B5AA9C] focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20"
+                  type="search"
+                />
+              </div>
             </div>
-            <button className="h-12 rounded-md bg-[#6B3E1E] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(107,62,30,0.24)] transition hover:bg-[#4F2D16]" type="submit">
+            <button className="h-12 self-end rounded-md bg-[#6B3E1E] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(107,62,30,0.24)] transition hover:bg-[#4F2D16]" type="submit">
               搜索
             </button>
-            <EventSelect name="event_type" value={event_type} options={[
-              ['race', '全部类型', '竞速赛'],
-              ['festival', '全部类型', '嘉年华'],
-              ['training', '全部类型', '训练营'],
-              ['exhibition', '全部类型', '展览赛'],
-            ]} placeholder="全部类型" />
-            <EventSelect name="event_status" value={event_status} options={[
-              ['upcoming', '全部状态', '即将开始'],
-              ['ongoing', '全部状态', '进行中'],
-              ['completed', '全部状态', '已结束'],
-            ]} placeholder="全部状态" />
-            <EventSelect name="year" value={year} options={years.map((item) => [item, '全部年份', `${item} 年`])} placeholder="全部年份" />
-            <EventSelect name="province" value={province} options={provinces.map((item) => [item, '全部省份', item])} placeholder="全部省份" />
+            <PublicFilterSelect label="类型" name="event_type" value={event_type} placeholder="全部类型" icon="trophy" options={[
+              { value: '', label: '全部类型' },
+              { value: 'race', label: '竞速赛' },
+              { value: 'festival', label: '嘉年华' },
+              { value: 'training', label: '训练营' },
+              { value: 'exhibition', label: '展览赛' },
+            ]} />
+            <PublicFilterSelect label="状态" name="event_status" value={event_status} placeholder="全部状态" icon="star" options={[
+              { value: '', label: '全部状态' },
+              { value: 'upcoming', label: '即将开始' },
+              { value: 'ongoing', label: '进行中' },
+              { value: 'completed', label: '已结束' },
+            ]} />
+            <PublicFilterSelect label="年份" name="year" value={year} placeholder="全部年份" icon="calendar" options={[
+              { value: '', label: '全部年份' },
+              ...years.map((item) => ({ value: item, label: `${item} 年` })),
+            ]} />
+            <PublicFilterSelect label="省份" name="province" value={province} placeholder="全部省份" icon="chevron" dropdownClassName="md:w-[220px] md:right-auto" options={[
+              { value: '', label: '全部省份' },
+              ...provinces.map((item) => ({ value: item, label: item })),
+            ]} />
             <input type="hidden" name="page_size" value={pageSize} />
             <Link
               href={uploadHref}
-              className="inline-flex h-12 items-center justify-center whitespace-nowrap rounded-md border border-[#CDBAA4] bg-white px-4 text-sm font-semibold text-[#6B3E1E] no-underline transition hover:bg-[#F8EFE4]"
+              className="inline-flex h-12 items-center justify-center self-end whitespace-nowrap rounded-md border border-[#CDBAA4] bg-white px-4 text-sm font-semibold text-[#6B3E1E] no-underline transition hover:bg-[#F8EFE4]"
             >
               上传赛事成绩册
             </Link>
@@ -418,31 +430,6 @@ export default async function EventsPage({
         )}
       </div>
     </main>
-  );
-}
-
-function EventSelect({
-  name,
-  value,
-  placeholder,
-  options,
-}: {
-  name: string;
-  value?: string;
-  placeholder: string;
-  options: string[][];
-}) {
-  return (
-    <select
-      name={name}
-      defaultValue={value || ''}
-      className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20"
-    >
-      <option value="">{placeholder}</option>
-      {options.map(([optionValue, , label]) => (
-        <option key={optionValue} value={optionValue}>{label}</option>
-      ))}
-    </select>
   );
 }
 

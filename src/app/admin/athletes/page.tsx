@@ -133,21 +133,25 @@ function renderGender(value: unknown, row: Record<string, unknown>) {
 
 function privacyLabel(value: unknown) {
   const mode = String(value || 'public');
-  if (mode === 'hidden') return { text: '隐藏主页', cls: 'bg-amber-50 text-amber-700 ring-amber-100' };
-  if (mode === 'anonymous') return { text: '匿名姓名', cls: 'bg-sky-50 text-sky-700 ring-sky-100' };
-  if (mode === 'deleted') return { text: '删除前台', cls: 'bg-red-50 text-red-700 ring-red-100' };
-  return { text: '公开', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-100' };
+  if (mode !== 'public') return { text: '隐藏主页', cls: 'bg-amber-50 text-amber-700 ring-amber-100' };
+  return { text: '展示主页', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-100' };
+}
+
+function resultPrivacyLabel(value: unknown) {
+  const hidden = Number(value || 0) > 0;
+  return hidden
+    ? { text: '隐藏成绩&积分', cls: 'bg-amber-50 text-amber-700 ring-amber-100' }
+    : { text: '公开成绩与积分', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-100' };
 }
 
 function buildColumns(token: string) {
-  async function setPrivacy(row: Record<string, unknown>, mode: 'public' | 'hidden' | 'anonymous' | 'deleted') {
+  async function setPrivacy(row: Record<string, unknown>, requestType: 'hide_athlete' | 'restore_frontend' | 'hide_results_points' | 'restore_results_points') {
     const athleteId = Number(row.athlete_id || 0);
     if (!athleteId) return;
-    if (mode === 'deleted' && !window.confirm('确认删除该运动员的前台展示？后台数据会保留。')) return;
     const res = await fetch('/api/admin/athletes', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ action: 'set_privacy', athlete_id: athleteId, privacy_mode: mode }),
+      body: JSON.stringify({ action: 'set_privacy', athlete_id: athleteId, request_type: requestType }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -171,28 +175,53 @@ function buildColumns(token: string) {
     label: '隐私',
     render: (v: unknown, row: Record<string, unknown>) => {
       const current = String(v || 'public');
-      const label = privacyLabel(current);
-      const actions: Array<{ mode: 'public' | 'hidden' | 'anonymous' | 'deleted'; text: string }> = [
-        { mode: 'public', text: '公开' },
-        { mode: 'hidden', text: '隐藏' },
-        { mode: 'anonymous', text: '匿名' },
-        { mode: 'deleted', text: '删除展示' },
-      ];
+      const profileHidden = current !== 'public';
+      const profile = privacyLabel(current);
+      const resultsHidden = Number(row.results_points_hidden || 0) > 0;
+      const results = resultPrivacyLabel(row.results_points_hidden);
       return (
-        <div className="min-w-40">
-          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${label.cls}`}>{label.text}</span>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {actions.map((action) => (
+        <div className="min-w-48 space-y-3">
+          <div>
+            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${profile.cls}`}>{profile.text}</span>
+            <div className="mt-2 flex flex-wrap gap-1.5">
               <button
-                key={action.mode}
                 type="button"
-                disabled={current === action.mode}
-                onClick={() => setPrivacy(row, action.mode)}
+                disabled={profileHidden}
+                onClick={() => setPrivacy(row, 'hide_athlete')}
                 className="rounded-md border border-[#E4D8C8] bg-white px-2 py-1 text-[11px] text-[#5E554D] hover:border-[#0F5C52] hover:text-[#0F5C52] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {action.text}
+                隐藏主页
               </button>
-            ))}
+              <button
+                type="button"
+                disabled={!profileHidden}
+                onClick={() => setPrivacy(row, 'restore_frontend')}
+                className="rounded-md border border-[#E4D8C8] bg-white px-2 py-1 text-[11px] text-[#5E554D] hover:border-[#0F5C52] hover:text-[#0F5C52] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                展示主页
+              </button>
+            </div>
+          </div>
+          <div>
+            <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${results.cls}`}>{results.text}</span>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                disabled={resultsHidden}
+                onClick={() => setPrivacy(row, 'hide_results_points')}
+                className="rounded-md border border-[#E4D8C8] bg-white px-2 py-1 text-[11px] text-[#5E554D] hover:border-[#0F5C52] hover:text-[#0F5C52] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                隐藏成绩&积分
+              </button>
+              <button
+                type="button"
+                disabled={!resultsHidden}
+                onClick={() => setPrivacy(row, 'restore_results_points')}
+                className="rounded-md border border-[#E4D8C8] bg-white px-2 py-1 text-[11px] text-[#5E554D] hover:border-[#0F5C52] hover:text-[#0F5C52] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                公开成绩与积分
+              </button>
+            </div>
           </div>
         </div>
       );

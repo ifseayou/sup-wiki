@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
 import OfficialEliteBadge from '@/components/OfficialEliteBadge';
+import PublicFilterSelect from '@/components/PublicFilterSelect';
 import pool from '@/lib/db';
 import { normalizeAthleteGender, genderLabel } from '@/lib/athlete-gender';
 import { getNationalityAliases, normalizeNationality } from '@/lib/nationality';
@@ -200,24 +201,9 @@ function buildAthleteQuery(filters: {
           WHERE owner.athlete_id = a.athlete_id AND owner.status = 'active' AND owner.role = 'owner'
         ) THEN 1 ELSE 0 END AS has_owner,
         CASE
-          WHEN EXISTS(
-            SELECT 1 FROM sup_privacy_requests pr
-            WHERE pr.target_type = 'athlete' AND pr.target_id = a.athlete_id
-              AND pr.request_type = 'delete_frontend'
-              AND pr.status IN ('approved', 'completed')
-          ) THEN 'deleted'
-          WHEN EXISTS(
-            SELECT 1 FROM sup_privacy_requests pr
-            WHERE pr.target_type = 'athlete' AND pr.target_id = a.athlete_id
-              AND pr.request_type = 'hide_athlete'
-              AND (pr.status IN ('approved', 'completed') OR pr.status = 'pending')
-          ) THEN 'hidden'
-          WHEN EXISTS(
-            SELECT 1 FROM sup_privacy_requests pr
-            WHERE pr.target_type = 'athlete' AND pr.target_id = a.athlete_id
-              AND pr.request_type = 'anonymize_name'
-              AND pr.status IN ('approved', 'completed')
-          ) THEN 'anonymous'
+          WHEN latest_privacy.request_type = 'delete_frontend' THEN 'deleted'
+          WHEN latest_privacy.request_type = 'hide_athlete' THEN 'hidden'
+          WHEN latest_privacy.request_type = 'anonymize_name' THEN 'anonymous'
           ELSE 'public'
         END AS privacy_mode,
         COALESCE(stats.result_count, 0) AS result_count,
@@ -286,6 +272,18 @@ function buildAthleteQuery(filters: {
         ) AS recent_event_date
       FROM sup_athletes a
       LEFT JOIN stats ON stats.athlete_id = a.athlete_id
+      LEFT JOIN (
+        SELECT pr.target_id, pr.request_type
+        FROM sup_privacy_requests pr
+        INNER JOIN (
+          SELECT target_id, MAX(request_id) AS request_id
+          FROM sup_privacy_requests
+          WHERE target_type = 'athlete'
+            AND request_type IN ('hide_athlete', 'anonymize_name', 'delete_frontend', 'restore_frontend')
+            AND status IN ('approved', 'completed')
+          GROUP BY target_id
+        ) latest ON latest.request_id = pr.request_id
+      ) latest_privacy ON latest_privacy.target_id = a.athlete_id
       WHERE ${baseConditions.join(' AND ')}
     )`;
 
@@ -566,49 +564,42 @@ export default async function AthletesPage({
               <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">运动员</span>
               <input name="search" defaultValue={filters.search} placeholder="请输入姓名或ID" className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition placeholder:text-[#B5AA9C] focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20" />
             </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">梯队</span>
-              <select name="tier" defaultValue={filters.tier} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20">
-                <option value="">全部梯队</option>
-                <option value="elite">精英</option>
-                <option value="training">长训队</option>
-                <option value="squad">梯队队员</option>
-                <option value="base">基础档案</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">级别</span>
-              <select name="level" disabled className="h-12 w-full rounded-md border border-[#E3D5C2] bg-[#F4EDE4] px-3 text-sm text-[#A69B8F] outline-none">
-                <option>由成绩自动计算</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">主项</span>
-              <select name="discipline" defaultValue={filters.discipline} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20">
-                <option value="">请选择主项</option>
-                <option value="race">竞速</option>
-                <option value="distance">长距离</option>
-                <option value="technical">技巧</option>
-                <option value="surf">冲浪</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">性别</span>
-              <select name="gender" defaultValue={filters.gender} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20">
-                <option value="">请选择性别</option>
-                <option value="male">男</option>
-                <option value="female">女</option>
-                <option value="mixed">混合/团体</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">国籍/地区</span>
-              <select name="nationality" defaultValue={filters.nationality} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20">
-                <option value="中国">中国</option>
-                <option value="all">全部</option>
-                {nationalities.filter((item) => item !== '中国').map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
+            <div className="block">
+              <PublicFilterSelect label="梯队" name="tier" value={filters.tier} placeholder="全部梯队" icon="user" options={[
+                { value: '', label: '全部梯队' },
+                { value: 'elite', label: '精英' },
+                { value: 'training', label: '长训队' },
+                { value: 'squad', label: '梯队队员' },
+                { value: 'base', label: '基础档案' },
+              ]} />
+            </div>
+            <div className="block">
+              <PublicFilterSelect label="级别" name="level" value="" placeholder="由成绩自动计算" disabled icon="star" options={[{ value: '', label: '由成绩自动计算' }]} />
+            </div>
+            <div className="block">
+              <PublicFilterSelect label="主项" name="discipline" value={filters.discipline} placeholder="请选择主项" icon="trophy" options={[
+                { value: '', label: '请选择主项' },
+                { value: 'race', label: '竞速' },
+                { value: 'distance', label: '长距离' },
+                { value: 'technical', label: '技巧' },
+                { value: 'surf', label: '冲浪' },
+              ]} />
+            </div>
+            <div className="block">
+              <PublicFilterSelect label="性别" name="gender" value={filters.gender} placeholder="请选择性别" icon="user" options={[
+                { value: '', label: '请选择性别' },
+                { value: 'male', label: '男' },
+                { value: 'female', label: '女' },
+                { value: 'mixed', label: '混合/团体' },
+              ]} />
+            </div>
+            <div className="block">
+              <PublicFilterSelect label="国籍/地区" name="nationality" value={filters.nationality} placeholder="中国" icon="user" dropdownClassName="md:w-[260px] md:right-auto" options={[
+                { value: '中国', label: '中国' },
+                { value: 'all', label: '全部' },
+                ...nationalities.filter((item) => item !== '中国').map((item) => ({ value: item, label: item })),
+              ]} />
+            </div>
           </div>
           <div className="mt-4 flex justify-end gap-3">
             <Link href="/athletes" className="inline-flex h-12 items-center gap-2 rounded-md border border-[#CDBAA4] bg-white px-5 text-sm font-semibold text-[#6B3E1E] no-underline transition hover:bg-[#F8EFE4]">
