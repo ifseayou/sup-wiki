@@ -8,10 +8,6 @@ import { useUser } from '@/components/UserContext';
 function UploadResultsForm() {
   const searchParams = useSearchParams();
   const { user, token, loading } = useUser();
-  const [eventName, setEventName] = useState(searchParams.get('event_name') || '');
-  const [eventDate, setEventDate] = useState(searchParams.get('event_date') || '');
-  const [location, setLocation] = useState(searchParams.get('location') || '');
-  const [note, setNote] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
@@ -21,7 +17,6 @@ function UploadResultsForm() {
     const redirect = `/events/upload-results${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
     return `/login?redirect=${encodeURIComponent(redirect)}`;
   }, [searchParams]);
-  const hasBoundEvent = !!searchParams.get('event_id');
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -31,10 +26,6 @@ function UploadResultsForm() {
     setError('');
 
     const form = new FormData();
-    form.set('event_name', eventName);
-    form.set('event_date', eventDate);
-    form.set('location', location);
-    form.set('user_note', note);
     const eventId = searchParams.get('event_id');
     if (eventId) form.set('event_id', eventId);
     files.forEach((file) => form.append('files', file));
@@ -52,7 +43,6 @@ function UploadResultsForm() {
       }
       setMessage(`已提交 ${data.file_count || files.length || 1} 份成绩册，等待整理录入。遇到问题可联系客服微信：i_add_u`);
       setFiles([]);
-      setNote('');
     } catch {
       setError('网络错误，请稍后重试');
     } finally {
@@ -72,7 +62,7 @@ function UploadResultsForm() {
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#987D59]">Result Book</p>
         <h1 className="text-3xl font-bold text-stone-800">上传赛事成绩册</h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-stone-500">
-          如果你手上有尚未收录的官方 PDF 成绩册，可以提交给我们整理入库。仅支持 PDF，单个不超过 20MB，管理员会先复核来源和内容。
+          如果你手上有尚未收录的官方 PDF 成绩册，只需要上传文件即可提交给我们整理入库。仅支持 PDF，单个不超过 20MB，管理员会先复核来源和内容。
         </p>
       </div>
 
@@ -94,40 +84,6 @@ function UploadResultsForm() {
       ) : (
         <form onSubmit={submit} className="rounded-xl border border-[#E0D8CC] bg-[#FEFCF9] p-6 sm:p-8">
           <div className="grid gap-5">
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold text-stone-700">赛事名称</span>
-              <input
-                value={eventName}
-                onChange={(e) => setEventName(e.target.value)}
-                required
-                readOnly={hasBoundEvent}
-                maxLength={160}
-                className={`h-11 rounded-lg border border-[#E0D8CC] px-3 text-sm text-stone-800 outline-none focus:border-[#8B7355] ${hasBoundEvent ? 'bg-[#F8F1E8]' : 'bg-white'}`}
-                placeholder="例如：2025中国百城桨板公开赛宁波梅山湾站"
-              />
-              {hasBoundEvent && <span className="text-xs text-stone-400">已从赛事详情页自动带入，提交时会以系统内赛事信息为准。</span>}
-            </label>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <label className="grid gap-2">
-                <span className="text-sm font-semibold text-stone-700">赛事日期</span>
-                <input
-                  type="date"
-                  value={eventDate}
-                  onChange={(e) => setEventDate(e.target.value)}
-                  className="h-11 rounded-lg border border-[#E0D8CC] bg-white px-3 text-sm text-stone-800 outline-none focus:border-[#8B7355]"
-                />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-sm font-semibold text-stone-700">举办地</span>
-                <input
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  maxLength={160}
-                  className="h-11 rounded-lg border border-[#E0D8CC] bg-white px-3 text-sm text-stone-800 outline-none focus:border-[#8B7355]"
-                  placeholder="城市 / 水域 / 场地"
-                />
-              </label>
-            </div>
             <label className="grid gap-2">
               <span className="text-sm font-semibold text-stone-700">PDF 成绩册</span>
               <input
@@ -152,17 +108,6 @@ function UploadResultsForm() {
                   </div>
                 </div>
               )}
-            </label>
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold text-stone-700">备注</span>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={4}
-                maxLength={1000}
-                className="rounded-lg border border-[#E0D8CC] bg-white px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#8B7355]"
-                placeholder="可补充来源、缺失项目、需要特别核对的地方"
-              />
             </label>
           </div>
 

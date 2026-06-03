@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 
 interface Article { article_id: number; title: string; summary: string | null; content: string | null }
-interface Props { articles: Article[] }
+interface Props {
+  articles: Article[];
+  defaultExpanded?: boolean;
+  initialTab?: string;
+}
 
 // ── 数据 ──────────────────────────────────────────────────────
 
@@ -999,9 +1003,9 @@ const BUILT_IN_TABS = [
 
 const EVENT_GUIDE_ANCHOR_ID = 'event-guide-tabs';
 
-export default function ArticleGuideTabs({ articles }: Props) {
-  const [activeTab, setActiveTab] = useState('china');
-  const [expanded, setExpanded] = useState(false);
+export default function ArticleGuideTabs({ articles, defaultExpanded = false, initialTab = 'china' }: Props) {
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   // 数据库文章作为额外 tab
   const articleTabs = useMemo(() => articles

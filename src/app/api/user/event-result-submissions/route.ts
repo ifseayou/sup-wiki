@@ -137,9 +137,12 @@ export async function POST(request: NextRequest) {
       location = [boundEvent.venue, boundEvent.city, boundEvent.province].filter(Boolean).join('，') || boundEvent.location || location;
     }
 
-    if (!eventName) return NextResponse.json({ error: '请填写赛事名称' }, { status: 400 });
     if (files.length === 0) return NextResponse.json({ error: '请选择 PDF 成绩册' }, { status: 400 });
     if (files.length > MAX_FILES) return NextResponse.json({ error: `一次最多提交 ${MAX_FILES} 个 PDF` }, { status: 400 });
+    if (!eventName) {
+      const firstName = files[0]?.name?.replace(/\.pdf$/i, '').trim();
+      eventName = firstName ? firstName.slice(0, 160) : '待识别赛事成绩册';
+    }
 
     for (const file of files) {
       if (file.type !== 'application/pdf') return NextResponse.json({ error: '仅支持 PDF 成绩册' }, { status: 400 });

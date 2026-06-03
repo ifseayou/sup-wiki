@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
 import type { RowDataPacket } from 'mysql2';
-import ArticleGuideTabs from '@/components/ArticleGuideTabs';
 import { getEventStarBadgeStyle } from '@/lib/event-stars';
 
 interface EventRow extends RowDataPacket {
@@ -103,19 +102,6 @@ function buildHref(
   }
   const query = params.toString();
   return query ? `/events?${query}` : '/events';
-}
-
-async function getGuideArticles() {
-  try {
-    const [rows] = await pool.execute<RowDataPacket[]>(
-      `SELECT article_id, title, summary, content FROM sup_articles
-       WHERE status = 'published' AND category = 'event_guide'
-       ORDER BY sort_order ASC, article_id ASC`
-    );
-    return rows as { article_id: number; title: string; summary: string | null; content: string | null }[];
-  } catch {
-    return [];
-  }
 }
 
 function buildEventWhere(event_type?: string, event_status?: string, province?: string, year?: string, search?: string) {
@@ -241,9 +227,8 @@ export default async function EventsPage({
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.page_size);
 
-  const [events, guideArticles, stats, years, provinces] = await Promise.all([
+  const [events, stats, years, provinces] = await Promise.all([
     getEvents(event_type, event_status, province, year, search),
-    getGuideArticles(),
     getEventStats(),
     getEventYears(),
     getEventProvinces(),
@@ -267,7 +252,7 @@ export default async function EventsPage({
   const pageCount = Math.max(1, Math.ceil(visibleEvents.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pagedEvents = visibleEvents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const uploadHref = `/events/upload-results${search ? `?event_name=${encodeURIComponent(search)}` : ''}`;
+  const uploadHref = '/events/upload-results';
 
   return (
     <main className="min-h-screen bg-[#F7F1E8] text-[#2E2118]">
@@ -308,12 +293,19 @@ export default async function EventsPage({
       </section>
 
       <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-5 overflow-hidden rounded-2xl border border-[#E3D6C6] bg-white/76 shadow-[0_16px_40px_rgba(88,63,36,0.08)] backdrop-blur">
-          <ArticleGuideTabs articles={guideArticles} />
-        </div>
+        <Link
+          href="/learn/docs/event-guide"
+          className="mb-5 flex flex-col gap-3 rounded-md border border-[#E2D4C0] bg-white/86 p-5 text-[#2E2118] no-underline shadow-[0_14px_34px_rgba(88,63,36,0.08)] transition hover:border-[#B58A48] hover:bg-white sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>
+            <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-[#A08060]">赛事指南</span>
+            <span className="mt-1 block text-lg font-semibold">赛事体系与竞赛规则</span>
+          </span>
+          <span className="text-sm font-semibold text-[#7A5530]">查看中国赛事体系 / 国际赛事体系 / 2026 版规则 →</span>
+        </Link>
 
-        <section className="mb-7 rounded-2xl border border-[#E3D6C6] bg-white/70 p-4 shadow-[0_12px_34px_rgba(88,63,36,0.08)]">
-          <form action="/events" className="grid gap-3 lg:grid-cols-[minmax(260px,1.1fr)_90px_repeat(4,minmax(140px,0.6fr))_auto]">
+        <section className="sticky top-[56px] z-20 mb-7 border border-[#E2D4C0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
+          <form action="/events" className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.15fr)_120px_repeat(4,minmax(150px,0.7fr))_auto]">
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8A8078]">
                 <SearchIcon />
@@ -322,11 +314,11 @@ export default async function EventsPage({
                 name="search"
                 defaultValue={search || ''}
                 placeholder="搜索赛事名称"
-                className="h-12 w-full rounded-xl border border-[#E3D6C6] bg-white/85 pl-11 pr-4 text-sm text-[#2E2118] outline-none transition focus:border-[#B58A48]"
+                className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 pl-11 pr-4 text-sm text-[#3D3328] outline-none transition placeholder:text-[#B5AA9C] focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20"
                 type="search"
               />
             </div>
-            <button className="h-12 rounded-xl bg-[#8A612F] px-5 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(138,97,47,0.22)] transition hover:bg-[#704D25]" type="submit">
+            <button className="h-12 rounded-md bg-[#6B3E1E] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(107,62,30,0.24)] transition hover:bg-[#4F2D16]" type="submit">
               搜索
             </button>
             <EventSelect name="event_type" value={event_type} options={[
@@ -345,7 +337,7 @@ export default async function EventsPage({
             <input type="hidden" name="page_size" value={pageSize} />
             <Link
               href={uploadHref}
-              className="inline-flex h-12 items-center justify-center whitespace-nowrap rounded-xl border border-[#B58A48] bg-[#FEFCF9] px-4 text-sm font-semibold text-[#7A5530] no-underline transition hover:bg-[#F5E9D8]"
+              className="inline-flex h-12 items-center justify-center whitespace-nowrap rounded-md border border-[#CDBAA4] bg-white px-4 text-sm font-semibold text-[#6B3E1E] no-underline transition hover:bg-[#F8EFE4]"
             >
               上传赛事成绩册
             </Link>
@@ -444,7 +436,7 @@ function EventSelect({
     <select
       name={name}
       defaultValue={value || ''}
-      className="h-12 rounded-xl border border-[#E3D6C6] bg-white/85 px-4 text-sm text-[#655D56] outline-none transition focus:border-[#B58A48]"
+      className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20"
     >
       <option value="">{placeholder}</option>
       {options.map(([optionValue, , label]) => (

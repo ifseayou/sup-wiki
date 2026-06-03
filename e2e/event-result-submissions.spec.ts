@@ -1,10 +1,20 @@
 import { test, expect } from '@playwright/test';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
+import path from 'path';
 
 function userToken() {
+  const envPath = path.join(process.cwd(), '.env.local');
+  const envText = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+  const jwtSecret = envText
+    .split(/\r?\n/)
+    .map((line) => line.match(/^JWT_SECRET=(.*)$/)?.[1]?.trim())
+    .find(Boolean)
+    ?.replace(/^['"]|['"]$/g, '') || process.env.JWT_SECRET || 'sup-wiki-secret-key';
+
   return jwt.sign(
     { role: 'user', user_id: 1, nickname: 'E2E', email: 'e2e@example.com' },
-    process.env.JWT_SECRET || 'sup-wiki-secret-key',
+    jwtSecret,
     { expiresIn: '1h' }
   );
 }
@@ -49,7 +59,7 @@ test.describe('赛事成绩册上传', () => {
     await page.screenshot({ path: testInfo.outputPath('upload-results-login-gate.png'), fullPage: true });
   });
 
-  test('上传页会从赛事入口自动带入赛事信息', async ({ page }) => {
+  test('上传页只要求上传 PDF 成绩册', async ({ page }) => {
     await page.addInitScript((token) => {
       localStorage.setItem('sup_user_token', token as string);
     }, userToken());
@@ -62,16 +72,16 @@ test.describe('赛事成绩册上传', () => {
     });
 
     await page.goto('/events/upload-results?event_id=123&event_name=测试赛事&event_date=2026-05-29&location=测试水域');
-    await expect(page.getByLabel('赛事名称')).toHaveValue('测试赛事');
-    await expect(page.getByLabel('赛事日期')).toHaveValue('2026-05-29');
-    await expect(page.getByLabel('举办地')).toHaveValue('测试水域');
-    await expect(page.getByText('已从赛事详情页自动带入')).toBeVisible();
+    await expect(page.getByLabel('PDF 成绩册')).toBeVisible();
+    await expect(page.getByLabel('赛事名称')).toHaveCount(0);
+    await expect(page.getByLabel('赛事日期')).toHaveCount(0);
+    await expect(page.getByLabel('举办地')).toHaveCount(0);
+    await expect(page.getByLabel('备注')).toHaveCount(0);
   });
 
   test('上传接口必须登录', async ({ request }) => {
     const res = await request.post('/api/user/event-result-submissions', {
       multipart: {
-        event_name: 'E2E 测试赛事',
         file: {
           name: 'result.pdf',
           mimeType: 'application/pdf',
@@ -88,7 +98,6 @@ test.describe('赛事成绩册上传', () => {
     const textRes = await request.post('/api/user/event-result-submissions', {
       headers,
       multipart: {
-        event_name: 'E2E 测试赛事',
         file: {
           name: 'result.txt',
           mimeType: 'text/plain',
@@ -102,7 +111,6 @@ test.describe('赛事成绩册上传', () => {
     const fakePdfRes = await request.post('/api/user/event-result-submissions', {
       headers,
       multipart: {
-        event_name: 'E2E 测试赛事',
         file: {
           name: 'result.pdf',
           mimeType: 'application/pdf',

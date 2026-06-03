@@ -81,6 +81,40 @@ export default async function LearnDocsPage() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 20 }}>
+          <Link
+            href="/learn/docs/event-guide"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              background: '#FEFCF9',
+              border: '1px solid #D8C6AE',
+              borderRadius: 14,
+              padding: '24px 24px 20px',
+              textDecoration: 'none',
+              minHeight: 210,
+              boxShadow: '0 14px 34px rgba(91,68,43,0.08)',
+            }}
+            className="learn-doc-card"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <span style={{ fontSize: 28 }}>🏁</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: '#7A6145', background: '#F0EAE0', padding: '2px 8px', borderRadius: 10 }}>
+                  竞赛规则
+                </span>
+                <span style={{ fontSize: 11, color: '#B7470A', background: '#FDF2E9', padding: '2px 8px', borderRadius: 10 }}>
+                  专题
+                </span>
+              </div>
+            </div>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 500, color: '#2E2118', margin: '0 0 10px', lineHeight: 1.3 }}>
+              赛事体系与竞赛规则
+            </h3>
+            <p style={{ fontSize: 13, color: '#655D56', lineHeight: 1.7, margin: '0 0 16px', flex: 1 }}>
+              中国赛事体系、国际赛事体系与中国桨板竞赛规则（2026版）的集中入口。
+            </p>
+            <span style={{ fontSize: 12, color: '#A08060', fontWeight: 500, marginTop: 'auto' }}>查看专题 →</span>
+          </Link>
           {docs.map(doc => {
             const cat = categoryLabels[doc.category] || { name: doc.category, icon: '📄', tip: '' };
             const diff = difficultyLabels[doc.difficulty] || { label: doc.difficulty, color: '#8A8078', bg: '#F0EAE0' };

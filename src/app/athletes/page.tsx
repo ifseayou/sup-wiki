@@ -528,66 +528,6 @@ export default async function AthletesPage({
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <form className="mb-6 rounded-xl border border-[#E4D7C6] bg-white/88 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)]">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">运动员</span>
-              <input name="search" defaultValue={filters.search} placeholder="请输入姓名或ID" className="h-11 w-full rounded-md border border-[#E2D4C0] bg-white px-3 text-sm outline-none focus:border-[#A26D2F]" />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">梯队</span>
-              <select name="tier" defaultValue={filters.tier} className="h-11 w-full rounded-md border border-[#E2D4C0] bg-white px-3 text-sm outline-none focus:border-[#A26D2F]">
-                <option value="">全部梯队</option>
-                <option value="elite">精英</option>
-                <option value="training">长训队</option>
-                <option value="squad">梯队队员</option>
-                <option value="base">基础档案</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">级别</span>
-              <select name="level" disabled className="h-11 w-full rounded-md border border-[#E2D4C0] bg-[#F8F0E5] px-3 text-sm text-[#9B8A76] outline-none">
-                <option>由成绩自动计算</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">主项</span>
-              <select name="discipline" defaultValue={filters.discipline} className="h-11 w-full rounded-md border border-[#E2D4C0] bg-white px-3 text-sm outline-none focus:border-[#A26D2F]">
-                <option value="">请选择主项</option>
-                <option value="race">竞速</option>
-                <option value="distance">长距离</option>
-                <option value="technical">技巧</option>
-                <option value="surf">冲浪</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">性别</span>
-              <select name="gender" defaultValue={filters.gender} className="h-11 w-full rounded-md border border-[#E2D4C0] bg-white px-3 text-sm outline-none focus:border-[#A26D2F]">
-                <option value="">请选择性别</option>
-                <option value="male">男</option>
-                <option value="female">女</option>
-                <option value="mixed">混合/团体</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">国籍/地区</span>
-              <select name="nationality" defaultValue={filters.nationality} className="h-11 w-full rounded-md border border-[#E2D4C0] bg-white px-3 text-sm outline-none focus:border-[#A26D2F]">
-                <option value="中国">中国</option>
-                <option value="all">全部</option>
-                {nationalities.filter((item) => item !== '中国').map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-          </div>
-          <div className="mt-4 flex justify-end gap-3">
-            <Link href="/athletes" className="inline-flex h-11 items-center gap-2 rounded-md border border-[#D6C5AD] bg-white px-5 text-sm font-bold text-[#7A4B22] no-underline hover:bg-[#F8EFE4]">
-              <Icon name="rotate" />清空筛选
-            </Link>
-            <button className="inline-flex h-11 items-center gap-2 rounded-md bg-[#B67525] px-8 text-sm font-bold text-white shadow-[0_10px_22px_rgba(182,117,37,0.22)] hover:bg-[#965918]" type="submit">
-              <Icon name="search" />查询
-            </button>
-          </div>
-        </form>
-
         {featured.length > 0 && (
           <section className="mb-6 overflow-hidden">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -619,6 +559,66 @@ export default async function AthletesPage({
             </div>
           </section>
         )}
+
+        <form className="sticky top-[56px] z-20 mb-6 border border-[#E2D4C0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">运动员</span>
+              <input name="search" defaultValue={filters.search} placeholder="请输入姓名或ID" className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition placeholder:text-[#B5AA9C] focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20" />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">梯队</span>
+              <select name="tier" defaultValue={filters.tier} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20">
+                <option value="">全部梯队</option>
+                <option value="elite">精英</option>
+                <option value="training">长训队</option>
+                <option value="squad">梯队队员</option>
+                <option value="base">基础档案</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">级别</span>
+              <select name="level" disabled className="h-12 w-full rounded-md border border-[#E3D5C2] bg-[#F4EDE4] px-3 text-sm text-[#A69B8F] outline-none">
+                <option>由成绩自动计算</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">主项</span>
+              <select name="discipline" defaultValue={filters.discipline} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20">
+                <option value="">请选择主项</option>
+                <option value="race">竞速</option>
+                <option value="distance">长距离</option>
+                <option value="technical">技巧</option>
+                <option value="surf">冲浪</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">性别</span>
+              <select name="gender" defaultValue={filters.gender} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20">
+                <option value="">请选择性别</option>
+                <option value="male">男</option>
+                <option value="female">女</option>
+                <option value="mixed">混合/团体</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-[#5F4D3A]">国籍/地区</span>
+              <select name="nationality" defaultValue={filters.nationality} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none transition focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#D79E49]/20">
+                <option value="中国">中国</option>
+                <option value="all">全部</option>
+                {nationalities.filter((item) => item !== '中国').map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 flex justify-end gap-3">
+            <Link href="/athletes" className="inline-flex h-12 items-center gap-2 rounded-md border border-[#CDBAA4] bg-white px-5 text-sm font-semibold text-[#6B3E1E] no-underline transition hover:bg-[#F8EFE4]">
+              <Icon name="rotate" />清空筛选
+            </Link>
+            <button className="inline-flex h-12 items-center gap-2 rounded-md bg-[#6B3E1E] px-8 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(107,62,30,0.24)] transition hover:bg-[#4F2D16]" type="submit">
+              <Icon name="search" />查询
+            </button>
+          </div>
+        </form>
 
         <section>
           <div className="mb-3 flex flex-wrap items-end justify-between gap-3">

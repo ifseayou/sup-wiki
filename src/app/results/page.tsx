@@ -170,6 +170,8 @@ function SearchSelect({
   optionParams,
   icon = 'search',
   disabled = false,
+  dropdownClassName = '',
+  wrapOptions = false,
 }: {
   label: string;
   type?: string;
@@ -180,6 +182,8 @@ function SearchSelect({
   optionParams?: Record<string, string>;
   icon?: 'search' | 'user' | 'trophy' | 'calendar' | 'star';
   disabled?: boolean;
+  dropdownClassName?: string;
+  wrapOptions?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(display);
@@ -242,7 +246,7 @@ function SearchSelect({
         />
       </div>
       {open && !disabled && (
-        <div className="absolute left-0 right-0 z-30 mt-2 max-h-72 overflow-auto rounded-md border border-[#DCCBB4] bg-[#FFFDF9] shadow-[0_18px_50px_rgba(54,38,24,0.16)]">
+        <div className={`absolute left-0 right-0 z-30 mt-2 max-h-72 overflow-auto rounded-md border border-[#DCCBB4] bg-[#FFFDF9] shadow-[0_18px_50px_rgba(54,38,24,0.16)] ${dropdownClassName}`}>
           {options.map((option) => (
             <button
               type="button"
@@ -254,7 +258,7 @@ function SearchSelect({
                 setOpen(false);
               }}
             >
-              <span className="truncate font-medium text-[#3A2B20]">{option.label}</span>
+              <span className={`${wrapOptions ? 'whitespace-normal break-words' : 'truncate'} font-medium text-[#3A2B20]`}>{option.label}</span>
               {option.meta && <span className="shrink-0 text-xs text-[#9E8F7E]">{option.meta}</span>}
             </button>
           ))}
@@ -1016,7 +1020,7 @@ function ResultsContent() {
         <div ref={filtersPanelRef} className="sticky top-[56px] z-20 mb-5 border border-[#E2D4C0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
             <SearchSelect label="运动员" type="athlete" value={filters.athlete_id} display={filters.athlete_label} icon="user" onChange={(v, l) => updateFilter('athlete_id', 'athlete_label', v, l)} />
-            <SearchSelect label="赛事" type="event" value={filters.event_id} display={filters.event_label} icon="trophy" onChange={updateEventFilter} />
+            <SearchSelect label="赛事" type="event" value={filters.event_id} display={filters.event_label} icon="trophy" dropdownClassName="md:w-[520px] md:right-auto" wrapOptions onChange={updateEventFilter} />
             <SearchSelect
               label="项目"
               type="discipline"
@@ -1031,6 +1035,8 @@ function ResultsContent() {
               value={filters.gender}
               display={filters.gender_label}
               optionParams={{ event_id: filters.event_id, discipline: filters.discipline }}
+              dropdownClassName="md:w-[430px] md:right-auto"
+              wrapOptions
               onChange={(v, l) => updateFilter('gender', 'gender_label', v, l)}
             />
             <SearchSelect label="年份" type="year" value={filters.year} display={filters.year_label} icon="calendar" onChange={(v, l) => updateFilter('year', 'year_label', v, l)} />
