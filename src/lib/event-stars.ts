@@ -5,6 +5,9 @@ export const EVENT_STAR_OPTIONS = [
   { value: '四星', label: '四星', score: '4' },
   { value: '三星+', label: '三星+', score: '3.5' },
   { value: '三星', label: '三星', score: '3' },
+  { value: '二星', label: '二星', score: '2' },
+  { value: '一星', label: '一星', score: '1' },
+  { value: '无星', label: '无星', score: '0.5' },
 ] as const;
 
 export type EventStarLevel = (typeof EVENT_STAR_OPTIONS)[number]['value'];
@@ -25,6 +28,10 @@ export const EVENT_SOURCE_SCOPE_OPTIONS = [
   '全国',
   '省市及周边区域',
   '本省市',
+  '本地市',
+  '本区县',
+  '本乡镇',
+  '俱乐部/品牌',
 ] as const;
 
 export function getScoreForStarLevel(starLevel?: string | null) {
@@ -45,6 +52,12 @@ export function getEventStarBadgeStyle(starLevel?: string | null) {
       return 'bg-[#E6F1EA] text-[#3F6B4E] border-[#BDD7C5]';
     case '三星':
       return 'bg-[#EEF0E8] text-[#5F6750] border-[#D6DCC8]';
+    case '二星':
+      return 'bg-[#F1EEE8] text-[#6C6254] border-[#D8D0C2]';
+    case '一星':
+      return 'bg-[#F6F1EA] text-[#7A6B58] border-[#E2D8C9]';
+    case '无星':
+      return 'bg-[#F7F5F2] text-[#8A8078] border-[#E5DED5]';
     default:
       return 'bg-[#F5F1EB] text-[#8A8078] border-[#E0D8CC]';
   }

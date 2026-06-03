@@ -32,7 +32,7 @@ export type EventType = 'race' | 'festival' | 'training' | 'exhibition';
 
 // 赛事运行状态
 export type EventRunStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
-export type EventStarLevel = '五星+' | '五星' | '四星+' | '四星' | '三星+' | '三星';
+export type EventStarLevel = '五星+' | '五星' | '四星+' | '四星' | '三星+' | '三星' | '二星' | '一星' | '无星';
 export type EventResultStatus = 'none' | 'partial' | 'top10_complete' | 'extended_complete';
 export type EventResultSourceType = 'official' | 'media' | 'livestream' | 'manual';
 export type EliteEventStatus = 'none' | 'formal' | 'reserve';

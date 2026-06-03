@@ -223,7 +223,7 @@ export async function GET(request: NextRequest) {
          INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
          WHERE ${conditions.join(' AND ')}
          GROUP BY e.star_level
-         ORDER BY FIELD(e.star_level, '五星+', '五星', '四星+', '四星', '三星'), e.star_level
+         ORDER BY FIELD(e.star_level, '五星+', '五星', '四星+', '四星', '三星+', '三星', '二星', '一星', '无星'), e.star_level
          LIMIT 20`,
         params
       );
