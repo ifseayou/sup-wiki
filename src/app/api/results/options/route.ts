@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { maskAthleteIdentityRows } from '@/lib/result-privacy';
+import { normalizeNationality } from '@/lib/nationality';
 import type { RowDataPacket } from 'mysql2';
 
 type OptionRow = RowDataPacket & {
@@ -11,6 +12,8 @@ type OptionRow = RowDataPacket & {
   athlete_name?: string | null;
   athlete_name_snapshot?: string | null;
   athlete_photo?: string | null;
+  raw_nationality?: string | null;
+  total?: number | string;
   meta?: string | null;
 };
 
@@ -225,6 +228,40 @@ export async function GET(request: NextRequest) {
         params
       );
       rows = data;
+    } else if (type === 'nationality') {
+      const conditions = [
+        "e.status = 'published'",
+        "e.event_status = 'completed'",
+        "er.review_status = 'confirmed'",
+        'er.is_verified = 1',
+        localResultSourceCondition,
+        "(COALESCE(a.nationality, er.nationality_snapshot) IS NOT NULL AND COALESCE(a.nationality, er.nationality_snapshot) <> '')",
+        "(? = '' OR a.nationality LIKE ? OR er.nationality_snapshot LIKE ?)",
+      ];
+      const params: (string | number)[] = [q, like, like];
+      addContextFilters(conditions, params, searchParams, 'nationality');
+      const [data] = await pool.execute<OptionRow[]>(
+        `SELECT COALESCE(a.nationality, er.nationality_snapshot) AS raw_nationality, COUNT(*) AS total
+         FROM sup_event_results er
+         INNER JOIN sup_events e ON e.event_id = er.event_id
+         INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
+         LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
+         WHERE ${conditions.join(' AND ')}
+         GROUP BY raw_nationality
+         ORDER BY COUNT(*) DESC, raw_nationality ASC
+         LIMIT 80`,
+        params
+      );
+      const nationalityMap = new Map<string, number>();
+      for (const row of data) {
+        const normalized = normalizeNationality(row.raw_nationality);
+        if (!normalized) continue;
+        nationalityMap.set(normalized, (nationalityMap.get(normalized) || 0) + Number(row.total || 0));
+      }
+      rows = [...nationalityMap.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'zh-Hans-CN'))
+        .slice(0, 40)
+        .map(([label, total]) => ({ value: label, label, meta: `${total} 条成绩` } as OptionRow));
     }
 
     return NextResponse.json({ items: rows });

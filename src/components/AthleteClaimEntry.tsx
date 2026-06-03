@@ -35,6 +35,7 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
   const { token, loading } = useUser();
   const [status, setStatus] = useState<ClaimStatus | null>(null);
   const [showHideModal, setShowHideModal] = useState(false);
+  const [showHideResultsModal, setShowHideResultsModal] = useState(false);
   const [processingAction, setProcessingAction] = useState('');
   const [hideError, setHideError] = useState('');
 
@@ -92,6 +93,7 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || (isResultsAction ? '成绩与积分隐私切换失败' : requestType === 'restore_frontend' ? '展示主页失败' : '隐藏主页失败'));
       setShowHideModal(false);
+      setShowHideResultsModal(false);
       setStatus((prev) => prev ? {
         ...prev,
         privacy_mode: requestType === 'restore_frontend' ? 'claimed' : requestType === 'hide_athlete' ? 'hidden' : prev.privacy_mode,
@@ -130,7 +132,10 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
         <Tooltip key={action} tip={actionTips[action]} dotted={false} align="end">
           <button
             type="button"
-            onClick={() => setShowHideModal(true)}
+            onClick={() => {
+              setHideError('');
+              setShowHideModal(true);
+            }}
             disabled={Boolean(processingAction)}
             className="inline-flex h-11 items-center justify-center rounded-lg border border-[#D8CDBE] bg-white px-4 text-sm font-semibold text-[#6B4A24] transition hover:bg-[#FAF6EF] disabled:cursor-not-allowed disabled:opacity-55"
           >
@@ -152,7 +157,14 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
         <Tooltip key={action} tip={actionTips[action]} dotted={false} align="end">
           <button
             type="button"
-            onClick={() => submitPrivacyAction(action)}
+            onClick={() => {
+              if (action === 'hide_results_points') {
+                setHideError('');
+                setShowHideResultsModal(true);
+              } else {
+                submitPrivacyAction('restore_results_points');
+              }
+            }}
             disabled={Boolean(processingAction)}
             className="inline-flex h-11 items-center justify-center rounded-lg border border-[#D8CDBE] bg-white px-4 text-sm font-semibold text-[#6B4A24] transition hover:bg-[#FAF6EF] disabled:cursor-not-allowed disabled:opacity-55"
           >
@@ -183,6 +195,26 @@ export default function AthleteClaimEntry({ athleteId }: { athleteId: number }) 
                 取消
               </button>
               <button type="button" onClick={() => submitPrivacyAction('hide_athlete')} disabled={Boolean(processingAction)} className="h-10 rounded-lg bg-[#6B4A24] px-4 text-sm font-semibold text-white disabled:opacity-60">
+                {processingAction ? '处理中...' : '确认隐藏'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showHideResultsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#2E2118]/45 px-4">
+          <div className="w-full max-w-md rounded-xl border border-[#E3D6C4] bg-[#FEFCF9] p-6 shadow-[0_30px_90px_rgba(46,33,24,0.28)]">
+            <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[#A08060]">Privacy</div>
+            <h2 className="mt-3 text-2xl font-semibold text-[#2E2118]">确认隐藏成绩&积分？</h2>
+            <p className="mt-3 text-sm leading-7 text-[#6F655C]">
+              隐藏后，其他用户在成绩查询、积分查询和赛事组别中只能看到组别、项目、赛事、队伍或来源信息，名次、成绩、积分、姓名等会显示为隐藏。你本人登录后仍可完整查看，也可以随时公开成绩与积分。
+            </p>
+            {hideError && <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{hideError}</div>}
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setShowHideResultsModal(false)} className="h-10 rounded-lg border border-[#D8CDBE] bg-white px-4 text-sm font-semibold text-[#6F5B42]">
+                取消
+              </button>
+              <button type="button" onClick={() => submitPrivacyAction('hide_results_points')} disabled={Boolean(processingAction)} className="h-10 rounded-lg bg-[#6B4A24] px-4 text-sm font-semibold text-white disabled:opacity-60">
                 {processingAction ? '处理中...' : '确认隐藏'}
               </button>
             </div>

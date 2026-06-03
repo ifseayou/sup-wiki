@@ -294,34 +294,6 @@ function AthleteCell({
   return <Link href={`/athletes/${athleteId}`} className="inline-flex max-w-full no-underline">{body}</Link>;
 }
 
-function privacyActionHref(row: EventResultRow, action: string) {
-  if (action === 'claim' && row.athlete_id) return `/athletes/${row.athlete_id}/claim`;
-  const params = new URLSearchParams({
-    request_type: action,
-    target_type: 'result',
-    target_id: String(row.result_id),
-    result_id: String(row.result_id),
-    title: row.athlete_name || row.athlete_name_snapshot || '赛事成绩',
-  });
-  if (row.athlete_id) params.set('athlete_id', String(row.athlete_id));
-  return `/privacy-request?${params.toString()}`;
-}
-
-function PrivacyActions({ row }: { row: EventResultRow }) {
-  const actions = Array.isArray(row.privacy_actions) ? row.privacy_actions : [];
-  if (!actions.length) return <span className="text-xs text-[#B0A090]">-</span>;
-  const labels: Record<string, string> = { claim: '认领', correction: '更正', anonymize_name: '匿名' };
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {actions.map((action) => (
-        <Link key={action} href={privacyActionHref(row, action)} className="rounded-full border border-[#E2D4C0] bg-white px-2.5 py-1 text-xs font-semibold text-[#7A5530] no-underline hover:bg-[#FFF8ED]">
-          {labels[action] || action}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 function ResultValue({ row }: { row: EventResultRow }) {
   if (row.results_points_hidden) return <HiddenValue tip={row.privacy_notice} />;
   return <ResultStatusBadge finishTime={row.finish_time} statusCode={row.result_status_code} statusNote={row.result_status_note} />;
@@ -762,7 +734,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                         <th className="px-5 py-3 text-right">配速</th>
                         <th className="px-5 py-3 text-left">队伍</th>
                         <th className="px-5 py-3 text-left">说明</th>
-                        <th className="px-5 py-3 text-left">处理</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -786,7 +757,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                             <td className="px-5 py-3 text-right font-semibold text-[#6F6255]"><ResultPaceValue row={row} /></td>
                             <td className="px-5 py-3 text-[#655D56]"><TeamNameValue row={row} /></td>
                             <td className="px-5 py-3 text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.result_label || '-'}</td>
-                            <td className="px-5 py-3"><PrivacyActions row={row} /></td>
                           </tr>
                         );
                       })}
@@ -820,7 +790,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                           <div><div className="text-xs text-[#8A8078]">配速</div><div className="mt-1 text-[#655D56]"><ResultPaceValue row={row} /></div></div>
                           <div><div className="text-xs text-[#8A8078]">队伍</div><div className="mt-1 text-[#655D56]"><TeamNameValue row={row} /></div></div>
                           <div><div className="text-xs text-[#8A8078]">说明</div><div className="mt-1 text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.result_label || '-'}</div></div>
-                          <div className="col-span-2"><div className="text-xs text-[#8A8078]">处理</div><div className="mt-1"><PrivacyActions row={row} /></div></div>
                         </div>
                       </div>
                     );
@@ -852,7 +821,6 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                         <div><div className="text-xs text-[#8A8078]">配速</div><div className="mt-1 text-[#655D56]"><ResultPaceValue row={row} /></div></div>
                         <div><div className="text-xs text-[#8A8078]">队伍</div><div className="mt-1 text-[#655D56]"><TeamNameValue row={row} /></div></div>
                         <div><div className="text-xs text-[#8A8078]">说明</div><div className="mt-1 text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.result_label || '-'}</div></div>
-                        <div className="col-span-2"><div className="text-xs text-[#8A8078]">处理</div><div className="mt-1"><PrivacyActions row={row} /></div></div>
                       </div>
                     </div>
                   );

@@ -338,8 +338,11 @@ export default function AthleteClaimPage() {
             </label>
             <label className="block text-sm font-medium text-warm-gray-700 sm:col-span-2">
               一句话介绍自己
-              <input value={form.submitted_intro_short} onChange={(e) => update('submitted_intro_short', e.target.value)} maxLength={20} placeholder="例如：荧光战神" className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
-              <span className="mt-1 block text-right text-xs text-warm-gray-400">{form.submitted_intro_short.length}/20</span>
+              <input value={form.submitted_intro_short} onChange={(e) => update('submitted_intro_short', e.target.value)} maxLength={20} placeholder="例如：脚脚 / 荧光战神" className="mt-2 h-11 w-full rounded-lg border border-cream-300 bg-cream-50 px-3 text-brown-800 outline-none transition focus:border-brown-500 focus:ring-2 focus:ring-brown-500/15" />
+              <span className="mt-1 flex items-center justify-between gap-3 text-xs text-warm-gray-400">
+                <span>你在桨板圈的绰号，别人对你的称呼，比如徐局涛为脚脚，方小兆为荧光战神。</span>
+                <span className="shrink-0">{form.submitted_intro_short.length}/20</span>
+              </span>
             </label>
             <label className="block text-sm font-medium text-warm-gray-700 sm:col-span-2">
               个人简介

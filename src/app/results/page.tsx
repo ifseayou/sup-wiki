@@ -87,6 +87,12 @@ interface AnnualPointYear {
   total: number | string;
 }
 
+interface AnnualPointNationality {
+  value: string;
+  label: string;
+  meta?: string | null;
+}
+
 interface MemberLike {
   name?: unknown;
   member_name?: unknown;
@@ -108,7 +114,7 @@ const pointRankOptions = [
 
 const pageSize = 20;
 
-const resultParamKeys = ['athlete_id', 'event_id', 'gender', 'discipline', 'year', 'rank_max', 'star_level'];
+const resultParamKeys = ['athlete_id', 'event_id', 'gender', 'discipline', 'year', 'rank_max', 'star_level', 'nationality'];
 
 function parseMembers(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item: MemberLike) => String(item?.name || item?.member_name || '')).filter(Boolean);
@@ -303,35 +309,6 @@ function AthleteCell({ row, members }: { row: ResultRow; members: string[] }) {
   );
   if (!row.athlete_id || name === '隐藏') return body;
   return <Link href={`/athletes/${row.athlete_id}`} className="block no-underline">{body}</Link>;
-}
-
-function privacyActionHref(row: ResultRow, action: string) {
-  if (action === 'claim' && row.athlete_id) return `/athletes/${row.athlete_id}/claim`;
-  const params = new URLSearchParams({
-    request_type: action,
-    target_type: 'result',
-    target_id: String(row.result_id),
-    result_id: String(row.result_id),
-    event_id: String(row.event_id),
-    title: row.event_name || row.athlete_name || row.athlete_name_snapshot || '赛事成绩',
-  });
-  if (row.athlete_id) params.set('athlete_id', String(row.athlete_id));
-  return `/privacy-request?${params.toString()}`;
-}
-
-function PrivacyActions({ row }: { row: ResultRow }) {
-  const actions = Array.isArray(row.privacy_actions) ? row.privacy_actions : [];
-  if (!actions.length) return <span className="text-xs text-[#B0A090]">-</span>;
-  const labels: Record<string, string> = { claim: '认领', correction: '更正', anonymize_name: '匿名' };
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {actions.map((action) => (
-        <Link key={action} href={privacyActionHref(row, action)} className="rounded-full border border-[#E2D4C0] bg-white px-2.5 py-1 text-xs font-semibold text-[#7A5530] no-underline hover:bg-[#FFF8ED]">
-          {labels[action] || action}
-        </Link>
-      ))}
-    </div>
-  );
 }
 
 function AnnualAthleteCell({ row }: { row: AnnualPointRow }) {
@@ -530,11 +507,13 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
   const [groupCode, setGroupCode] = useState(searchParams.get('point_group_code') || '');
   const [search, setSearch] = useState(searchParams.get('point_search') || searchParams.get('athlete') || '');
   const [rankMax, setRankMax] = useState(searchParams.get('point_rank_max') || '');
+  const [nationality, setNationality] = useState(searchParams.get('point_nationality') || '');
   const [page, setPage] = useState(1);
   const [jumpPage, setJumpPage] = useState('1');
   const [items, setItems] = useState<AnnualPointRow[]>([]);
   const [years, setYears] = useState<AnnualPointYear[]>([]);
   const [groups, setGroups] = useState<AnnualPointGroup[]>([]);
+  const [nationalities, setNationalities] = useState<AnnualPointNationality[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [fetching, setFetching] = useState(false);
@@ -564,19 +543,29 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
             .map((group) => ({ value: group.group_code || '', label: group.group_name, meta: `${group.total} 人` })),
         ]
   ), [groups, type]);
+  const nationalityOptions = useMemo<FilterOption[]>(() => (
+    type === 'club'
+      ? [{ value: '', label: '俱乐部积分无国籍' }]
+      : [
+          { value: '', label: '全部国籍' },
+          ...nationalities.map((item) => ({ value: item.value, label: item.label, meta: item.meta })),
+        ]
+  ), [nationalities, type]);
   const typeDisplay = typeOptions.find((option) => option.value === type)?.label || '运动员积分';
   const scopeDisplay = scopeOptions.find((option) => option.value === pointScope)?.label || '国内积分';
   const yearDisplay = yearOptions.find((option) => option.value === year)?.label || (year ? `${year} 年` : '');
   const groupDisplay = groupOptions.find((option) => option.value === groupCode)?.label || (groupCode ? '已选组别' : '');
   const rankDisplay = pointRankOptions.find((option) => option.value === rankMax)?.label || '全部排名';
+  const nationalityDisplay = nationalityOptions.find((option) => option.value === nationality)?.label || nationality;
 
-  const syncPointUrl = useCallback((next: Partial<{ type: 'athlete' | 'club'; pointScope: 'domestic' | 'international' | 'all'; year: string; groupCode: string; search: string; rankMax: string }>) => {
+  const syncPointUrl = useCallback((next: Partial<{ type: 'athlete' | 'club'; pointScope: 'domestic' | 'international' | 'all'; year: string; groupCode: string; search: string; rankMax: string; nationality: string }>) => {
     const nextType = next.type ?? type;
     const nextPointScope = next.pointScope ?? pointScope;
     const nextYear = next.year ?? year;
     const nextGroupCode = next.groupCode ?? groupCode;
     const nextSearch = next.search ?? search;
     const nextRankMax = next.rankMax ?? rankMax;
+    const nextNationality = next.nationality ?? nationality;
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', 'points');
     params.set('point_type', nextType);
@@ -585,18 +574,20 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
     if (nextType === 'athlete' && nextGroupCode) params.set('point_group_code', nextGroupCode); else params.delete('point_group_code');
     if (nextSearch.trim()) params.set('point_search', nextSearch.trim()); else params.delete('point_search');
     if (nextRankMax) params.set('point_rank_max', nextRankMax); else params.delete('point_rank_max');
+    if (nextType === 'athlete' && nextNationality) params.set('point_nationality', nextNationality); else params.delete('point_nationality');
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [groupCode, pathname, pointScope, rankMax, router, search, searchParams, type, year]);
+  }, [groupCode, nationality, pathname, pointScope, rankMax, router, search, searchParams, type, year]);
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ type, page: String(page), pageSize: String(pageSize) });
     if (type === 'athlete') params.set('point_scope', pointScope);
     if (year) params.set('year', year);
     if (type === 'athlete' && groupCode) params.set('group_code', groupCode);
+    if (type === 'athlete' && nationality) params.set('nationality', nationality);
     if (search.trim()) params.set('search', search.trim());
     if (rankMax) params.set('rank_max', rankMax);
     return params.toString();
-  }, [groupCode, page, pointScope, rankMax, search, type, year]);
+  }, [groupCode, nationality, page, pointScope, rankMax, search, type, year]);
 
   useEffect(() => {
     if (loading) return;
@@ -613,6 +604,7 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
           setItems(data.items || []);
           setYears(data.years || []);
           setGroups(data.groups || []);
+          setNationalities(data.nationalities || []);
           setTotal(Number(data.total || 0));
           setTotalPages(Math.max(1, Number(data.totalPages || 1)));
           setPreviewLocked(Boolean(data.preview_locked));
@@ -655,8 +647,8 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
   return (
     <div className="space-y-5">
       <div className="sticky top-[56px] z-20 border border-[#E2D4C0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.2fr_1fr_1fr_auto]">
-          <SearchSelect label="榜单类型" value={type} display={typeDisplay} staticOptions={typeOptions} onChange={(value) => resetAnd(() => { const nextType = value === 'club' ? 'club' : 'athlete'; setType(nextType); setYear(''); setGroupCode(''); syncPointUrl({ type: nextType, year: '', groupCode: '' }); })} icon="star" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.2fr_1fr_1fr_1fr_auto]">
+          <SearchSelect label="榜单类型" value={type} display={typeDisplay} staticOptions={typeOptions} onChange={(value) => resetAnd(() => { const nextType = value === 'club' ? 'club' : 'athlete'; setType(nextType); setYear(''); setGroupCode(''); setNationality(''); syncPointUrl({ type: nextType, year: '', groupCode: '', nationality: '' }); })} icon="star" />
           <SearchSelect label="积分范围" value={pointScope} display={scopeDisplay} staticOptions={scopeOptions} disabled={type === 'club'} onChange={(value) => resetAnd(() => { const nextScope = value === 'international' ? 'international' : value === 'all' ? 'all' : 'domestic'; setPointScope(nextScope); setYear(''); setGroupCode(''); syncPointUrl({ pointScope: nextScope, year: '', groupCode: '' }); })} icon="star" />
           <SearchSelect label="年份" value={year} display={yearDisplay} staticOptions={yearOptions} onChange={(value) => resetAnd(() => { setYear(value); setGroupCode(''); syncPointUrl({ year: value, groupCode: '' }); })} icon="calendar" />
           <SearchSelect label="年度组别" value={groupCode} display={groupDisplay} staticOptions={groupOptions} disabled={type === 'club'} onChange={(value) => resetAnd(() => { setGroupCode(value); syncPointUrl({ groupCode: value }); })} icon="user" />
@@ -665,8 +657,9 @@ function AnnualPointsPanel({ token, loading }: { token: string | null; loading: 
             <input value={search} onChange={(event) => resetAnd(() => { setSearch(event.target.value); syncPointUrl({ search: event.target.value }); })} placeholder={type === 'club' ? '俱乐部名' : '运动员 / 队伍'} className="h-12 w-full rounded-md border border-[#E3D5C2] bg-white/85 px-3 text-sm text-[#3D3328] outline-none placeholder:text-[#B5AA9C] focus:border-[#8B5A2B]" />
           </div>
           <SearchSelect label="排名" value={rankMax} display={rankDisplay} staticOptions={pointRankOptions} onChange={(value) => resetAnd(() => { setRankMax(value); syncPointUrl({ rankMax: value }); })} icon="trophy" />
+          <SearchSelect label="国籍" value={nationality} display={nationalityDisplay} staticOptions={nationalityOptions} disabled={type === 'club'} onChange={(value) => resetAnd(() => { setNationality(value); syncPointUrl({ nationality: value }); })} icon="user" />
           <div className="flex items-end">
-            <button type="button" onClick={() => { setSearch(''); setGroupCode(''); setRankMax(''); setPage(1); syncPointUrl({ search: '', groupCode: '', rankMax: '' }); }} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-[#CDBAA4] bg-white px-5 text-sm font-semibold text-[#6B3E1E] transition hover:bg-[#F8EFE4]">
+            <button type="button" onClick={() => { setSearch(''); setGroupCode(''); setRankMax(''); setNationality(''); setPage(1); syncPointUrl({ search: '', groupCode: '', rankMax: '', nationality: '' }); }} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md border border-[#CDBAA4] bg-white px-5 text-sm font-semibold text-[#6B3E1E] transition hover:bg-[#F8EFE4]">
               <Icon name="rotate" />重置
             </button>
           </div>
@@ -797,6 +790,8 @@ function ResultsContent() {
     rank_label: rankOptions.find((option) => option.value === (searchParams.get('rank_max') || ''))?.label || '',
     star_level: searchParams.get('star_level') || '',
     star_label: searchParams.get('star_level') || '',
+    nationality: searchParams.get('nationality') || '',
+    nationality_label: searchParams.get('nationality') || '',
   });
 
   useEffect(() => {
@@ -839,6 +834,7 @@ function ResultsContent() {
     if (filters.year) params.set('year', filters.year);
     if (filters.rank_max) params.set('rank_max', filters.rank_max);
     if (filters.star_level) params.set('star_level', filters.star_level);
+    if (filters.nationality) params.set('nationality', filters.nationality);
     return params.toString();
   }, [filters, page]);
 
@@ -952,6 +948,8 @@ function ResultsContent() {
       rank_label: '',
       star_level: '',
       star_label: '',
+      nationality: '',
+      nationality_label: '',
     };
     setFilters(next);
     syncResultUrl(next);
@@ -1016,7 +1014,7 @@ function ResultsContent() {
         ) : (
           <>
         <div ref={filtersPanelRef} className="sticky top-[56px] z-20 mb-5 border border-[#E2D4C0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(91,68,43,0.08)] backdrop-blur">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
             <SearchSelect label="运动员" type="athlete" value={filters.athlete_id} display={filters.athlete_label} icon="user" onChange={(v, l) => updateFilter('athlete_id', 'athlete_label', v, l)} />
             <SearchSelect label="赛事" type="event" value={filters.event_id} display={filters.event_label} icon="trophy" onChange={updateEventFilter} />
             <SearchSelect
@@ -1036,9 +1034,25 @@ function ResultsContent() {
               onChange={(v, l) => updateFilter('gender', 'gender_label', v, l)}
             />
             <SearchSelect label="年份" type="year" value={filters.year} display={filters.year_label} icon="calendar" onChange={(v, l) => updateFilter('year', 'year_label', v, l)} />
+            <SearchSelect
+              label="国籍"
+              type="nationality"
+              value={filters.nationality}
+              display={filters.nationality_label}
+              icon="user"
+              optionParams={{
+                event_id: filters.event_id,
+                discipline: filters.discipline,
+                gender: filters.gender,
+                year: filters.year,
+                star_level: filters.star_level,
+                rank_max: filters.rank_max,
+              }}
+              onChange={(v, l) => updateFilter('nationality', 'nationality_label', v, l)}
+            />
             <SearchSelect label="名次" value={filters.rank_max} display={filters.rank_label} staticOptions={rankOptions} onChange={(v, l) => updateFilter('rank_max', 'rank_label', v, l)} />
             <SearchSelect label="星级" type="star_level" value={filters.star_level} display={filters.star_label} icon="star" onChange={(v, l) => updateFilter('star_level', 'star_label', v, l)} />
-            <div className="flex items-end justify-end gap-3 md:col-span-2 xl:col-span-3">
+            <div className="flex items-end justify-end gap-3 md:col-span-2 xl:col-span-4">
               <button type="button" onClick={() => setPage(1)} className="inline-flex h-12 items-center gap-2 rounded-md bg-[#6B3E1E] px-8 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(107,62,30,0.24)] transition hover:bg-[#4F2D16]">
                 <Icon name="search" />查询
               </button>
@@ -1084,7 +1098,7 @@ function ResultsContent() {
         ) : (
           <div className="overflow-hidden border border-[#E2D4C0] bg-white shadow-[0_18px_42px_rgba(91,68,43,0.08)]">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1320px] text-sm">
+              <table className="w-full min-w-[1180px] text-sm">
                 <thead className="border-b border-[#E8DCCA] bg-[#F4EDDF] text-left text-xs font-semibold uppercase tracking-wide text-[#746556]">
                   <tr>
                     <th className="px-4 py-4 text-center">名次</th>
@@ -1096,7 +1110,6 @@ function ResultsContent() {
                     <th className="px-4 py-4 text-right">平均配速</th>
                     <th className="px-4 py-4">赛事</th>
                     <th className="px-4 py-4">队伍</th>
-                    <th className="px-4 py-4">处理</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1129,7 +1142,6 @@ function ResultsContent() {
                           <div className="mt-1 text-xs text-[#A09284]">{[row.province, row.city].filter(Boolean).join(' · ')} {row.start_date?.slice(0, 10)}</div>
                         </td>
                         <td className="px-4 py-3 text-[#5B5148]"><TeamNameValue row={row} /></td>
-                        <td className="px-4 py-3"><PrivacyActions row={row} /></td>
                       </tr>
                     );
                   })}
@@ -1145,7 +1157,7 @@ function ResultsContent() {
                       <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-24 rounded bg-[#D8C7AF] blur-[2px]" /></td>
                       <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-20 rounded bg-[#E7DAC9] blur-[2px]" /></td>
                       <td className="px-4 py-4 text-right"><div className="ml-auto h-4 w-16 rounded bg-[#E7DAC9] blur-[2px]" /></td>
-                      <td className="px-4 py-4" colSpan={3}>
+                      <td className="px-4 py-4" colSpan={2}>
                         <Link href={`/login?redirect=${encodeURIComponent('/results')}`} className="inline-flex rounded-md bg-[#6B3E1E] px-3 py-1.5 text-xs font-semibold text-white no-underline">
                           登录查看隐藏成绩
                         </Link>

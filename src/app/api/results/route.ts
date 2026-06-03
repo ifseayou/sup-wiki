@@ -6,6 +6,7 @@ import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import { getResultPaceDisplay, isNormalResultFinish, toResultNumber } from '@/lib/result-pace';
 import { writeSearchLog } from '@/lib/search-log';
 import { filterAndMaskRaceResults, getViewerOwnedAthleteIds } from '@/lib/result-privacy';
+import { getNationalityAliases } from '@/lib/nationality';
 import type { RowDataPacket } from 'mysql2';
 
 type ResultItemRow = RowDataPacket & {
@@ -122,6 +123,7 @@ export async function GET(request: NextRequest) {
     const athleteId = searchParams.get('athlete_id');
     const year = searchParams.get('year');
     const star = searchParams.get('star_level')?.trim();
+    const nationality = searchParams.get('nationality')?.trim();
     const rankMax = searchParams.get('rank_max');
     const timeMax = searchParams.get('time_max');
     const page = Math.max(1, Number(searchParams.get('page') || 1));
@@ -157,6 +159,14 @@ export async function GET(request: NextRequest) {
     }
     if (year) { conditions.push('YEAR(e.start_date) = ?'); params.push(Number(year)); }
     if (star) { conditions.push('e.star_level = ?'); params.push(star); }
+    if (nationality) {
+      const aliases = getNationalityAliases(nationality);
+      if (aliases.length) {
+        const placeholders = aliases.map(() => '?').join(',');
+        conditions.push(`(a.nationality IN (${placeholders}) OR er.nationality_snapshot IN (${placeholders}))`);
+        params.push(...aliases, ...aliases);
+      }
+    }
     if (rankMax) { conditions.push('er.rank_position <= ?'); params.push(Number(rankMax)); }
     if (timeMax) { conditions.push('er.time_seconds <= ?'); params.push(Number(timeMax)); }
 

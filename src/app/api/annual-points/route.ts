@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import { writeSearchLog } from '@/lib/search-log';
 import { getViewerOwnedAthleteIds, maskAthleteIdentityRows } from '@/lib/result-privacy';
+import { getNationalityAliases, normalizeNationality } from '@/lib/nationality';
 import type { RowDataPacket } from 'mysql2';
 
 type PointType = 'athlete' | 'club';
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
     const athleteName = searchParams.get('athlete_name')?.trim() || '';
     const rankMax = normalizeRankMax(searchParams.get('rank_max'));
     const pointScope = normalizePointScope(searchParams.get('point_scope'));
+    const nationality = searchParams.get('nationality')?.trim() || '';
 
     const [yearRows] = await pool.execute<RowDataPacket[]>(
       type === 'club'
@@ -74,6 +76,13 @@ export async function GET(request: NextRequest) {
     if (type === 'athlete' && groupCode) {
       conditions.push('s.group_code = ?');
       params.push(groupCode);
+    }
+    if (type === 'athlete' && nationality) {
+      const aliases = getNationalityAliases(nationality);
+      if (aliases.length) {
+        conditions.push(`a.nationality IN (${aliases.map(() => '?').join(',')})`);
+        params.push(...aliases);
+      }
     }
     if (type === 'athlete' && athleteId) {
       if (athleteName) {
@@ -153,6 +162,35 @@ export async function GET(request: NextRequest) {
       [year]
     );
 
+    let nationalities: Array<{ value: string; label: string; meta: string }> = [];
+    if (type === 'athlete') {
+      const nationalityConditions = ['s.year = ?', "a.nationality IS NOT NULL", "a.nationality <> ''"];
+      const nationalityParams: (string | number)[] = [year];
+      if (pointScope !== 'all') {
+        nationalityConditions.push('src.point_scope = ?');
+        nationalityParams.push(pointScope);
+      }
+      const [nationalityRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT a.nationality AS raw_nationality, COUNT(*) AS total
+         FROM sup_annual_point_standings s
+         INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
+         LEFT JOIN sup_athletes a ON a.athlete_id = s.athlete_id
+         WHERE ${nationalityConditions.join(' AND ')}
+         GROUP BY a.nationality
+         ORDER BY COUNT(*) DESC, a.nationality ASC`,
+        nationalityParams,
+      );
+      const nationalityMap = new Map<string, number>();
+      for (const row of nationalityRows) {
+        const normalized = normalizeNationality(row.raw_nationality);
+        if (!normalized) continue;
+        nationalityMap.set(normalized, (nationalityMap.get(normalized) || 0) + Number(row.total || 0));
+      }
+      nationalities = [...nationalityMap.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'zh-Hans-CN'))
+        .map(([label, total]) => ({ value: label, label, meta: `${total} 条` }));
+    }
+
     const total = Number(countRows[0]?.total || 0);
     const preview = applyPublicPreview(items, access);
     await writeSearchLog(request, {
@@ -172,6 +210,7 @@ export async function GET(request: NextRequest) {
       year,
       years: yearRows,
       groups: groupRows,
+      nationalities,
       items: preview.items,
       total,
       page,
