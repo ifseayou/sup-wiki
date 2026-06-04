@@ -341,14 +341,60 @@ export const PATCH = withAdmin(async (request: NextRequest) => {
 export const POST = withAdmin(async (request: NextRequest) => {
   try {
     const body = await request.json();
-    const { name, name_en, gender = 'unknown', gender_source = 'manual', gender_confidence, nationality, province, city, photo, photos, bio, discipline, achievements, icf_ranking, social_links, status = 'draft' } = body;
+    const {
+      name,
+      name_en,
+      gender = 'unknown',
+      gender_source = 'manual',
+      gender_confidence,
+      nationality,
+      province,
+      city,
+      photo,
+      photos,
+      bio,
+      discipline,
+      achievements,
+      icf_ranking,
+      social_links,
+      status = 'draft',
+      elite_event_status = 'none',
+      elite_event_groups,
+      elite_event_note,
+      elite_event_source_title,
+    } = body;
     if (!name) return NextResponse.json({ error: '缺少必填字段: name' }, { status: 400 });
     const normalizedNationality = normalizeNationality(nationality);
 
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO sup_athletes (name, name_en, gender, gender_source, gender_confidence, nationality, province, city, photo, photos, bio, discipline, achievements, icf_ranking, social_links, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, name_en || null, gender || 'unknown', gender_source || 'manual', gender_confidence || null, normalizedNationality, province || null, city || null, photo || null, photos ? JSON.stringify(photos) : null, bio || null, discipline || 'race', achievements ? JSON.stringify(achievements) : null, icf_ranking || null, social_links ? JSON.stringify(social_links) : null, status]
+      `INSERT INTO sup_athletes (
+         name, name_en, gender, gender_source, gender_confidence, nationality, province, city,
+         photo, photos, bio, discipline, achievements, icf_ranking, social_links, status,
+         elite_event_status, elite_event_groups, elite_event_note, elite_event_source_title
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        name,
+        name_en || null,
+        gender || 'unknown',
+        gender_source || 'manual',
+        gender_confidence || null,
+        normalizedNationality,
+        province || null,
+        city || null,
+        photo || null,
+        photos ? JSON.stringify(photos) : null,
+        bio || null,
+        discipline || 'race',
+        achievements ? JSON.stringify(achievements) : null,
+        icf_ranking || null,
+        social_links ? JSON.stringify(social_links) : null,
+        status,
+        elite_event_status || 'none',
+        elite_event_groups ? JSON.stringify(elite_event_groups) : null,
+        elite_event_note || null,
+        elite_event_source_title || null,
+      ]
     );
     return NextResponse.json({ success: true, athlete_id: result.insertId }, { status: 201 });
   } catch (error) {

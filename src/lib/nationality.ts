@@ -289,6 +289,8 @@ const ALIAS_TO_CHINESE = new Map(
   NATIONALITY_ALIAS_PAIRS.map(([alias, chinese]) => [normalizeAliasKey(alias), chinese]),
 );
 
+const PRIORITY_NATIONALITIES = ['中国', '中国香港', '中国台北', '美国', '日本', '韩国'];
+
 function normalizeAliasKey(value: string) {
   return value
     .trim()
@@ -324,6 +326,18 @@ export function getNationalityAliases(value: unknown): string[] {
     if (chinese === normalized) aliases.add(alias);
   }
   return [...aliases];
+}
+
+export function getNationalityOptions() {
+  const options = Array.from(new Set(NATIONALITY_ALIAS_PAIRS.map(([, chinese]) => chinese).filter(Boolean)));
+  return options.sort((a, b) => {
+    const priorityA = PRIORITY_NATIONALITIES.indexOf(a);
+    const priorityB = PRIORITY_NATIONALITIES.indexOf(b);
+    if (priorityA !== -1 || priorityB !== -1) {
+      return (priorityA === -1 ? 999 : priorityA) - (priorityB === -1 ? 999 : priorityB);
+    }
+    return a.localeCompare(b, 'zh-Hans-CN');
+  });
 }
 
 export function nationalityMatchesSearch(value: unknown, search: unknown) {

@@ -6,21 +6,96 @@ import ImageUpload, { MultiImageUpload } from '@/components/admin/ImageUpload';
 import OfficialEliteBadge from '@/components/OfficialEliteBadge';
 import RegionSelect from '@/components/admin/RegionSelect';
 import { genderLabel } from '@/lib/athlete-gender';
-import { normalizeNationality } from '@/lib/nationality';
+import { getNationalityOptions, normalizeNationality } from '@/lib/nationality';
 import { useAdminAuth } from '../layout';
+
+function parseRecord(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function profileString(profile: Record<string, unknown>, key: string) {
+  return String(profile[key] || '');
+}
+
+function parseStringList(value: unknown) {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+  } catch {
+    // Plain text input is handled below.
+  }
+  return String(value)
+    .split(/[、,，\n]/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+const currentYear = new Date().getFullYear();
+const startedYearOptions = Array.from({ length: currentYear - 1990 + 1 }, (_, index) => String(currentYear - index));
+const nationalityOptions = getNationalityOptions();
 
 function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>; onChange: (d: Record<string, unknown>) => void; token: string }) {
   const set = (key: string, val: unknown) => onChange({ ...data, [key]: val });
   const inp = 'w-full px-3 py-2 border border-cream-300 rounded-lg text-sm focus:ring-2 focus:ring-brown-500 focus:border-brown-500 bg-cream-50 text-brown-800';
   const photos = Array.isArray(data.photos) ? (data.photos as string[]) : [];
+  const socialLinks = parseRecord(data.social_links);
+  const publicProfile = parseRecord(socialLinks.public_profile);
+  const eliteGroups = parseStringList(data.elite_event_groups);
+
+  function updatePublicProfile(patch: Record<string, unknown>, extraData: Record<string, unknown> = {}) {
+    onChange({
+      ...data,
+      ...extraData,
+      social_links: {
+        ...socialLinks,
+        public_profile: {
+          ...publicProfile,
+          ...patch,
+        },
+      },
+    });
+  }
+
+  function updatePhotos(urls: string[]) {
+    updatePublicProfile(
+      { sup_photos: urls, photos: urls },
+      { photos: urls },
+    );
+  }
+
+  function updateBio(value: string) {
+    updatePublicProfile({ intro: value }, { bio: value });
+  }
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-6">
+      <section className="rounded-xl border border-cream-200 bg-white/70 p-4">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-brown-800">图片资料</h3>
+          <p className="mt-1 text-xs text-warm-gray-400">头像用于列表和主页首图，更多照片会同步到运动员主页照片墙。</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
         <ImageUpload value={String(data.photo || '')} onChange={url => set('photo', url)} folder="athletes" token={token} label="主头像（列表展示用）" />
         <div>
-          <MultiImageUpload values={photos} onChange={urls => set('photos', urls)} folder="athletes" token={token} label="更多照片（详情页展示）" max={8} />
+          <MultiImageUpload values={photos} onChange={updatePhotos} folder="athletes" token={token} label="更多照片（详情页展示）" max={8} />
         </div>
-      </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-cream-200 bg-white/70 p-4">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-brown-800">基础身份</h3>
+          <p className="mt-1 text-xs text-warm-gray-400">国籍、性别和主项使用标准选项，避免手输导致筛选不一致。</p>
+        </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">姓名 *</label>
@@ -34,7 +109,10 @@ function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>;
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">国籍</label>
-          <input className={inp} value={String(data.nationality || '')} onChange={e => set('nationality', e.target.value)} placeholder="中国" />
+          <select className={inp} value={normalizeNationality(data.nationality) || ''} onChange={e => set('nationality', e.target.value)}>
+            <option value="">请选择国籍</option>
+            {nationalityOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
         </div>
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">性别</label>
@@ -57,6 +135,49 @@ function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>;
           </select>
         </div>
       </div>
+      </section>
+
+      <section className="rounded-xl border border-cream-200 bg-white/70 p-4">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-brown-800">官方精英标记</h3>
+          <p className="mt-1 text-xs text-warm-gray-400">用于前台官方精英/官方精英(补)徽章展示；组别可用顿号或逗号分隔。</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-warm-gray-400 mb-1">精英名单状态</label>
+            <select className={inp} value={String(data.elite_event_status || 'none')} onChange={e => set('elite_event_status', e.target.value)}>
+              <option value="none">不展示</option>
+              <option value="formal">官方精英</option>
+              <option value="reserve">官方精英(补)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-warm-gray-400 mb-1">精英组别</label>
+            <input
+              className={inp}
+              value={eliteGroups.join('、')}
+              onChange={e => set('elite_event_groups', parseStringList(e.target.value))}
+              placeholder="例如：男子精英组、公开男子组"
+            />
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-warm-gray-400 mb-1">来源标题</label>
+            <input className={inp} value={String(data.elite_event_source_title || '')} onChange={e => set('elite_event_source_title', e.target.value)} placeholder="例如：中国桨板精英赛事正式运动员名单" />
+          </div>
+          <div>
+            <label className="block text-xs text-warm-gray-400 mb-1">备注</label>
+            <input className={inp} value={String(data.elite_event_note || '')} onChange={e => set('elite_event_note', e.target.value)} placeholder="内部说明或名单备注" />
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-cream-200 bg-white/70 p-4">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-brown-800">地区与经历</h3>
+          <p className="mt-1 text-xs text-warm-gray-400">籍贯写入主表并同步到主页资料；现居仅用于主页公开资料。</p>
+        </div>
       <div className="grid grid-cols-2 gap-4">
         <RegionSelect
           idPrefix="athlete-origin"
@@ -64,18 +185,99 @@ function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>;
           city={String(data.city || '')}
           provinceLabel="籍贯省份"
           cityLabel="籍贯城市"
-          onChange={(value) => onChange({ ...data, province: value.province, city: value.city })}
+          onChange={(value) => updatePublicProfile({
+            hometown_province: value.province,
+            hometown_city: value.city,
+            hometown: { province: value.province, city: value.city },
+          }, {
+            province: value.province,
+            city: value.city,
+          })}
         />
       </div>
-      <div>
-        <label className="block text-xs text-warm-gray-400 mb-1">ICF 排名</label>
-        <input className={inp} type="number" value={String(data.icf_ranking || '')} onChange={e => set('icf_ranking', e.target.value ? Number(e.target.value) : null)} style={{ maxWidth: 160 }} />
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <RegionSelect
+          idPrefix="athlete-living"
+          province={profileString(publicProfile, 'living_province') || profileString(parseRecord(publicProfile.living), 'province')}
+          city={profileString(publicProfile, 'living_city') || profileString(parseRecord(publicProfile.living), 'city')}
+          provinceLabel="现居省份"
+          cityLabel="现居城市"
+          onChange={(value) => updatePublicProfile({
+            living_province: value.province,
+            living_city: value.city,
+            living: { province: value.province, city: value.city },
+          })}
+        />
       </div>
-      <div>
-        <label className="block text-xs text-warm-gray-400 mb-1">简介</label>
-        <textarea className={inp} rows={3} value={String(data.bio || '')} onChange={e => set('bio', e.target.value)} />
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs text-warm-gray-400 mb-1">出生年月日</label>
+          <input
+            className={inp}
+            type="date"
+            min="1940-01-01"
+            max={`${currentYear}-12-31`}
+            value={profileString(publicProfile, 'birth_date')}
+            onChange={(e) => updatePublicProfile({
+              birth_date: e.target.value,
+              birth_year: e.target.value ? Number(e.target.value.slice(0, 4)) : null,
+            })}
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-warm-gray-400 mb-1">开始玩桨板年份</label>
+          <select
+            className={inp}
+            value={profileString(publicProfile, 'started_sup_year')}
+            onChange={(e) => updatePublicProfile({ started_sup_year: e.target.value ? Number(e.target.value) : null })}
+          >
+            <option value="">请选择年份</option>
+            {startedYearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+          </select>
+        </div>
       </div>
-    </div>
+      </section>
+
+      <section className="rounded-xl border border-cream-200 bg-white/70 p-4">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-brown-800">主页资料</h3>
+          <p className="mt-1 text-xs text-warm-gray-400">一句话简介限制 20 字，个人简介限制 300 字；联系方式仅管理员审核可见。</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-warm-gray-400 mb-1">ICF 排名</label>
+            <input className={inp} type="number" value={String(data.icf_ranking || '')} onChange={e => set('icf_ranking', e.target.value ? Number(e.target.value) : null)} />
+          </div>
+          <div>
+            <label className="block text-xs text-warm-gray-400 mb-1">联系方式</label>
+            <input className={inp} value={profileString(publicProfile, 'contact')} onChange={e => updatePublicProfile({ contact: e.target.value })} placeholder="微信号或手机号，仅管理员可见" />
+          </div>
+        </div>
+        <div className="mt-4">
+          <label className="block text-xs text-warm-gray-400 mb-1">一句话简介</label>
+          <input
+            className={inp}
+            value={profileString(publicProfile, 'intro_short')}
+            onChange={e => updatePublicProfile({ intro_short: e.target.value.slice(0, 20) })}
+            maxLength={20}
+            placeholder="例如：脚脚 / 荧光战神"
+          />
+          <div className="mt-1 text-right text-xs text-warm-gray-400">{profileString(publicProfile, 'intro_short').length}/20</div>
+        </div>
+        <div className="mt-4">
+          <label className="block text-xs text-warm-gray-400 mb-1">个人简介</label>
+          <textarea
+            className={inp}
+            rows={5}
+            value={String(data.bio || profileString(publicProfile, 'intro'))}
+            onChange={e => updateBio(e.target.value.slice(0, 300))}
+            maxLength={300}
+            placeholder="介绍桨板经历、训练地点或代表队信息"
+          />
+          <div className="mt-1 text-right text-xs text-warm-gray-400">{String(data.bio || profileString(publicProfile, 'intro')).length}/300</div>
+        </div>
+      </section>
+      </div>
   );
 }
 
@@ -229,7 +431,28 @@ function buildColumns(token: string) {
   },
   ];
 }
-const defaultFormData = { athlete_id: undefined, name: '', name_en: '', gender: 'unknown', gender_source: 'manual', gender_confidence: null, nationality: '', province: '', city: '', photo: '', photos: [], bio: '', discipline: 'race', icf_ranking: '', achievements: [], social_links: {} };
+const defaultFormData = {
+  athlete_id: undefined,
+  name: '',
+  name_en: '',
+  gender: 'unknown',
+  gender_source: 'manual',
+  gender_confidence: null,
+  nationality: '中国',
+  province: '',
+  city: '',
+  photo: '',
+  photos: [],
+  bio: '',
+  discipline: 'race',
+  icf_ranking: '',
+  achievements: [],
+  social_links: { public_profile: {} },
+  elite_event_status: 'none',
+  elite_event_groups: [],
+  elite_event_note: '',
+  elite_event_source_title: '',
+};
 
 const athleteFilters = [
   {
