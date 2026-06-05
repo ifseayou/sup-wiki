@@ -97,6 +97,7 @@ const navGroups = [
       { href: '/admin/mini-feedback', label: '用户反馈' },
       { href: '/admin/search-logs', label: '搜索日志' },
       { href: '/admin/mini-announcements', label: '首页公告' },
+      { href: '/admin/privacy-policy', label: '隐私说明' },
       { href: '/admin/privacy-requests', label: '隐私请求' },
     ],
   },
