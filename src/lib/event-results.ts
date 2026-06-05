@@ -183,6 +183,12 @@ export function parseFinishTimeToSeconds(input: string) {
   if (/^\d+(\.\d+)?$/.test(raw)) return Number(raw);
   const quoteMatch = raw.match(/^(\d+)'(\d+(?:\.\d+)?)"?$/);
   if (quoteMatch) return Number(quoteMatch[1]) * 60 + Number(quoteMatch[2]);
+  const minuteSecondCentisecond = raw.match(/^([1-9]\d{1,2}):(\d{2}):(\d{2})$/);
+  if (minuteSecondCentisecond && Number(minuteSecondCentisecond[1]) > 2) {
+    return Number(minuteSecondCentisecond[1]) * 60
+      + Number(minuteSecondCentisecond[2])
+      + Number(minuteSecondCentisecond[3]) / 100;
+  }
   const dottedTime = raw.match(/^(\d+):(\d{2})\.(\d{2})\.(\d{1,3})$/);
   if (dottedTime) {
     return Number(dottedTime[1]) * 3600 + Number(dottedTime[2]) * 60 + Number(`${dottedTime[3]}.${dottedTime[4]}`);
@@ -204,6 +210,18 @@ export function parseFinishTimeToSeconds(input: string) {
 async function resolveAthleteId(connection: PoolConnection, result: EventResultInput) {
   if (result.athlete_id) return result.athlete_id;
   const athleteName = result.athlete_name_snapshot.trim();
+  if (!athleteName) return null;
+  const normalized = athleteName.replace(/\s+/g, '').toLowerCase();
+
+  const [confirmedRows] = await connection.execute<AthleteRow[]>(
+    `SELECT athlete_id
+       FROM sup_athlete_identity_links
+      WHERE normalized_name = ? AND status = 'confirmed' AND athlete_id IS NOT NULL
+      ORDER BY confidence DESC, link_id ASC
+      LIMIT 1`,
+    [normalized]
+  );
+  if (confirmedRows.length) return confirmedRows[0].athlete_id;
 
   const [existingRows] = await connection.execute<AthleteRow[]>(
     'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5',
@@ -211,22 +229,22 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
   );
 
   if (existingRows.length > 0) {
-    if (existingRows.length > 1) {
-      await connection.execute(
-        `INSERT IGNORE INTO sup_athlete_identity_links
-          (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
-         VALUES (?, ?, ?, ?, ?, ?, 0.500, 'pending', '同名运动员存在多个候选，需后台确认')`,
-        [
-          existingRows[0].athlete_id,
-          athleteName.replace(/\s+/g, '').toLowerCase(),
-          athleteName,
-          result.gender_group || null,
-          result.team_name || null,
-          normalizeNationality(result.nationality_snapshot),
-        ]
-      );
-    }
-    return existingRows[0].athlete_id;
+    await connection.execute(
+      `INSERT IGNORE INTO sup_athlete_identity_links
+        (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [
+        existingRows.length === 1 ? existingRows[0].athlete_id : null,
+        normalized,
+        athleteName,
+        result.gender_group || null,
+        result.team_name || null,
+        normalizeNationality(result.nationality_snapshot),
+        existingRows.length === 1 ? 0.85 : 0.45,
+        existingRows.length === 1 ? '成绩录入发现唯一同名档案，等待后台确认后再绑定' : '成绩录入发现多个同名候选，需后台确认',
+      ]
+    );
+    return null;
   }
 
   const [insertResult] = await connection.execute(
@@ -243,10 +261,10 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
   await connection.execute(
     `INSERT IGNORE INTO sup_athlete_identity_links
       (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
-     VALUES (?, ?, ?, ?, ?, ?, 0.800, 'confirmed', '导入成绩时自动创建草稿运动员')`,
+     VALUES (?, ?, ?, ?, ?, ?, 0.800, 'pending', '导入成绩时自动创建草稿运动员，等待后台确认身份')`,
     [
       athleteId,
-      athleteName.replace(/\s+/g, '').toLowerCase(),
+      normalized,
       athleteName,
       result.gender_group || null,
       result.team_name || null,
@@ -260,11 +278,39 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
 async function resolveAthleteByName(connection: PoolConnection, name: string, result: EventResultInput) {
   const cleanName = name.trim();
   if (!cleanName) return null;
+  const normalized = cleanName.replace(/\s+/g, '').toLowerCase();
+  const [confirmedRows] = await connection.execute<AthleteRow[]>(
+    `SELECT athlete_id
+       FROM sup_athlete_identity_links
+      WHERE normalized_name = ? AND status = 'confirmed' AND athlete_id IS NOT NULL
+      ORDER BY confidence DESC, link_id ASC
+      LIMIT 1`,
+    [normalized]
+  );
+  if (confirmedRows.length) return confirmedRows[0].athlete_id;
+
   const [existingRows] = await connection.execute<AthleteRow[]>(
-    'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 1',
+    'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5',
     [cleanName]
   );
-  if (existingRows.length > 0) return existingRows[0].athlete_id;
+  if (existingRows.length > 0) {
+    await connection.execute(
+      `INSERT IGNORE INTO sup_athlete_identity_links
+        (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [
+        existingRows.length === 1 ? existingRows[0].athlete_id : null,
+        normalized,
+        cleanName,
+        result.gender_group || null,
+        result.team_name || null,
+        normalizeNationality(result.nationality_snapshot),
+        existingRows.length === 1 ? 0.85 : 0.45,
+        existingRows.length === 1 ? '团队赛成员发现唯一同名档案，等待后台确认后再绑定' : '团队赛成员发现多个同名候选，需后台确认',
+      ]
+    );
+    return null;
+  }
 
   const [insertResult] = await connection.execute(
     `INSERT INTO sup_athletes (name, nationality, discipline, bio, status)
@@ -279,10 +325,10 @@ async function resolveAthleteByName(connection: PoolConnection, name: string, re
   await connection.execute(
     `INSERT IGNORE INTO sup_athlete_identity_links
       (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
-     VALUES (?, ?, ?, ?, ?, ?, 0.820, 'confirmed', '团队赛成绩成员自动创建草稿运动员')`,
+     VALUES (?, ?, ?, ?, ?, ?, 0.820, 'pending', '团队赛成绩成员自动创建草稿运动员，等待后台确认身份')`,
     [
       athleteId,
-      cleanName.replace(/\s+/g, '').toLowerCase(),
+      normalized,
       cleanName,
       result.gender_group || null,
       result.team_name || null,
@@ -374,7 +420,7 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
 
   for (const result of inputResults) {
     const athleteId = await resolveAthleteId(connection, result);
-    touchedAthleteIds.add(athleteId);
+    if (athleteId) touchedAthleteIds.add(athleteId);
 
     await connection.execute(
       `INSERT INTO sup_event_results (
@@ -433,7 +479,7 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
 
   for (const result of inputResults) {
     const athleteId = await resolveAthleteId(connection, result);
-    touchedAthleteIds.add(athleteId);
+    if (athleteId) touchedAthleteIds.add(athleteId);
 
     await connection.execute(
       `INSERT INTO sup_event_results (

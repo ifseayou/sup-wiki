@@ -231,7 +231,7 @@ async function matchAthlete(conn, row) {
       'SELECT link_id FROM sup_athlete_identity_links WHERE normalized_name = ? AND display_name = ? AND athlete_id = ? ORDER BY link_id DESC LIMIT 1',
       [key, row.athleteName, athleteId]
     );
-    return { athleteId, identityLinkId: links.length ? Number(links[0].link_id) : null, matchStatus: 'candidate', confidence: 0.85 };
+    return { athleteId: null, identityLinkId: links.length ? Number(links[0].link_id) : null, matchStatus: 'candidate', confidence: 0.85 };
   }
   if (athletes.length > 1) return { athleteId: null, identityLinkId: null, matchStatus: 'conflict', confidence: 0.45 };
   return { athleteId: null, identityLinkId: null, matchStatus: 'unmatched', confidence: 0.3 };
@@ -299,7 +299,7 @@ async function createMatcher(conn, rows) {
         'SELECT link_id FROM sup_athlete_identity_links WHERE normalized_name = ? AND display_name = ? AND gender_hint = ? AND athlete_id = ? ORDER BY link_id DESC LIMIT 1',
         [key, row.athleteName, row.groupName, athleteId]
       );
-      const result = { athleteId, identityLinkId: links.length ? Number(links[0].link_id) : null, matchStatus: 'candidate', confidence: 0.85 };
+      const result = { athleteId: null, identityLinkId: links.length ? Number(links[0].link_id) : null, matchStatus: 'candidate', confidence: 0.85 };
       candidatesByKey.set(candidateKey, result);
       return result;
     }

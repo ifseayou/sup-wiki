@@ -9,7 +9,7 @@ import { filterAndMaskRaceResults, getViewerOwnedAthleteIds, maskAthleteIdentity
 import type { RowDataPacket } from 'mysql2';
 
 const DEFAULT_PAGE_SIZE = 10;
-const MAX_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 50;
 const NON_FINISH_CODES = new Set(['DNS', 'DNF', 'DQ', 'DSQ', 'DNQ', 'OTL']);
 
 function readPageParams(request: NextRequest) {

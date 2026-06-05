@@ -1,11 +1,16 @@
 const mysql = require('mysql2/promise');
 
 async function main() {
+  const password = process.env.MYSQL_PASSWORD || process.env.DB_PASSWORD;
+  if (!password) {
+    throw new Error('MYSQL_PASSWORD or DB_PASSWORD is required');
+  }
+
   const pool = await mysql.createPool({
     host: '8.217.233.65',
     port: 3306,
     user: 'root',
-    password: 'iaddu.cn@9527',
+    password,
     database: 'sport_hacker',
     charset: 'utf8mb4',
   });

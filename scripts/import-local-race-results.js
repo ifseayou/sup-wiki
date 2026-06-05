@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const mysql = require('mysql2/promise');
+const { parseTimeToSeconds } = require('./lib/result-time');
 
 const repoRoot = path.resolve(__dirname, '..');
 const LOCAL_RESULT_SOURCE_FILTER = `(
@@ -227,21 +228,6 @@ function slugify(name, startDate) {
   return `local-race-${(startDate || 'unknown').replaceAll('-', '')}-${hash}`;
 }
 
-function parseTimeToSeconds(input) {
-  const raw = String(input || '').trim();
-  if (!raw) return null;
-  if (/^\d+(\.\d+)?$/.test(raw)) return Number(raw);
-  const quoteMatch = raw.match(/^(\d+)'(\d+(?:\.\d+)?)"?$/);
-  if (quoteMatch) return Number(quoteMatch[1]) * 60 + Number(quoteMatch[2]);
-  const dottedTime = raw.match(/^(\d+):(\d{2})\.(\d{2})\.(\d{1,3})$/);
-  if (dottedTime) return Number(dottedTime[1]) * 3600 + Number(dottedTime[2]) * 60 + Number(`${dottedTime[3]}.${dottedTime[4]}`);
-  const parts = raw.split(':').map((part) => part.trim());
-  if (parts.some((part) => !/^\d+(\.\d+)?$/.test(part))) return null;
-  if (parts.length === 2) return Number(parts[0]) * 60 + Number(parts[1]);
-  if (parts.length === 3) return Number(parts[0]) * 3600 + Number(parts[1]) * 60 + Number(parts[2]);
-  return null;
-}
-
 function normalizeResultStatusCode(value) {
   const code = String(value || '').trim().toUpperCase();
   return RESULT_STATUS_LABELS[code] ? code : null;
@@ -393,25 +379,24 @@ async function resolveAthleteId(connection, result, athleteCache) {
     [name]
   );
   if (existingRows.length) {
-    const athleteId = Number(existingRows[0].athlete_id);
     await connection.execute(
       `INSERT IGNORE INTO sup_athlete_identity_links
         (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        athleteId,
+        existingRows.length === 1 ? Number(existingRows[0].athlete_id) : null,
         normalizedName(name),
         name,
         result.gender_group || null,
         result.team_name || null,
         result.nationality_snapshot || null,
-        existingRows.length > 1 ? 0.5 : 0.9,
-        existingRows.length > 1 ? 'pending' : 'confirmed',
-        existingRows.length > 1 ? '本地成绩册导入时发现同名候选，需后台确认' : '本地成绩册导入自动确认同名运动员',
+        existingRows.length > 1 ? 0.45 : 0.85,
+        'pending',
+        existingRows.length > 1 ? '本地成绩册导入时发现多个同名候选，需后台确认' : '本地成绩册导入时发现唯一同名档案，等待后台确认后再绑定',
       ]
     );
-    athleteCache.set(cacheKey, athleteId);
-    return athleteId;
+    athleteCache.set(cacheKey, null);
+    return null;
   }
 
   const [insertResult] = await connection.execute(
@@ -427,7 +412,7 @@ async function resolveAthleteId(connection, result, athleteCache) {
   await connection.execute(
     `INSERT IGNORE INTO sup_athlete_identity_links
       (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
-     VALUES (?, ?, ?, ?, ?, ?, 0.85, 'confirmed', '本地成绩册导入自动创建草稿运动员')`,
+     VALUES (?, ?, ?, ?, ?, ?, 0.85, 'pending', '本地成绩册导入自动创建草稿运动员，等待后台确认身份')`,
     [athleteId, normalizedName(name), name, result.gender_group || null, result.team_name || null, result.nationality_snapshot || null]
   );
   athleteCache.set(cacheKey, athleteId);

@@ -16,9 +16,29 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params.push(like, like, like);
     }
     const [items] = await pool.execute<RowDataPacket[]>(
-      `SELECT l.*, a.name AS athlete_name
+      `SELECT
+         l.*,
+         a.name AS athlete_name,
+         COALESCE(name_disambig.same_name_count, 1) AS same_name_count,
+         COALESCE(name_disambig.same_name_index, 1) AS same_name_index,
+         CASE
+           WHEN COALESCE(name_disambig.same_name_count, 1) > 1
+             THEN CONCAT(a.name, '-', name_disambig.same_name_index)
+           ELSE a.name
+         END AS athlete_admin_display_name
        FROM sup_athlete_identity_links l
        LEFT JOIN sup_athletes a ON a.athlete_id = l.athlete_id
+       LEFT JOIN (
+         SELECT
+           athlete_id,
+           COUNT(*) OVER (PARTITION BY LOWER(REPLACE(TRIM(name), ' ', ''))) AS same_name_count,
+           ROW_NUMBER() OVER (
+             PARTITION BY LOWER(REPLACE(TRIM(name), ' ', ''))
+             ORDER BY CASE status WHEN 'published' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END, athlete_id ASC
+           ) AS same_name_index
+         FROM sup_athletes
+         WHERE name IS NOT NULL AND TRIM(name) <> ''
+       ) name_disambig ON name_disambig.athlete_id = a.athlete_id
        WHERE ${conditions.join(' AND ')}
        ORDER BY l.updated_at DESC
        LIMIT 100`,

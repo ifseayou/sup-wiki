@@ -7,6 +7,7 @@ interface IdentityRow {
   link_id: number;
   athlete_id: number | null;
   athlete_name: string | null;
+  athlete_admin_display_name: string | null;
   display_name: string;
   gender_hint: string | null;
   team_hint: string | null;
@@ -53,7 +54,7 @@ export default function AthleteIdentitiesPage() {
             {items.map((item) => (
               <tr key={item.link_id} className="border-t border-cream-200">
                 <td className="px-4 py-3 font-medium text-brown-800">{item.display_name}</td>
-                <td className="px-4 py-3 text-warm-gray-600">{item.athlete_name || (item.athlete_id ? `#${item.athlete_id}` : '-')}</td>
+                <td className="px-4 py-3 text-warm-gray-600">{item.athlete_admin_display_name || item.athlete_name || (item.athlete_id ? `#${item.athlete_id}` : '-')}</td>
                 <td className="px-4 py-3 text-warm-gray-500">{item.gender_hint || '-'}</td>
                 <td className="px-4 py-3 text-warm-gray-500">{item.team_hint || '-'}</td>
                 <td className="px-4 py-3 text-warm-gray-600">{item.confidence}</td>
