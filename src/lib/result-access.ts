@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import pool from '@/lib/db';
-import { getUserFromRequest } from '@/lib/user-auth';
+import { getUserFromRequest, getActingUserId, isInternalGatewayRequest } from '@/lib/user-auth';
 import { resolveResultQueryLimit, type UserLevel } from '@/lib/user-levels';
 import type { RowDataPacket } from 'mysql2';
 
@@ -28,6 +28,20 @@ export interface ResultAccess {
 
 export async function resolveResultAccess(request: NextRequest, options: { consume?: boolean } = {}): Promise<ResultAccess> {
   const consume = options.consume !== false;
+
+  // 可信网关：小程序 BFF 已在网关侧管理配额，内部 API 视为已认证、无预览限制、不消耗配额。
+  if (isInternalGatewayRequest(request)) {
+    return {
+      authenticated: true,
+      userId: getActingUserId(request),
+      level: 'admin',
+      limit: null,
+      used: null,
+      remaining: null,
+      previewLimit: null,
+    };
+  }
+
   const user = getUserFromRequest(request);
   if (!user) {
     return {

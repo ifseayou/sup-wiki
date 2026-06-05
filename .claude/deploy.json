@@ -13,5 +13,10 @@
       "healthPath": "/"
     }
   ],
-  "envFile": ".env.local"
+  "envFile": ".env.local",
+  "_note": "同机(hz 120.55.113.181)还跑着 sport_hacker(/opt/sport-hacker, :3002, 域名 sport.iaddu.cn)。本服务(:3107)既服务公网 sup.iaddu.cn，也作为小程序 BFF 的内部只读 API 被 sport_hacker 经 127.0.0.1:3107 复用。",
+  "requiredEnv": [
+    "INTERNAL_API_TOKEN=<可信网关令牌, 须与 sport_hacker server/.env 同值; 缺省则网关判定恒为 false 不影响公网>"
+  ],
+  "buildNote": "next build 的 TypeScript 检查内存占用高; 内存吃紧的机器构建前先加 swap, 避免 OOM。"
 }

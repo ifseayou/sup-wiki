@@ -4,14 +4,35 @@
 
 **线上地址：** https://sup.iaddu.cn
 
+## 线上拓扑与小程序复用（2026-06 更新）
+
+- 本服务部署在 **hz_aliyun_ecs(120.55.113.181) `/root/sup-wiki`，PM2 `sup-wiki`:3107**，同时服务公网 `sup.iaddu.cn`。
+- **同机还跑着 `sport_hacker`**（`/opt/sport-hacker`:3002，域名 `sport.iaddu.cn`，2026-06-05 从 zjk 整合迁来）。小程序后端作为 BFF，**只读接口（成绩/积分/赛事）经 `127.0.0.1:3107` 复用本服务**，本服务是 SUP 只读数据唯一事实来源。
+- **可信网关**（`src/lib/user-auth.ts`、`src/lib/result-access.ts`）：请求带 `X-Internal-Token`（= `INTERNAL_API_TOKEN`）时视为可信网关→已认证、跳过匿名预览与网页配额；`X-Acting-Sup-User-Id` 透传观看者用于隐私脱敏。未配置 `INTERNAL_API_TOKEN` 时网关判定恒为 false，**不影响公网行为**。
+- 因此：**改成绩/积分/运动员/赛事的排序、隐私、口径、字段，本服务是源头，小程序会自动继承**；改这些 API 时务必同时考虑小程序展示。
+- 数据库在 hk(8.217.233.65)；`next build` 内存占用高，内存吃紧的机器构建前先加 swap。
+
 ## 双仓运维文档
 
 SUP 小程序和网站由两个仓库共同维护：`sup-wiki` 负责 Web、后台、数据库迁移和数据治理；`sport_hacker` 负责微信小程序与 Express 适配 API。涉及小程序或共享数据库时，先阅读：
 
 - `docs/ops/shared-sup-architecture.md`：双仓职责边界、线上拓扑、部署路径。
 - `docs/contracts/sup-api-contract.md`：Web 与小程序共享字段和展示口径。
+- `docs/ops/sup-wiki-data-model.md`：SUP 数据模型、核心表分类、导入副作用和变更记录。
 - `docs/ops/release-checklist.md`：双仓发布和冒烟测试清单。
 - `docs/ops/migration-log.md`：生产 `sup_` 表迁移记录。
+
+## 数据模型文档维护规则
+
+`docs/ops/sup-wiki-data-model.md` 是本项目数据模型的事实文档。任何需求只要涉及以下内容，必须同步更新该文档的对应说明和变更记录：
+
+- 新增、删除、重命名表或字段。
+- 改变成绩、积分、运动员、隐私、认领、查询次数的数据口径。
+- 改变导入脚本对运动员自动创建、身份匹配、战绩缓存、队伍别名的副作用。
+- 改变 Web 与小程序共享 API 的字段含义。
+- 生产库执行一次性 SQL、回填或修复脚本。
+
+如果修改只影响 UI 样式且不改变数据含义，可以不更新该文档；否则默认更新，做到后续迭代有迹可循。
 
 ## 项目目标与核心价值观
 
