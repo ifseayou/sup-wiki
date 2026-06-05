@@ -57,6 +57,45 @@ function formatDuration(seconds: number, includeSign = false) {
   return `${sign}${String(minutes).padStart(2, '0')}:${secondText}`;
 }
 
+// facets（项目/性别/年份的去重集合）与请求过滤条件无关，对所有请求恒定，
+// 进程内缓存，避免每次首屏都对远程 MySQL 跑 3 个 DISTINCT 子查询。
+let facetsCache: { value: RowDataPacket; at: number } | null = null;
+const FACETS_TTL_MS = 5 * 60 * 1000;
+async function loadResultFacets(): Promise<RowDataPacket> {
+  if (facetsCache && Date.now() - facetsCache.at < FACETS_TTL_MS) return facetsCache.value;
+  const [facets] = await pool.execute<RowDataPacket[]>(
+    `SELECT
+       (SELECT JSON_ARRAYAGG(discipline) FROM (
+          SELECT DISTINCT er.discipline
+          FROM sup_event_results er
+          INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
+          WHERE er.discipline IS NOT NULL AND er.discipline <> ''
+            AND ${localResultSourceCondition}
+          ORDER BY er.discipline LIMIT 80
+        ) d) AS disciplines,
+       (SELECT JSON_ARRAYAGG(gender_group) FROM (
+          SELECT DISTINCT er.gender_group
+          FROM sup_event_results er
+          INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
+          WHERE er.gender_group IS NOT NULL AND er.gender_group <> ''
+            AND ${localResultSourceCondition}
+          ORDER BY er.gender_group LIMIT 60
+        ) g) AS genders,
+       (SELECT JSON_ARRAYAGG(event_year) FROM (
+          SELECT DISTINCT YEAR(e.start_date) AS event_year
+          FROM sup_events e
+          INNER JOIN sup_event_results er ON er.event_id = e.event_id
+          INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
+          WHERE e.start_date IS NOT NULL
+            AND ${localResultSourceCondition}
+          ORDER BY event_year DESC LIMIT 40
+        ) y) AS years`
+  );
+  const value = (facets[0] || {}) as RowDataPacket;
+  facetsCache = { value, at: Date.now() };
+  return value;
+}
+
 async function loadPreviousTimes(items: ResultItemRow[]) {
   const normalItems = items.filter((item) => (
     item.result_id &&
@@ -171,21 +210,22 @@ export async function GET(request: NextRequest) {
     if (timeMax) { conditions.push('er.time_seconds <= ?'); params.push(Number(timeMax)); }
 
     const where = `WHERE ${conditions.join(' AND ')}`;
-    const [countRows] = await pool.execute<RowDataPacket[]>(
-      `SELECT
-         COUNT(*) AS total,
-         COUNT(DISTINCT er.event_id) AS event_count,
-         COUNT(DISTINCT COALESCE(er.athlete_id, er.athlete_name_snapshot)) AS athlete_count
-       FROM sup_event_results er
-       INNER JOIN sup_events e ON e.event_id = er.event_id
-       INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
-       LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
-       ${where}`,
-      params
-    );
-
-    const [items] = await pool.execute<ResultItemRow[]>(
-      `SELECT
+    // count / 主列表 / 观看者 / facets 互不依赖，并行执行，减少对远程 MySQL 的串行往返。
+    const [countResult, itemsResult, viewer, facetsRow] = await Promise.all([
+      pool.execute<RowDataPacket[]>(
+        `SELECT
+           COUNT(*) AS total,
+           COUNT(DISTINCT er.event_id) AS event_count,
+           COUNT(DISTINCT COALESCE(er.athlete_id, er.athlete_name_snapshot)) AS athlete_count
+         FROM sup_event_results er
+         INNER JOIN sup_events e ON e.event_id = er.event_id
+         INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
+         LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
+         ${where}`,
+        params
+      ),
+      pool.execute<ResultItemRow[]>(
+        `SELECT
          er.result_id, er.event_id, er.athlete_id, er.athlete_name_snapshot, er.bib_number,
          er.gender_group, er.discipline, er.board_class, er.round_label, er.rank_position,
          er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name, er.nationality_snapshot,
@@ -208,10 +248,14 @@ export async function GET(request: NextRequest) {
        ${where}
        ORDER BY ${resultDefaultOrderBy({ includeEventDate: true })}
        LIMIT ${queryPageSize} OFFSET ${queryOffset}`,
-      params
-    );
+        params
+      ),
+      getViewerOwnedAthleteIds(request),
+      loadResultFacets(),
+    ]);
+    const countRows = countResult[0];
+    const items = itemsResult[0];
 
-    const viewer = await getViewerOwnedAthleteIds(request);
     const visibleItems = await filterAndMaskRaceResults(items as unknown as Array<Record<string, unknown>>, viewer) as unknown as ResultItemRow[];
     const previousTimes = await loadPreviousTimes(visibleItems);
     const enrichedItems = visibleItems.map((item) => {
@@ -244,35 +288,6 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const [facets] = await pool.execute<RowDataPacket[]>(
-      `SELECT
-         (SELECT JSON_ARRAYAGG(discipline) FROM (
-            SELECT DISTINCT er.discipline
-            FROM sup_event_results er
-            INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
-            WHERE er.discipline IS NOT NULL AND er.discipline <> ''
-              AND ${localResultSourceCondition}
-            ORDER BY er.discipline LIMIT 80
-          ) d) AS disciplines,
-         (SELECT JSON_ARRAYAGG(gender_group) FROM (
-            SELECT DISTINCT er.gender_group
-            FROM sup_event_results er
-            INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
-            WHERE er.gender_group IS NOT NULL AND er.gender_group <> ''
-              AND ${localResultSourceCondition}
-            ORDER BY er.gender_group LIMIT 60
-          ) g) AS genders,
-         (SELECT JSON_ARRAYAGG(event_year) FROM (
-            SELECT DISTINCT YEAR(e.start_date) AS event_year
-            FROM sup_events e
-            INNER JOIN sup_event_results er ON er.event_id = e.event_id
-            INNER JOIN sup_event_result_sources src ON src.source_id = er.source_id
-            WHERE e.start_date IS NOT NULL
-              AND ${localResultSourceCondition}
-            ORDER BY event_year DESC LIMIT 40
-          ) y) AS years`
-    );
-
     const total = Number(countRows[0]?.total || 0);
     const shouldMaskAthleteScores = !access.authenticated && Boolean(athleteId);
     const responseItems = shouldMaskAthleteScores
@@ -290,7 +305,8 @@ export async function GET(request: NextRequest) {
       : enrichedItems;
     const preview = applyPublicPreview(responseItems, access);
 
-    await writeSearchLog(request, {
+    // 搜索日志写库不阻塞响应（远程 MySQL 往返，仅审计用途）。
+    void writeSearchLog(request, {
       entry: 'race_results',
       keyword: search || '',
       resultCount: total,
@@ -299,7 +315,7 @@ export async function GET(request: NextRequest) {
         path: request.nextUrl.pathname,
         query: Object.fromEntries(request.nextUrl.searchParams.entries()),
       },
-    });
+    }).catch(() => {});
 
     return NextResponse.json({
       items: preview.items,
@@ -312,7 +328,7 @@ export async function GET(request: NextRequest) {
       page: access.authenticated ? page : 1,
       pageSize,
       totalPages: access.authenticated ? Math.ceil(total / pageSize) : 1,
-      facets: facets[0] || {},
+      facets: facetsRow || {},
       access,
       preview_locked: preview.previewLocked,
       preview_limit: access.previewLimit,

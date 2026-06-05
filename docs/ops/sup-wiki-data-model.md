@@ -2,7 +2,7 @@
 
 本文档是 SUP Wiki 数据模型、导入副作用和后续需求变更的事实记录入口。涉及表结构、字段语义、赛事成绩导入、积分导入、运动员身份匹配、隐私展示权限或跨仓共享接口的数据迭代，都必须同步更新本文档。
 
-最后核对时间：2026-06-04。当前生产数据库 `sport_hacker` 共有 76 张表。
+最后核对时间：2026-06-05。当前生产数据库 `sport_hacker` 共有 77 张表。
 
 ## 数据库概览
 
@@ -56,6 +56,7 @@ SUP 业务表统一使用 `sup_` 前缀，主要由 `sup-wiki` 维护迁移和�
 
 - `sup_athletes`：运动员主档案，包含姓名、国籍、项目、照片、主页资料、精英标记、战绩缓存等。
 - `sup_athlete_identity_links`：成绩或积分中的姓名与运动员实体的匹配关系。
+- `sup_athlete_data_license`：运动员数据许可协议单例配置，小程序认领/绑定运动员时展示并记录用户同意版本。
 - `sup_athlete_profile_claims`：用户认领运动员资料的提交与审核。
 - `sup_athlete_profile_owners`：已确认的运动员主页拥有者。
 
@@ -119,7 +120,7 @@ SUP 业务表统一使用 `sup_` 前缀，主要由 `sup-wiki` 维护迁移和�
 | 历史/通用 | `activity_cycles`, `cycle_members`, `event_signups`, `events`, `exercise_details`, `exercise_logs`, `food_calories`, `meal_items`, `meal_logs`, `migration_progress_exercise_logs`, `monthly_goals`, `route_points`, `route_sessions`, `route_waypoints`, `users`, `venue_review_tags`, `venue_reviews`, `venues`, `weight_logs` |
 | 年度积分 | `sup_annual_club_point_standings`, `sup_annual_point_breakdowns`, `sup_annual_point_event_mappings`, `sup_annual_point_import_cache`, `sup_annual_point_sources`, `sup_annual_point_standings` |
 | 内容与学习 | `sup_articles`, `sup_learn_articles`, `sup_course_techniques`, `sup_courses`, `sup_quiz_attempts`, `sup_quiz_bookmarks`, `sup_quiz_questions`, `sup_quiz_user_stats`, `sup_quiz_wrong_history`, `sup_techniques` |
-| 运动员 | `sup_athlete_identity_links`, `sup_athlete_profile_claims`, `sup_athlete_profile_owners`, `sup_athletes` |
+| 运动员 | `sup_athlete_data_license`, `sup_athlete_identity_links`, `sup_athlete_profile_claims`, `sup_athlete_profile_owners`, `sup_athletes` |
 | 品牌/商业/行业 | `sup_brands`, `sup_products`, `sup_shop_items`, `sup_creators`, `sup_industry_submissions`, `sup_professional_certificates`, `sup_professional_course_links`, `sup_professional_event_roles`, `sup_professionals`, `sup_service_projects` |
 | 俱乐部 | `sup_club_claims`, `sup_club_courses`, `sup_club_members`, `sup_club_owners`, `sup_club_team_aliases`, `sup_clubs` |
 | 赛事/成绩/积分 | `sup_event_point_standings`, `sup_event_result_members`, `sup_event_result_sources`, `sup_event_result_submissions`, `sup_event_results`, `sup_events`, `sup_events_rating_backup_20260603` |
@@ -153,3 +154,10 @@ YYYY-MM-DD - 标题
 - 影响表：无结构变更。
 - 影响接口/页面：无。
 - 回滚/核验：只读查询 `information_schema.tables` 确认当前数据库表数量为 76。
+
+### 2026-06-05 - 运动员数据许可协议配置化
+
+- 变更：新增 `sup_athlete_data_license` 单例表，用于维护运动员认领/绑定流程中的数据许可协议标题、段落和版本号；后台新增 `/admin/athlete-data-license`，公开读取接口新增 `/api/athlete-data-license`。
+- 影响表：`sup_athlete_data_license`。该表由 `src/lib/athlete-data-license.ts` 在读取或保存协议时 `CREATE TABLE IF NOT EXISTS` 确保存在。
+- 影响接口/页面：`/api/athlete-data-license`、`/api/admin/athlete-data-license`、`/admin/athlete-data-license`；小程序认领页读取该协议并在用户同意时留存版本号。
+- 回滚/核验：如需回滚，可移除后台入口和两个 API；数据库表为单例配置表，删除前需确认小程序不再读取该接口。上线后访问 `/api/athlete-data-license` 应返回 `title`、`sections`、`version`。

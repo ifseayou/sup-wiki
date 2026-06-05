@@ -98,6 +98,7 @@ const navGroups = [
       { href: '/admin/search-logs', label: '搜索日志' },
       { href: '/admin/mini-announcements', label: '首页公告' },
       { href: '/admin/privacy-policy', label: '隐私说明' },
+      { href: '/admin/athlete-data-license', label: '数据许可协议' },
       { href: '/admin/privacy-requests', label: '隐私请求' },
     ],
   },
