@@ -92,6 +92,9 @@ export async function PATCH(
     const submittedProfile = parseJsonObject(claim.submitted_profile_json);
     const submittedSupPhotoUrls = parseUrlArray(submittedProfile.sup_photos || submittedProfile.photos);
     const submittedIntro = claim.submitted_intro || String(submittedProfile.intro || '');
+    // 一句话简介：小程序提交只写进 submitted_profile_json（列为空），需与 bio 一样回退读 JSON，
+    // 否则审核通过永远取不到用户新填的一句话。
+    const submittedIntroShort = claim.submitted_intro_short || String(submittedProfile.intro_short || '');
     const nextPhotoUrls = submittedSupPhotoUrls;
     const hometownProvince = claim.submitted_hometown_province || getNestedString(submittedProfile, ['hometown', 'province']);
     const hometownCity = claim.submitted_hometown_city || getNestedString(submittedProfile, ['hometown', 'city']);
@@ -108,7 +111,7 @@ export async function PATCH(
       living_province: claim.submitted_living_province || existingPublicProfile.living_province || null,
       living_city: claim.submitted_living_city || existingPublicProfile.living_city || null,
       started_sup_year: claim.submitted_started_sup_year || existingPublicProfile.started_sup_year || null,
-      intro_short: claim.submitted_intro_short || existingPublicProfile.intro_short || null,
+      intro_short: submittedIntroShort || existingPublicProfile.intro_short || null,
       profile_claim_id: claimId,
     };
     const nextSocialLinks = JSON.stringify({ ...socialLinks, public_profile: publicProfile });
