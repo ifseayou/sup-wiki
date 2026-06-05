@@ -96,16 +96,19 @@ export async function PATCH(
     const hometownProvince = claim.submitted_hometown_province || getNestedString(submittedProfile, ['hometown', 'province']);
     const hometownCity = claim.submitted_hometown_city || getNestedString(submittedProfile, ['hometown', 'city']);
     const submittedBirthDate = normalizeDateOnly(claim.submitted_birth_date);
+    // 提交值为空时保留运动员已有值，避免后续不带值的认领把既有资料（尤其一句话简介）清空。
+    // 与下方 bio 的 COALESCE(NULLIF(...), 旧值) 语义保持一致。
+    const existingPublicProfile = parseJsonObject(socialLinks.public_profile);
     const publicProfile = {
-      ...(parseJsonObject(socialLinks.public_profile)),
-      birth_date: submittedBirthDate,
-      birth_year: claim.submitted_birth_year || null,
-      hometown_province: hometownProvince || null,
-      hometown_city: hometownCity || null,
-      living_province: claim.submitted_living_province || null,
-      living_city: claim.submitted_living_city || null,
-      started_sup_year: claim.submitted_started_sup_year || null,
-      intro_short: claim.submitted_intro_short || null,
+      ...existingPublicProfile,
+      birth_date: submittedBirthDate || existingPublicProfile.birth_date || null,
+      birth_year: claim.submitted_birth_year || existingPublicProfile.birth_year || null,
+      hometown_province: hometownProvince || existingPublicProfile.hometown_province || null,
+      hometown_city: hometownCity || existingPublicProfile.hometown_city || null,
+      living_province: claim.submitted_living_province || existingPublicProfile.living_province || null,
+      living_city: claim.submitted_living_city || existingPublicProfile.living_city || null,
+      started_sup_year: claim.submitted_started_sup_year || existingPublicProfile.started_sup_year || null,
+      intro_short: claim.submitted_intro_short || existingPublicProfile.intro_short || null,
       profile_claim_id: claimId,
     };
     const nextSocialLinks = JSON.stringify({ ...socialLinks, public_profile: publicProfile });
