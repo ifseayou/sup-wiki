@@ -85,7 +85,7 @@ port 3107
 线上目标：
 
 ```text
-zjk_aliyun_ecs:/opt/sport-hacker
+hz_aliyun_ecs:/opt/sport-hacker   # 2026-06 起在 hz，与 sup-wiki 同机；旧机 zjk 已停用
 PM2 sport-hacker
 port 3002
 ```

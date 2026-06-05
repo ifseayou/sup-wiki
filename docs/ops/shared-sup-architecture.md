@@ -12,13 +12,15 @@
 
 ## 线上拓扑
 
+> 2026-06-05 起两服务整合到同一台 hz_aliyun_ecs（原 sport_hacker 在 zjk，已迁移）。
+
 | 项目 | 域名 | 机器 | 线上路径 | 服务 |
 | --- | --- | --- | --- | --- |
 | `sup-wiki` | `https://sup.iaddu.cn` | `hz_aliyun_ecs` / `120.55.113.181` | `/root/sup-wiki` | PM2 `sup-wiki`，端口 `3107` |
-| `sport_hacker` | `https://sport.iaddu.cn` | `zjk_aliyun_ecs` / `39.100.160.80` | `/opt/sport-hacker` | PM2 `sport-hacker`，端口 `3002` |
+| `sport_hacker` | `https://sport.iaddu.cn` | `hz_aliyun_ecs` / `120.55.113.181` | `/opt/sport-hacker` | PM2 `sport-hacker`，端口 `3002` |
 | MySQL | - | `hk_aliyun_ecs` / `8.217.233.65` | - | MySQL 8，库名 `sport_hacker` |
 
-线上 `sup-wiki` 以 `/root/sup-wiki` 为准；不要再混用历史路径 `/www/wwwroot/sup-wiki`。
+两服务同机：sport_hacker(BFF) 的 SUP 只读接口经 `127.0.0.1:3107` 复用 sup-wiki（唯一事实来源），鉴权用 `X-Internal-Token`/`X-Acting-Sup-User-Id`。线上 `sup-wiki` 以 `/root/sup-wiki` 为准；不要再混用历史路径 `/www/wwwroot/sup-wiki`。旧机 `zjk_aliyun_ecs`(39.100.160.80) 待清理。
 
 ## 责任边界
 
