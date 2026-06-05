@@ -143,6 +143,39 @@ async function loadPreviousTimes(items: ResultItemRow[]) {
   return previousByResult;
 }
 
+// 当页结果的「所属俱乐部」一次性批量查询回填，替代主列表里逐行 2 个关联子查询
+// （30 行 × 2 次 = 60 次查询，是 filesort 之外的主要额外开销）。两列同为
+// utf8mb4_0900_ai_ci，无需显式 COLLATE，可命中 normalized_name 唯一索引。
+async function attachTeamClubs(rows: Array<Record<string, unknown>>) {
+  const names = Array.from(new Set(
+    rows.map(r => String(r.team_name_normalized || '').trim()).filter(Boolean)
+  ));
+  if (!names.length) {
+    for (const r of rows) { r.team_club_slug = null; r.team_club_name = null; }
+    return;
+  }
+  const placeholders = names.map(() => '?').join(',');
+  const [aliasRows] = await pool.execute<RowDataPacket[]>(
+    `SELECT ca.normalized_name, c.slug, c.name
+     FROM sup_club_team_aliases ca
+     INNER JOIN sup_clubs c ON c.club_id = ca.club_id
+     WHERE ca.match_status = 'confirmed' AND c.status = 'published'
+       AND ca.normalized_name IN (${placeholders})`,
+    names
+  );
+  const clubByName = new Map<string, { slug: string; name: string }>();
+  for (const row of aliasRows) {
+    const key = String(row.normalized_name || '');
+    if (!clubByName.has(key)) clubByName.set(key, { slug: row.slug, name: row.name });
+  }
+  for (const r of rows) {
+    const key = String(r.team_name_normalized || '').trim();
+    const club = key ? clubByName.get(key) : undefined;
+    r.team_club_slug = club ? club.slug : null;
+    r.team_club_name = club ? club.name : null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const startedAt = Date.now();
   try {
@@ -228,9 +261,7 @@ export async function GET(request: NextRequest) {
         `SELECT
          er.result_id, er.event_id, er.athlete_id, er.athlete_name_snapshot, er.bib_number,
          er.gender_group, er.discipline, er.board_class, er.round_label, er.rank_position,
-         er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name, er.nationality_snapshot,
-         (SELECT c.slug FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_slug,
-         (SELECT c.name FROM sup_club_team_aliases ca INNER JOIN sup_clubs c ON c.club_id = ca.club_id WHERE ca.normalized_name COLLATE utf8mb4_0900_ai_ci = er.team_name_normalized AND ca.match_status = 'confirmed' AND c.status = 'published' LIMIT 1) AS team_club_name,
+         er.result_label, er.finish_time, er.result_status_code, er.result_status_note, er.time_seconds, er.points, er.team_name, er.team_name_normalized, er.nationality_snapshot,
          er.source_title, er.source_url, er.source_locator, er.review_status,
          e.name AS event_name, e.name_en AS event_name_en, e.start_date, e.city, e.province, e.star_level, e.score_coefficient, e.source_scope,
          a.name AS athlete_name, a.photo AS athlete_photo, a.nationality AS athlete_nationality,
@@ -256,8 +287,14 @@ export async function GET(request: NextRequest) {
     const countRows = countResult[0];
     const items = itemsResult[0];
 
-    const visibleItems = await filterAndMaskRaceResults(items as unknown as Array<Record<string, unknown>>, viewer) as unknown as ResultItemRow[];
-    const previousTimes = await loadPreviousTimes(visibleItems);
+    // mask 与 previousTimes 互不依赖（previousTimes 只用分组/时间字段，不受身份脱敏影响），并行执行省一个远程 RTT 阶段。
+    const [maskedItems, previousTimes] = await Promise.all([
+      filterAndMaskRaceResults(items as unknown as Array<Record<string, unknown>>, viewer),
+      loadPreviousTimes(items),
+    ]);
+    const visibleItems = maskedItems as unknown as ResultItemRow[];
+    // 当页所属俱乐部批量回填（替代主列表逐行子查询）。
+    await attachTeamClubs(visibleItems as unknown as Array<Record<string, unknown>>);
     const enrichedItems = visibleItems.map((item) => {
       if (item.results_points_hidden) {
         return {
