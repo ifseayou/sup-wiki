@@ -161,3 +161,10 @@ YYYY-MM-DD - 标题
 - 影响表：`sup_athlete_data_license`。该表由 `src/lib/athlete-data-license.ts` 在读取或保存协议时 `CREATE TABLE IF NOT EXISTS` 确保存在。
 - 影响接口/页面：`/api/athlete-data-license`、`/api/admin/athlete-data-license`、`/admin/athlete-data-license`；小程序认领页读取该协议并在用户同意时留存版本号。
 - 回滚/核验：如需回滚，可移除后台入口和两个 API；数据库表为单例配置表，删除前需确认小程序不再读取该接口。上线后访问 `/api/athlete-data-license` 应返回 `title`、`sections`、`version`。
+
+### 2026-06-07 - 录入第二届杭州皮划艇大众公开赛桨板 10 公里成绩
+
+- 变更：为用户提交批次 `mp_1780814033934_6fype14i` 创建生产赛事 `event_id=356`（`第二届杭州皮划艇大众公开赛`，2026-06-07，杭州大运河武林门至拱宸桥），从 4 份成绩册 PDF 导入桨板 10 公里成绩共 204 条；导入脚本新增 `--event-id`，用于将成绩锁定写入已确认赛事，避免同名赛事误建。
+- 影响表：`sup_events`、`sup_event_results`、`sup_event_result_sources`、`sup_event_result_submissions`、`sup_athletes`、`sup_athlete_identity_links`、`sup_club_team_aliases`。本次导入按结果册创建或复用运动员实体，并同步运动员战绩缓存；4 条提交记录状态更新为 `imported`。
+- 影响接口/页面：`/events/356`、`/api/events/356/results`、`/results`、`/api/results`、运动员详情页战绩面板。公开页面按现有隐私规则展示姓名和成绩，不改变成绩/积分权限口径。
+- 回滚/核验：核验生产库 `sup_event_results` 中 `event_id=356` 共 204 条，含 172 条完赛、31 条 DNS、1 条 DNF；4 个组别分别为公开女子组 33、公开男子组 77、大师女子组 30、大师男子组 64，且每个组别仅 1 个正常第一名。OSS 原始 PDF 与 `/events/356` 均返回 200；如需回滚，应先删除 `event_id=356` 关联的 `sup_event_results`、`sup_event_result_sources`，再视情况清理本次自动创建且无其他成绩关联的运动员实体和身份链接。
