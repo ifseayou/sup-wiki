@@ -168,3 +168,10 @@ YYYY-MM-DD - 标题
 - 影响表：`sup_events`、`sup_event_results`、`sup_event_result_sources`、`sup_event_result_submissions`、`sup_athletes`、`sup_athlete_identity_links`、`sup_club_team_aliases`。本次导入按结果册创建或复用运动员实体，并同步运动员战绩缓存；4 条提交记录状态更新为 `imported`。
 - 影响接口/页面：`/events/356`、`/api/events/356/results`、`/results`、`/api/results`、运动员详情页战绩面板。公开页面按现有隐私规则展示姓名和成绩，不改变成绩/积分权限口径。
 - 回滚/核验：核验生产库 `sup_event_results` 中 `event_id=356` 共 204 条，含 172 条完赛、31 条 DNS、1 条 DNF；4 个组别分别为公开女子组 33、公开男子组 77、大师女子组 30、大师男子组 64，且每个组别仅 1 个正常第一名。OSS 原始 PDF 与 `/events/356` 均返回 200；如需回滚，应先删除 `event_id=356` 关联的 `sup_event_results`、`sup_event_result_sources`，再视情况清理本次自动创建且无其他成绩关联的运动员实体和身份链接。
+
+### 2026-06-09 - 录入第二届全国全民健身大赛（西北区陕西省）桨板比赛成绩
+
+- 变更：为用户提交批次 `mp_1780969858286_o27c9hxc` 创建生产赛事 `event_id=357`（`第二届全国全民健身大赛（西北区陕西省）桨板比赛`，2026-05-31，陕西省），从 1 份成绩册 PDF 导入 200 米竞速赛与 3000 米耐力赛成绩共 208 条。成绩册积分列为空，本次仅录入成绩，不生成积分明细。
+- 影响表：`sup_events`、`sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`、`sup_event_result_submissions`、`sup_athletes`、`sup_athlete_identity_links`、`sup_club_team_aliases`。本次导入包含双人项目成员明细 256 条，触达并同步 108 名运动员战绩缓存；提交记录 `submission_id=29` 状态更新为 `imported`。
+- 影响接口/页面：`/events/357`、`/api/events/357/results`、`/results`、`/api/results`、运动员详情页战绩面板。公开页面继续按现有隐私规则展示，不改变成绩/积分权限口径。
+- 回滚/核验：核验生产库 `sup_event_results` 中 `event_id=357` 共 208 条，含 193 条正常成绩、13 条 DNS、1 条 DNF、1 条 DSQ；32 个成绩模块均仅有 1 个正常第一名。来源 PDF 返回 200；如需回滚，应先删除 `event_id=357` 关联的 `sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`，再视情况清理本次自动创建且无其他成绩关联的运动员实体、身份链接和提交记录状态。
