@@ -182,3 +182,10 @@ YYYY-MM-DD - 标题
 - 影响表：`sup_events`、`sup_event_results`、`sup_event_result_sources`、`sup_event_result_submissions`、`sup_athletes`、`sup_athlete_identity_links`、`sup_club_team_aliases`。本次导入触达并同步 269 名运动员战绩缓存；提交记录 `submission_id=30` 状态更新为 `imported`。
 - 影响接口/页面：`/events/381`、`/api/events/381/results`、`/results`、`/api/results`、运动员详情页战绩面板。公开页面仅展示 280 条已核验成绩；`#VALUE!` 的 2 条记录（卡佳 Kate、刘丽）保留在后台为 `needs_review` 且 `is_verified=0`，待人工修正后再公开。
 - 回滚/核验：核验生产库 `sup_event_results` 中 `event_id=381` 共 282 条，含 249 条正常成绩、31 条 DNS、2 条待核验；6 个成绩模块均仅有 1 个正常第一名。来源 PDF 返回 200，公开 API 返回 280 条成绩、0 条积分；如需回滚，应先删除 `event_id=381` 关联的 `sup_event_results`、`sup_event_result_sources`，再视情况清理本次自动创建且无其他成绩关联的运动员实体、身份链接和提交记录状态。
+
+### 2026-06-14 - 录入 2026 长三角皮划艇桨板大赛暨苏州市桨板系列赛吴江站报名信息
+
+- 变更：根据苏州市皮划艇桨板协会公众号文章，创建或更新生产赛事 `2026第十届长三角皮划艇桨板大赛暨2026苏州市桨板系列赛吴江站`（2026-06-27，江苏省苏州市苏州湾旅游区顾家荡路码头）。本次仅录入报名公告、赛程、组别名额、奖励办法和路线图，不录入成绩或积分；报名截止时间已过，前台不展示报名入口。
+- 影响表：`sup_events`、`sup_event_categories`、`sup_event_category_prizes`。不影响 `sup_event_results`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`，不会自动创建运动员或同步战绩缓存。
+- 影响接口/页面：赛事列表、赛事详情页、`/api/events`、`/api/events/[id]`。该赛事 `result_status='none'`，成绩/积分查询不会新增记录。
+- 回滚/核验：核验该赛事组别共 10 条、名额合计 440、逐名次奖金 80 条，且成绩与积分关联记录均为 0。如需回滚，按 `event_id` 删除 `sup_event_category_prizes`、`sup_event_categories`，再删除 `sup_events` 记录。
