@@ -175,3 +175,10 @@ YYYY-MM-DD - 标题
 - 影响表：`sup_events`、`sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`、`sup_event_result_submissions`、`sup_athletes`、`sup_athlete_identity_links`、`sup_club_team_aliases`。本次导入包含双人项目成员明细 256 条，触达并同步 108 名运动员战绩缓存；提交记录 `submission_id=29` 状态更新为 `imported`。
 - 影响接口/页面：`/events/357`、`/api/events/357/results`、`/results`、`/api/results`、运动员详情页战绩面板。公开页面继续按现有隐私规则展示，不改变成绩/积分权限口径。
 - 回滚/核验：核验生产库 `sup_event_results` 中 `event_id=357` 共 208 条，含 193 条正常成绩、13 条 DNS、1 条 DNF、1 条 DSQ；32 个成绩模块均仅有 1 个正常第一名。来源 PDF 返回 200；如需回滚，应先删除 `event_id=357` 关联的 `sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`，再视情况清理本次自动创建且无其他成绩关联的运动员实体、身份链接和提交记录状态。
+
+### 2026-06-14 - 录入 2026 杭州桨板系列赛-西溪湿地上午成人组成绩
+
+- 变更：为用户提交批次 `mp_1781419973432_ofobbfxv` 创建生产赛事 `event_id=381`（`2026杭州桨板系列赛-西溪湿地`，2026-06-14，浙江省杭州市西溪湿地），从 1 份成绩册 PDF 导入 5 公里和 7 公里成人组成绩共 282 条。成绩册无积分列，本次仅录入成绩，不生成积分明细。
+- 影响表：`sup_events`、`sup_event_results`、`sup_event_result_sources`、`sup_event_result_submissions`、`sup_athletes`、`sup_athlete_identity_links`、`sup_club_team_aliases`。本次导入触达并同步 269 名运动员战绩缓存；提交记录 `submission_id=30` 状态更新为 `imported`。
+- 影响接口/页面：`/events/381`、`/api/events/381/results`、`/results`、`/api/results`、运动员详情页战绩面板。公开页面仅展示 280 条已核验成绩；`#VALUE!` 的 2 条记录（卡佳 Kate、刘丽）保留在后台为 `needs_review` 且 `is_verified=0`，待人工修正后再公开。
+- 回滚/核验：核验生产库 `sup_event_results` 中 `event_id=381` 共 282 条，含 249 条正常成绩、31 条 DNS、2 条待核验；6 个成绩模块均仅有 1 个正常第一名。来源 PDF 返回 200，公开 API 返回 280 条成绩、0 条积分；如需回滚，应先删除 `event_id=381` 关联的 `sup_event_results`、`sup_event_result_sources`，再视情况清理本次自动创建且无其他成绩关联的运动员实体、身份链接和提交记录状态。
