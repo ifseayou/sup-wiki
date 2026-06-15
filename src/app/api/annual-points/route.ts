@@ -202,17 +202,20 @@ export async function GET(request: NextRequest) {
 
     const total = Number(countRows[0]?.total || 0);
     const preview = applyPublicPreview(items, access);
-    // 搜索日志写库不阻塞响应（远程 MySQL 往返，仅审计用途）。
-    void writeSearchLog(request, {
-      entry: 'annual_points',
-      keyword: search || athleteName || String(athleteId || ''),
-      resultCount: total,
-      durationMs: Date.now() - startedAt,
-      detail: {
-        path: request.nextUrl.pathname,
-        query: Object.fromEntries(request.nextUrl.searchParams.entries()),
-      },
-    }).catch(() => {});
+    const searchKeyword = (search || athleteName).trim();
+    if (searchKeyword) {
+      // 搜索日志写库不阻塞响应（远程 MySQL 往返，仅审计用途）。
+      void writeSearchLog(request, {
+        entry: 'annual_points',
+        keyword: searchKeyword,
+        resultCount: total,
+        durationMs: Date.now() - startedAt,
+        detail: {
+          path: request.nextUrl.pathname,
+          query: Object.fromEntries(request.nextUrl.searchParams.entries()),
+        },
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       type,

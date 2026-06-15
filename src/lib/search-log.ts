@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import pool from '@/lib/db';
 import { getUserFromRequest } from '@/lib/user-auth';
 
-type SearchLogEntry = 'race_results' | 'annual_points' | 'event_results' | 'sup_search';
+type SearchLogEntry = 'race_results' | 'annual_points' | 'sup_search';
 
 export async function ensureSearchLogTable() {
   await pool.execute(`
@@ -43,6 +43,9 @@ export async function writeSearchLog(
   }
 ) {
   try {
+    const keyword = String(input.keyword || '').trim();
+    if (!keyword) return;
+
     await ensureSearchLogTable();
     const user = getUserFromRequest(request);
     await pool.execute(
@@ -53,7 +56,7 @@ export async function writeSearchLog(
         user?.user_id || null,
         user?.nickname || null,
         input.entry,
-        String(input.keyword || '').slice(0, 255),
+        keyword.slice(0, 255),
         JSON.stringify(input.detail || {}),
         Math.max(0, Number(input.resultCount || 0)),
         input.durationMs === undefined ? null : Math.max(0, Number(input.durationMs || 0)),

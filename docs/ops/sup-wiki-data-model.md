@@ -196,3 +196,10 @@ YYYY-MM-DD - 标题
 - 影响表：`sup_events`、`sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`、`sup_event_result_submissions`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`、`sup_club_team_aliases`。本次导入触达并同步 298 名运动员战绩缓存；提交记录 `submission_id=31` 状态更新为 `imported`，来源记录 `source_id=466`。
 - 影响接口/页面：`/events/358`、`/api/events/358/results`、`/results`、`/api/results`、运动员详情页战绩面板。公开页面按现有隐私规则展示成绩和团体积分；`/api/events/358/results` 返回 17 个成绩模块和 1 个团体总分积分模块。
 - 回滚/核验：核验生产库 `sup_event_results` 中 `event_id=358` 共 293 条，含 256 条正常成绩、20 条 DNS、12 条 DNF、5 条 DSQ；17 个成绩模块均仅有 1 个正常第一名。`sup_event_point_standings` 中 `group_name='团体总分'` 共 47 条，前三名为宁波甬炫旅游文化发展有限公司 2628 分、澄爸玩桨板 2576 分、宁波栖拓文旅有限公司 2252 分。来源 PDF 与 `/events/358` 均返回 200；如需回滚，应先删除 `event_id=358` 关联的 `sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`、`sup_event_point_standings`，再视情况清理本次自动创建且无其他成绩关联的运动员实体、身份链接和提交记录状态。
+
+### 2026-06-15 - 搜索日志改为仅记录关键词查询并清理历史脏数据
+
+- 变更：搜索日志口径收紧为只记录用户主动输入关键词后的成绩/积分/SUP 搜索；赛事详情页成绩浏览、运动员详情页 `athlete_id` 查询、分页筛选、空关键词查询不再写入。
+- 影响表：`sup_search_logs` 无结构变更。生产库先备份命中清理规则的 2476 条记录到 `sup_search_logs_backup_20260615_cleanup`，随后从 `sup_search_logs` 硬删除这些无效记录。
+- 影响接口/页面：`/api/results`、`/api/annual-points`、`/api/events/[id]/results`、`/api/admin/search-logs`、`/admin/search-logs`。后台搜索日志时间按 `created_at` 直接格式化，不再做二次 `+08:00` 转换。
+- 回滚/核验：生产核验 `dirty_remaining=0`，剩余 `sup_search_logs` 964 条，均为 `race_results` 或 `annual_points` 的真实关键词记录。如需回滚历史数据，可从 `sup_search_logs_backup_20260615_cleanup` 按 `log_id` 插回。

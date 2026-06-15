@@ -4,7 +4,6 @@ import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import { getResultPaceDisplay } from '@/lib/result-pace';
-import { writeSearchLog } from '@/lib/search-log';
 import { filterAndMaskRaceResults, getViewerOwnedAthleteIds, maskAthleteIdentityRows } from '@/lib/result-privacy';
 import type { RowDataPacket } from 'mysql2';
 
@@ -33,7 +32,6 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const startedAt = Date.now();
   try {
     const { id } = await params;
     const eventId = Number(id);
@@ -184,16 +182,6 @@ export async function GET(
         };
       });
       const preview = applyPublicPreview(rowsWithPace, access);
-      await writeSearchLog(request, {
-        entry: 'event_results',
-        keyword: [discipline, genderGroup, boardClass].filter(Boolean).join(' '),
-        resultCount: total,
-        durationMs: Date.now() - startedAt,
-        detail: {
-          path: request.nextUrl.pathname,
-          query: Object.fromEntries(request.nextUrl.searchParams.entries()),
-        },
-      });
       return NextResponse.json({
         section,
         discipline,
@@ -254,16 +242,6 @@ export async function GET(
       const viewer = await getViewerOwnedAthleteIds(request);
       const pointRows = await maskAthleteIdentityRows(rawPointRows, viewer);
       const preview = applyPublicPreview(pointRows, access);
-      await writeSearchLog(request, {
-        entry: 'event_results',
-        keyword: groupName,
-        resultCount: total,
-        durationMs: Date.now() - startedAt,
-        detail: {
-          path: request.nextUrl.pathname,
-          query: Object.fromEntries(request.nextUrl.searchParams.entries()),
-        },
-      });
       return NextResponse.json({
         section,
         group_name: groupName,
@@ -366,16 +344,6 @@ export async function GET(
     });
     const resultPreview = applyPublicPreview(rowsWithPace, access);
     const pointPreview = applyPublicPreview(pointRows, access);
-    await writeSearchLog(request, {
-      entry: 'event_results',
-      keyword: `event:${eventId}`,
-      resultCount: rowsWithPace.length + pointRows.length,
-      durationMs: Date.now() - startedAt,
-      detail: {
-        path: request.nextUrl.pathname,
-        query: Object.fromEntries(request.nextUrl.searchParams.entries()),
-      },
-    });
     return NextResponse.json({
       section,
       items: resultPreview.items,

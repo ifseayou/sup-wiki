@@ -27,7 +27,11 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const pageSize = Math.min(100, Math.max(10, Number(url.searchParams.get('pageSize') || 30)));
     const offset = (page - 1) * pageSize;
 
-    const conditions: string[] = [];
+    const conditions: string[] = [
+      "TRIM(l.keyword) <> ''",
+      "l.entry <> 'event_results'",
+      "l.keyword NOT IN ('race_results', 'annual_points')",
+    ];
     const params: (string | number)[] = [];
     if (keyword) {
       conditions.push('l.keyword LIKE ?');
@@ -42,11 +46,11 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params.push(entry);
     }
     if (start) {
-      conditions.push("DATE(CONVERT_TZ(l.created_at, '+00:00', '+08:00')) >= ?");
+      conditions.push('DATE(l.created_at) >= ?');
       params.push(start);
     }
     if (end) {
-      conditions.push("DATE(CONVERT_TZ(l.created_at, '+00:00', '+08:00')) <= ?");
+      conditions.push('DATE(l.created_at) <= ?');
       params.push(end);
     }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -63,7 +67,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
          l.*,
          u.nickname AS user_nickname,
          u.email AS user_email,
-         DATE_FORMAT(CONVERT_TZ(l.created_at, '+00:00', '+08:00'), '%Y-%m-%d %H:%i:%s') AS created_at_display
+         DATE_FORMAT(l.created_at, '%Y-%m-%d %H:%i:%s') AS created_at_display
        FROM sup_search_logs l
        LEFT JOIN sup_users u ON u.user_id = l.user_id
        ${where}

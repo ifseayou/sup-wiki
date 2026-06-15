@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get('search')?.trim();
+    const search = searchParams.get('search')?.trim() || '';
     const gender = searchParams.get('gender')?.trim();
     const discipline = searchParams.get('discipline')?.trim();
     const eventId = searchParams.get('event_id');
@@ -342,17 +342,19 @@ export async function GET(request: NextRequest) {
       : enrichedItems;
     const preview = applyPublicPreview(responseItems, access);
 
-    // 搜索日志写库不阻塞响应（远程 MySQL 往返，仅审计用途）。
-    void writeSearchLog(request, {
-      entry: 'race_results',
-      keyword: search || '',
-      resultCount: total,
-      durationMs: Date.now() - startedAt,
-      detail: {
-        path: request.nextUrl.pathname,
-        query: Object.fromEntries(request.nextUrl.searchParams.entries()),
-      },
-    }).catch(() => {});
+    if (search.trim()) {
+      // 搜索日志写库不阻塞响应（远程 MySQL 往返，仅审计用途）。
+      void writeSearchLog(request, {
+        entry: 'race_results',
+        keyword: search,
+        resultCount: total,
+        durationMs: Date.now() - startedAt,
+        detail: {
+          path: request.nextUrl.pathname,
+          query: Object.fromEntries(request.nextUrl.searchParams.entries()),
+        },
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       items: preview.items,
