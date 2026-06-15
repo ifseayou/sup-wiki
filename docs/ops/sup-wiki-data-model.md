@@ -189,3 +189,10 @@ YYYY-MM-DD - 标题
 - 影响表：`sup_events`、`sup_event_categories`、`sup_event_category_prizes`。不影响 `sup_event_results`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`，不会自动创建运动员或同步战绩缓存。
 - 影响接口/页面：赛事列表、赛事详情页、`/api/events`、`/api/events/[id]`。该赛事 `result_status='none'`，成绩/积分查询不会新增记录。
 - 回滚/核验：核验该赛事组别共 10 条、名额合计 440、逐名次奖金 80 条，且成绩与积分关联记录均为 0。如需回滚，按 `event_id` 删除 `sup_event_category_prizes`、`sup_event_categories`，再删除 `sup_events` 记录。
+
+### 2026-06-15 - 录入 2026 绿水青山挑战赛宁波北仑站成绩与团体积分
+
+- 变更：为用户提交批次 `mp_1781489980326_rdfi0mec` 绑定既有生产赛事 `event_id=358`（`2026年“绿水青山”中国休闲运动挑战赛（宁波站）`，浙江省宁波市梅山湾），从 1 份成绩册 PDF 导入个人两项赛、路跑单项、桨板单项、男女混合双人接力成绩共 293 条，并从成绩册团体总分页导入团体积分 47 条。
+- 影响表：`sup_events`、`sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`、`sup_event_result_submissions`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`、`sup_club_team_aliases`。本次导入触达并同步 298 名运动员战绩缓存；提交记录 `submission_id=31` 状态更新为 `imported`，来源记录 `source_id=466`。
+- 影响接口/页面：`/events/358`、`/api/events/358/results`、`/results`、`/api/results`、运动员详情页战绩面板。公开页面按现有隐私规则展示成绩和团体积分；`/api/events/358/results` 返回 17 个成绩模块和 1 个团体总分积分模块。
+- 回滚/核验：核验生产库 `sup_event_results` 中 `event_id=358` 共 293 条，含 256 条正常成绩、20 条 DNS、12 条 DNF、5 条 DSQ；17 个成绩模块均仅有 1 个正常第一名。`sup_event_point_standings` 中 `group_name='团体总分'` 共 47 条，前三名为宁波甬炫旅游文化发展有限公司 2628 分、澄爸玩桨板 2576 分、宁波栖拓文旅有限公司 2252 分。来源 PDF 与 `/events/358` 均返回 200；如需回滚，应先删除 `event_id=358` 关联的 `sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`、`sup_event_point_standings`，再视情况清理本次自动创建且无其他成绩关联的运动员实体、身份链接和提交记录状态。
