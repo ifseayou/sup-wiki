@@ -203,3 +203,10 @@ YYYY-MM-DD - 标题
 - 影响表：`sup_search_logs` 无结构变更。生产库先备份命中清理规则的 2476 条记录到 `sup_search_logs_backup_20260615_cleanup`，随后从 `sup_search_logs` 硬删除这些无效记录。
 - 影响接口/页面：`/api/results`、`/api/annual-points`、`/api/events/[id]/results`、`/api/admin/search-logs`、`/admin/search-logs`。后台搜索日志时间按 `created_at` 直接格式化，不再做二次 `+08:00` 转换。
 - 回滚/核验：生产核验 `dirty_remaining=0`，剩余 `sup_search_logs` 964 条，均为 `race_results` 或 `annual_points` 的真实关键词记录。如需回滚历史数据，可从 `sup_search_logs_backup_20260615_cleanup` 按 `log_id` 插回。
+
+### 2026-06-16 - 录入 2026 龙虎山第五届桨板大赛报名公告
+
+- 变更：根据鹰潭马拉松公众号文章，创建生产赛事 `event_id=384`（`2026“龙虎天下绝”龙虎山第五届桨板大赛暨“运动赣鄱·活力江西”江西省第十七届运动会（社会部）鹰潭市桨板选拔赛`，2026-06-20 至 2026-06-21，江西省鹰潭市龙虎山风景名胜区）。本次仅录入赛事报名公告、日程、参赛要求、费用、奖金和报名二维码，不录入成绩或积分。
+- 影响表：`sup_events`、`sup_event_categories`、`sup_event_category_prizes`、`sup_event_officials`、`sup_event_submissions`。不影响 `sup_event_results`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`，不会自动创建运动员或同步战绩缓存。
+- 影响接口/页面：赛事列表、赛事详情页、`/api/events`、`/api/events/384`。该赛事 `result_status='none'`，成绩/积分查询不会新增记录；提报 `submission_id=1` 已标记为 `ingested` 并关联 `event_id=384`。
+- 回滚/核验：核验该赛事组别 5 条、逐名次奖金 78 条、技术官员占位 2 条，赛事状态 `published/upcoming`，星级 `三星`、系数 `3.0`。如需回滚，按 `event_id=384` 删除 `sup_event_category_prizes`、`sup_event_categories`、`sup_event_officials`，再删除 `sup_events` 记录，并将对应 `sup_event_submissions` 恢复为 `pending`。
