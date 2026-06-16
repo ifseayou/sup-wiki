@@ -197,6 +197,13 @@ YYYY-MM-DD - 标题
 - 影响接口/页面：`/events/358`、`/api/events/358/results`、`/results`、`/api/results`、运动员详情页战绩面板。公开页面按现有隐私规则展示成绩和团体积分；`/api/events/358/results` 返回 17 个成绩模块和 1 个团体总分积分模块。
 - 回滚/核验：核验生产库 `sup_event_results` 中 `event_id=358` 共 293 条，含 256 条正常成绩、20 条 DNS、12 条 DNF、5 条 DSQ；17 个成绩模块均仅有 1 个正常第一名。`sup_event_point_standings` 中 `group_name='团体总分'` 共 47 条，前三名为宁波甬炫旅游文化发展有限公司 2628 分、澄爸玩桨板 2576 分、宁波栖拓文旅有限公司 2252 分。来源 PDF 与 `/events/358` 均返回 200；如需回滚，应先删除 `event_id=358` 关联的 `sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`、`sup_event_point_standings`，再视情况清理本次自动创建且无其他成绩关联的运动员实体、身份链接和提交记录状态。
 
+### 2026-06-16 - 录入第二届亚洲桨板锦标赛与中国运动员选拔办法
+
+- 变更：根据体育总局水上中心 2026-04-28 公示的《第二届亚洲桨板锦标赛中国运动员选拔办法》，创建或更新赛事 `第二届亚洲桨板锦标赛`（2026-08-06 至 2026-08-08，日本京都府京丹后市），并将中国运动员选拔条件、报名截止、积分截止、项目和组别写入赛事详情与参赛指南。
+- 影响表：`sup_events`、`sup_event_categories`。本次仅录入赛事与选拔办法信息，生成 30 条项目/组别结构化记录；不影响 `sup_event_results`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`，不会自动创建运动员或同步战绩缓存。
+- 影响接口/页面：赛事列表、赛事详情页、`/api/events`、`/api/events/[id]`。该赛事按亚洲级锦标赛口径记录为 `五星+ / 5.5`、`source_scope='亚洲'`，`result_status='none'`。
+- 回滚/核验：按 slug `asian-sup-championship-kyotango-2026` 核验赛事存在、状态为 `published/upcoming`、组别数为 30。如需回滚，按 `event_id` 删除 `sup_event_categories` 后删除 `sup_events` 记录。
+
 ### 2026-06-15 - 搜索日志改为仅记录关键词查询并清理历史脏数据
 
 - 变更：搜索日志口径收紧为只记录用户主动输入关键词后的成绩/积分/SUP 搜索；赛事详情页成绩浏览、运动员详情页 `athlete_id` 查询、分页筛选、空关键词查询不再写入。

@@ -76,7 +76,12 @@ export async function GET(
     }
 
     const event = rows[0];
-    const parseJson = (v: unknown) => Array.isArray(v) ? v : (v ? JSON.parse(String(v)) : []);
+    const parseJson = (v: unknown) => {
+      if (!v) return [];
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'object') return v;
+      return JSON.parse(String(v));
+    };
     const token = extractToken(_request.headers.get('authorization'));
     const user = token ? verifyUserToken(token) : null;
     const [results] = user ? await pool.execute<EventResultRow[]>(
