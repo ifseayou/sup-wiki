@@ -53,6 +53,9 @@ interface AthleteRaceTimeRow extends RowDataPacket {
   start_date: string | null;
   event_id: number;
   event_name: string;
+  discipline_family: string | null;
+  normalized_discipline_key: string | null;
+  entry_type: string | null;
 }
 
 export function parseJsonArray<T>(value: unknown): T[] {
@@ -373,6 +376,9 @@ export async function syncAthleteRaceTimes(connection: PoolConnection, athleteId
        er.result_status_code,
        er.result_status_note,
        er.rank_position,
+       er.discipline_family,
+       er.normalized_discipline_key,
+       er.entry_type,
        e.start_date,
        e.event_id,
        e.name AS event_name
@@ -394,6 +400,10 @@ export async function syncAthleteRaceTimes(connection: PoolConnection, athleteId
     time: row.finish_time,
     status: row.result_status_code || undefined,
     status_label: row.result_status_code ? getResultStatusLabel(row.result_status_code, row.result_status_note) : undefined,
+    // 个人主页分模块/团体分区用：项目族 + 个人/团体
+    family: row.discipline_family || 'unknown',
+    entry_type: row.entry_type === 'team' ? 'team' : 'individual',
+    is_team: row.entry_type === 'team',
   }));
 
   await connection.execute(
@@ -407,17 +417,22 @@ interface NormalizedResultFields {
   discipline_family: string;
   normalized_group_key: string;
   norm_confidence: number;
+  entry_type: 'individual' | 'team';
 }
 
-/** 计算单条成绩的标准化字段（项目key/族/组别key/置信度）。置信度取项目与组别的较小值。 */
+/** 计算单条成绩的标准化字段（项目key/族/组别key/置信度/个人或团体）。置信度取项目与组别的较小值。 */
 function computeNormalizedResultFields(result: EventResultInput): NormalizedResultFields {
   const disc = normalizeResultDiscipline(result.discipline, result.board_class, result.round_label);
   const grp = normalizeResultGroup(result.gender_group || '公开组', result.board_class, result.team_name);
+  // 团体：项目族为 team / 标准化为团体事件 / 挂 ≥2 名队员
+  const isTeam = disc.family === 'team' || disc.is_team_event === true
+    || parseTeamMembersInput(result.team_members).length >= 2;
   return {
     normalized_discipline_key: disc.normalized_key,
     discipline_family: disc.family,
     normalized_group_key: grp.normalized_group_key,
     norm_confidence: Math.min(disc.confidence, grp.confidence),
+    entry_type: isTeam ? 'team' : 'individual',
   };
 }
 
@@ -478,8 +493,8 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
         event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
         rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized, nationality_snapshot,
         source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified,
-        normalized_discipline_key, discipline_family, normalized_group_key, norm_confidence, category_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        normalized_discipline_key, discipline_family, entry_type, normalized_group_key, norm_confidence, category_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
         athleteId,
@@ -510,6 +525,7 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
         result.is_verified !== false ? 1 : 0,
         norm.normalized_discipline_key,
         norm.discipline_family,
+        norm.entry_type,
         norm.normalized_group_key,
         norm.norm_confidence,
         categoryId,
@@ -548,8 +564,8 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
         event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
         rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized, nationality_snapshot,
         source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified,
-        normalized_discipline_key, discipline_family, normalized_group_key, norm_confidence, category_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        normalized_discipline_key, discipline_family, entry_type, normalized_group_key, norm_confidence, category_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         result_id = LAST_INSERT_ID(result_id),
         athlete_id = VALUES(athlete_id),
@@ -573,6 +589,7 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
         is_verified = VALUES(is_verified),
         normalized_discipline_key = VALUES(normalized_discipline_key),
         discipline_family = VALUES(discipline_family),
+        entry_type = VALUES(entry_type),
         normalized_group_key = VALUES(normalized_group_key),
         norm_confidence = VALUES(norm_confidence),
         category_id = VALUES(category_id)`,
@@ -606,6 +623,7 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
         result.is_verified !== false ? 1 : 0,
         norm.normalized_discipline_key,
         norm.discipline_family,
+        norm.entry_type,
         norm.normalized_group_key,
         norm.norm_confidence,
         categoryId,

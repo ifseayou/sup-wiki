@@ -56,7 +56,7 @@ async function main() {
     const evParams = ONLY_EVENT ? [ONLY_EVENT] : [];
     const [rows] = await c.execute(
       `SELECT er.result_id, er.event_id, er.discipline, er.gender_group, er.board_class, er.round_label,
-              er.rank_position, er.bib_number, er.athlete_name_snapshot, er.finish_time,
+              er.rank_position, er.bib_number, er.athlete_name_snapshot, er.finish_time, er.entry_type,
               er.result_status_code, er.athlete_id, a.gender AS athlete_gender, a.gender_source
        FROM sup_event_results er
        LEFT JOIN sup_athletes a ON a.athlete_id = er.athlete_id
@@ -82,6 +82,8 @@ async function main() {
 
     const findings = []; // {event_id, unit, issues:[], detail}
     for (const u of units.values()) {
+      // 团体/龙板/接力/家庭/混双单元不做个人口径校验(多第一/名次连续/性别错组)——其名次/组别语义与个人不同
+      if (u.rows.every((r) => r.entry_type === 'team')) continue;
       // 完赛者：无 DNS/DNF 状态码 且 名次非哨兵值(<9000)。哨兵 9001+ 是非完赛占位（部分缺状态码）。
       const completers = u.rows.filter((r) => (!r.result_status_code || String(r.result_status_code).trim() === '') && Number(r.rank_position) < 9000);
       const issues = [];

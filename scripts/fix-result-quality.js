@@ -41,6 +41,7 @@ async function syncAthleteRaceTimes(conn, athleteId) {
   const [rows] = await conn.execute(
     `SELECT DISTINCT er.discipline, er.round_label, er.result_label, er.finish_time,
             er.result_status_code, er.result_status_note, er.rank_position,
+            er.discipline_family, er.entry_type,
             e.start_date, e.event_id, e.name AS event_name
      FROM sup_event_results er
      INNER JOIN sup_events e ON e.event_id = er.event_id
@@ -56,6 +57,9 @@ async function syncAthleteRaceTimes(conn, athleteId) {
     round: row.round_label || undefined, result: row.result_label || undefined,
     time: row.finish_time, status: row.result_status_code || undefined,
     status_label: row.result_status_note || undefined,
+    family: row.discipline_family || 'unknown',
+    entry_type: row.entry_type === 'team' ? 'team' : 'individual',
+    is_team: row.entry_type === 'team',
   }));
   await conn.execute('UPDATE sup_athletes SET race_times = ? WHERE athlete_id = ?', [JSON.stringify(raceTimes), athleteId]);
 }

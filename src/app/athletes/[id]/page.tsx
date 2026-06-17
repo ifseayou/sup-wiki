@@ -10,6 +10,7 @@ import pool from '@/lib/db';
 import { verifyUserToken } from '@/lib/auth';
 import { normalizeNationality } from '@/lib/nationality';
 import { athleteOwnerCondition, getAthletePrivacyState } from '@/lib/result-privacy';
+import { resultModuleKey, RESULT_MODULE_ORDER, RESULT_MODULE_LABEL, RESULT_MODULE_ICON, type ResultModuleKey } from '@/lib/discipline-modules';
 import type { RowDataPacket } from 'mysql2';
 import { marked } from 'marked';
 
@@ -54,6 +55,9 @@ interface RaceTime {
   time: string;         // 耗时，格式自由："57.124"（秒）或 "38:23"（分:秒）等
   note?: string;        // 备注（可选）
   event_id?: number;
+  family?: string;      // 项目族：sprint/distance/marathon/technical/team/special/unknown
+  entry_type?: string;  // individual / team
+  is_team?: boolean;    // 团体成绩
 }
 
 interface AnnualPointSummary extends RowDataPacket {
@@ -265,17 +269,15 @@ export default async function AthleteDetailPage({
       ? athlete.race_times as RaceTime[]
       : (athlete.race_times ? JSON.parse(String(athlete.race_times)) : []);
 
-  // 按距离分组
-  const raceTimesByDistance = rawRaceTimes.reduce<Record<string, RaceTime[]>>((acc, rt) => {
-    (acc[rt.distance] ||= []).push(rt);
+  // 先按模块(长距离/竞速/技术/团体/其他)分区，模块内再按距离分组
+  const moduleGroups = rawRaceTimes.reduce<Record<ResultModuleKey, Record<string, RaceTime[]>>>((acc, rt) => {
+    const mk = resultModuleKey({ entry_type: rt.entry_type, family: rt.family, is_team: rt.is_team });
+    (acc[mk] ||= {});
+    (acc[mk][rt.distance] ||= []).push(rt);
     return acc;
-  }, {});
-
-  const distanceKeys = Object.keys(raceTimesByDistance).sort((a, b) => {
-    const oa = distanceLabels[a]?.order ?? 99;
-    const ob = distanceLabels[b]?.order ?? 99;
-    return oa - ob;
-  });
+  }, {} as Record<ResultModuleKey, Record<string, RaceTime[]>>);
+  const moduleKeys = RESULT_MODULE_ORDER.filter((mk) => moduleGroups[mk] && Object.keys(moduleGroups[mk]).length > 0);
+  const sortDistances = (g: Record<string, RaceTime[]>) => Object.keys(g).sort((a, b) => (distanceLabels[a]?.order ?? 99) - (distanceLabels[b]?.order ?? 99));
   const profileCompleteness = Math.round(([
     athlete.photo,
     livingLocation,
@@ -408,59 +410,73 @@ export default async function AthleteDetailPage({
 
       {!isMinimalProfile && <AthleteResultsPanel athleteId={athleteId} athleteName={athlete.name} />}
 
-      {/* ── 关键项目耗时 ──────────────────────────────────── */}
-      {distanceKeys.length > 0 && (
+      {/* ── 成绩分模块：长距离 / 竞速 / 技术 / 团体 ─────────────── */}
+      {moduleKeys.length > 0 && (
         <div style={{ background: '#FEFCF9', border: '1px solid #EDE5D8', borderRadius: 14, padding: '28px 32px', marginBottom: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <div style={{ width: 3, height: 20, background: '#7A6145', borderRadius: 2 }} />
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', margin: 0 }}>关键项目耗时</h2>
-            <span style={{ fontSize: 12, color: '#A08060', marginLeft: 6 }}>（核心竞速距离的公开可查成绩）</span>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400, color: '#2E2118', margin: 0 }}>成绩记录</h2>
+            <span style={{ fontSize: 12, color: '#A08060', marginLeft: 6 }}>（按 长距离 / 竞速 / 技术 分模块；团体赛单独列出）</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-            {distanceKeys.map(dk => {
-              const meta = distanceLabels[dk] || { label: dk, icon: '⏱' };
-              const rows = raceTimesByDistance[dk];
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
+            {moduleKeys.map((mk) => {
+              const distances = sortDistances(moduleGroups[mk]);
+              const isTeamMod = mk === 'team';
               return (
-                <div key={dk}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <span style={{ fontSize: 16 }}>{meta.icon}</span>
-                    <h3 style={{ fontSize: 15, fontWeight: 600, color: '#2E2118', margin: 0 }}>{meta.label}</h3>
+                <div key={mk}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 8, borderBottom: '2px solid #EFE4D5' }}>
+                    <span style={{ fontSize: 18 }}>{RESULT_MODULE_ICON[mk]}</span>
+                    <h3 style={{ fontSize: 17, fontWeight: 700, color: '#2E2118', margin: 0 }}>{RESULT_MODULE_LABEL[mk]}</h3>
+                    {isTeamMod && <span style={{ fontSize: 11, color: '#A08060' }}>（龙板 / 接力 / 家庭 / 混双等，不计入个人项目）</span>}
                   </div>
-
-                  <div style={{ border: '1px solid #EDE5D8', borderRadius: 10, overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ background: '#F5EDE4', color: '#655D56' }}>
-                          <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500 }}>赛事</th>
-                          <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500, width: 110 }}>轮次 / 名次</th>
-                          <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 500, width: 90 }}>用时</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((rt, i) => (
-                          <tr key={i} style={{ borderTop: i === 0 ? 'none' : '1px solid #F0EAE0' }}>
-                            <td style={{ padding: '10px 12px', color: '#3D3730', lineHeight: 1.55 }}>
-                              {rt.year && <span style={{ color: '#8A8078', marginRight: 6 }}>{rt.year}</span>}
-                              {rt.event_id ? (
-                                <Link href={`/events/${rt.event_id}`} style={{ color: '#7A6145', textDecoration: 'none' }}>
-                                  {rt.event}
-                                </Link>
-                              ) : rt.event}
-                              {rt.note && (
-                                <div style={{ fontSize: 11, color: '#8A8078', marginTop: 3, fontStyle: 'italic' }}>※ {rt.note}</div>
-                              )}
-                            </td>
-                            <td style={{ padding: '10px 12px', color: '#655D56' }}>
-                              {rt.round || rt.result || '—'}
-                            </td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, color: '#7A6145', fontWeight: 600 }}>
-                              {rt.time}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    {distances.map((dk) => {
+                      const meta = distanceLabels[dk] || { label: dk, icon: isTeamMod ? '👥' : '⏱' };
+                      const rows = moduleGroups[mk][dk];
+                      return (
+                        <div key={dk}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            <span style={{ fontSize: 15 }}>{meta.icon}</span>
+                            <h4 style={{ fontSize: 14, fontWeight: 600, color: '#3D3730', margin: 0 }}>{isTeamMod ? dk : meta.label}</h4>
+                          </div>
+                          <div style={{ border: '1px solid #EDE5D8', borderRadius: 10, overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                              <thead>
+                                <tr style={{ background: '#F5EDE4', color: '#655D56' }}>
+                                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500 }}>赛事</th>
+                                  <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 500, width: 110 }}>轮次 / 名次</th>
+                                  <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 500, width: 90 }}>用时</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((rt, i) => (
+                                  <tr key={i} style={{ borderTop: i === 0 ? 'none' : '1px solid #F0EAE0' }}>
+                                    <td style={{ padding: '10px 12px', color: '#3D3730', lineHeight: 1.55 }}>
+                                      {rt.year && <span style={{ color: '#8A8078', marginRight: 6 }}>{rt.year}</span>}
+                                      {rt.event_id ? (
+                                        <Link href={`/events/${rt.event_id}`} style={{ color: '#7A6145', textDecoration: 'none' }}>
+                                          {rt.event}
+                                        </Link>
+                                      ) : rt.event}
+                                      {rt.note && (
+                                        <div style={{ fontSize: 11, color: '#8A8078', marginTop: 3, fontStyle: 'italic' }}>※ {rt.note}</div>
+                                      )}
+                                    </td>
+                                    <td style={{ padding: '10px 12px', color: '#655D56' }}>
+                                      {rt.round || rt.result || '—'}
+                                    </td>
+                                    <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-display)', fontSize: 15, color: '#7A6145', fontWeight: 600 }}>
+                                      {rt.time}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
