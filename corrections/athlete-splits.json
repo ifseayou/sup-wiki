@@ -1,0 +1,30 @@
+{
+  "batch_note": "同名身份拆分：5 个 athlete_id 实为两个不同真人(重名)，把少数派性别的成绩行拆到新建的同名异性运动员。已逐个 PDF 核对组别归属。",
+  "splits": [
+    {
+      "keep_aid": 834, "name": "王帅", "new_gender": "female",
+      "move_result_ids": [70602, 70859, 92547],
+      "note": "王帅(男,aid834,28行男子组)与王帅(女)重名；#314公开女子组 bib297、#358公开女子组 bib159 为女选手，拆出"
+    },
+    {
+      "keep_aid": 248, "name": "张洪", "new_gender": "male",
+      "move_result_ids": [46194, 46907, 67361, 90737],
+      "note": "张洪(女masters,aid248,19行女子组)与张洪(男)重名；#17公开男子组 bib1238、#232男子组-白银 bib457、#355充气板男子组 bibG1015 为男选手，拆出"
+    },
+    {
+      "keep_aid": 582, "name": "吴迪", "new_gender": "female",
+      "move_result_ids": [63747],
+      "note": "吴迪(男,aid582)与吴迪(女)重名；#267 PDF p8 女子公开组长距离 bibB175(小猴点灯文化)为女选手，拆出"
+    },
+    {
+      "keep_aid": 1597, "name": "张杰", "new_gender": "female",
+      "move_result_ids": [92469],
+      "note": "张杰(男,aid1597)与张杰(女)重名；#358 PDF p16 公开女子组路跑 bib667 为女选手，拆出"
+    },
+    {
+      "keep_aid": 2599, "name": "杨敏", "new_gender": "female",
+      "move_result_ids": [91004],
+      "note": "杨敏(男,aid2599,#191白水组-男子)与杨敏(女)重名；#355 PDF p31 卡胡纳组女子13公里 bibD987 为女选手，拆出"
+    }
+  ]
+}

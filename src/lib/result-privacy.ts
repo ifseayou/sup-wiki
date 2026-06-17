@@ -228,7 +228,9 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
       const owners = ownerMap.get(athleteId) || [];
       const isInternational = isInternationalResult(row);
       const isForeignAthlete = isForeignAthleteIdentity(row);
-      const isPublicForeignResult = isInternational || isForeignAthlete;
+      // 隐私/脱敏只按「选手是否外籍」判定，不再因赛事名含「国际/亚洲杯/世界」就整场公开。
+      // 国内(中国)未认领选手即使在国际命名赛事(亚洲杯/世锦赛/亚锦赛)也脱敏，仅外籍/已认领/本人显示全名。
+      const isPublicForeignResult = isForeignAthlete;
       const isMyAthlete = ownedAthleteIds.has(athleteId);
       const athleteIsClaimed = isPublicForeignResult || owners.length > 0;
       const viewerHasOwnedAthlete = ownedAthleteIds.size > 0;
