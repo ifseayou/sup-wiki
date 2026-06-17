@@ -217,7 +217,7 @@ export const POST = withAdmin(async (request: NextRequest) => {
   try {
     const body = await request.json();
     const {
-      name, name_en, slug, event_type, location, province, city, venue,
+      name, name_en, slug, event_type, location, province, city, nationality, venue,
       start_date, end_date, registration_deadline, organizer, description, requirements,
       website, registration_url, contact_info, images, schedule, disciplines,
       price_range, max_participants, status = 'draft', event_status = 'upcoming',
@@ -236,16 +236,16 @@ export const POST = withAdmin(async (request: NextRequest) => {
       await connection.beginTransaction();
 
       const [result] = await connection.execute<ResultSetHeader>(
-        `INSERT INTO sup_events (name, name_en, slug, event_type, location, province, city, venue, venue_lat, venue_lng,
+        `INSERT INTO sup_events (name, name_en, slug, event_type, location, province, city, nationality, venue, venue_lat, venue_lng,
           start_date, end_date, registration_deadline, organizer, description, requirements,
           website, registration_url, contact_info, images, schedule, disciplines,
           price_range, max_participants, star_level, score_coefficient, source_scope,
           result_status, result_source_note, result_source_links, event_guide, result_last_verified_at,
           status, event_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           name, name_en || null, slug, event_type || 'race',
-          location || null, province || null, city || null, venue || null, venueLat, venueLng,
+          location || null, province || null, city || null, nationality || null, venue || null, venueLat, venueLng,
           dateValue(start_date), dateValue(end_date), dateValue(registration_deadline),
           organizer || null, description || null, requirements || null,
           website || null, registration_url || null, contact_info || null,

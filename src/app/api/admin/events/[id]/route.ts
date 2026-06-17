@@ -113,6 +113,7 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
         location: (value) => optionalValue(value),
         province: (value) => optionalValue(value),
         city: (value) => optionalValue(value),
+        nationality: (value) => optionalValue(value),
         venue: (value) => optionalValue(value),
         venue_lat: (value) => coordOrNull(value),
         venue_lng: (value) => coordOrNull(value),

@@ -17,6 +17,9 @@ import {
   formatSourceLinksForTextarea,
   parseSourceLinksTextarea,
 } from '@/lib/event-results';
+import { getNationalityOptions, normalizeNationality } from '@/lib/nationality';
+
+const nationalityOptions = getNationalityOptions();
 
 function formatDateInput(value: unknown) {
   if (!value) return '';
@@ -150,6 +153,15 @@ function EventForm({ data, onChange, token }: { data: Record<string, unknown>; o
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">报名费</label>
           <input className={inp} value={String(data.price_range || '')} onChange={e => set('price_range', e.target.value)} placeholder="¥200-¥500" />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-xs text-warm-gray-400 mb-1">国家（举办国，同运动员国籍体系）</label>
+          <select className={inp} value={normalizeNationality(data.nationality as string) || ''} onChange={e => set('nationality', e.target.value)}>
+            <option value="">请选择国家</option>
+            {nationalityOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -466,6 +478,7 @@ const defaultFormData = {
   event_status: 'upcoming',
   province: '',
   city: '',
+  nationality: '中国',
   venue: '',
   location: '',
   venue_lat: '',
