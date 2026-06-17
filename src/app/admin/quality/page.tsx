@@ -17,6 +17,8 @@ interface EventQuality {
   multi_first: number;
   no_first: number;
   duplicate_bib: number;
+  gender_mismatch: number;
+  rank_gap: number;
   issue_score: number;
 }
 
@@ -27,6 +29,8 @@ interface GlobalStats {
   events_with_results: number;
   normalization_coverage: number;
   events_with_issues: number;
+  gender_mismatch: number;
+  rank_gap_units: number;
 }
 
 interface ModuleRow {
@@ -53,7 +57,7 @@ interface ProblemRow {
   rank_position: number | null;
   finish_time: string | null;
   result_status_code: string | null;
-  issue_type: 'unmatched' | 'low_conf' | 'multi_first' | 'dup_bib';
+  issue_type: 'unmatched' | 'low_conf' | 'multi_first' | 'dup_bib' | 'rank_gap' | 'gender_mismatch';
 }
 
 const resultStatusLabels: Record<string, string> = {
@@ -62,6 +66,8 @@ const resultStatusLabels: Record<string, string> = {
 
 const ISSUE_LABEL: Record<string, { text: string; cls: string }> = {
   multi_first: { text: '多第一', cls: 'bg-[#FDE2E2] text-[#B91C1C]' },
+  rank_gap: { text: '名次断号', cls: 'bg-[#FDE2E2] text-[#B91C1C]' },
+  gender_mismatch: { text: '性别错组', cls: 'bg-[#FDE2E2] text-[#B91C1C]' },
   dup_bib: { text: '重号', cls: 'bg-[#FDE2E2] text-[#B91C1C]' },
   unmatched: { text: '未匹配', cls: 'bg-[#FCE9D6] text-[#C2410C]' },
   low_conf: { text: '低置信', cls: 'bg-[#FCE9D6] text-[#C2410C]' },
@@ -118,7 +124,7 @@ export default function QualityDashboardPage() {
   return (
     <div className="p-6 max-w-[1200px]">
       <h1 className="text-xl font-bold text-[#2E2118] mb-1">成绩质量仪表盘</h1>
-      <p className="text-sm text-[#8A8078] mb-5">跨赛事数据可信度核查：未匹配运动员、模块多第一/缺第一、号码牌重复、标准化覆盖率、低置信成绩。按问题数降序排列，可下钻到模块。</p>
+      <p className="text-sm text-[#8A8078] mb-5">跨赛事数据可信度核查：未匹配运动员、决赛多第一/缺第一、名次断号(1224规则，允许并列)、性别错组(疑同名身份合并)、号码牌重复、标准化覆盖率、低置信成绩。预赛/复赛分组按 heats 处理不误报。按问题数降序排列，可下钻到具体成绩行直达编辑。</p>
 
       {global && (
         <div className="flex flex-wrap gap-3 mb-6">
@@ -128,6 +134,8 @@ export default function QualityDashboardPage() {
             { num: global.events_with_issues, label: '存在问题的赛事', color: global.events_with_issues ? 'text-[#B91C1C]' : 'text-[#15803D]' },
             { num: `${global.normalization_coverage}%`, label: '标准化覆盖率', color: 'text-[#7A6145]' },
             { num: global.unmatched_athletes.toLocaleString(), label: '未匹配运动员行', color: global.unmatched_athletes ? 'text-[#C2410C]' : 'text-[#15803D]' },
+            { num: (global.rank_gap_units ?? 0).toLocaleString(), label: '决赛名次断号单元', color: global.rank_gap_units ? 'text-[#B91C1C]' : 'text-[#15803D]' },
+            { num: (global.gender_mismatch ?? 0).toLocaleString(), label: '性别错组(疑同名合并)', color: global.gender_mismatch ? 'text-[#B91C1C]' : 'text-[#15803D]' },
             { num: global.low_confidence.toLocaleString(), label: '低置信成绩(<0.6)', color: 'text-[#C2410C]' },
           ].map((c) => (
             <div key={c.label} className="min-w-[150px] rounded-2xl border border-[#E4D8C8] bg-[#FFFDF9] px-5 py-4">
@@ -151,6 +159,8 @@ export default function QualityDashboardPage() {
                 <th className={th}>未匹配</th>
                 <th className={th}>多第一</th>
                 <th className={th}>缺第一</th>
+                <th className={th}>名次断号</th>
+                <th className={th}>性别错组</th>
                 <th className={th}>重号</th>
                 <th className={th}>低置信</th>
                 <th className={th}>操作</th>
@@ -168,13 +178,15 @@ export default function QualityDashboardPage() {
                     <td className={td}>{badge(e.unmatched_count, 'text-[#C2410C]')}</td>
                     <td className={td}>{badge(e.multi_first, 'text-[#B91C1C]')}</td>
                     <td className={td}>{badge(e.no_first, 'text-[#B91C1C]')}</td>
+                    <td className={td}>{badge(e.rank_gap, 'text-[#B91C1C]')}</td>
+                    <td className={td}>{badge(e.gender_mismatch, 'text-[#B91C1C]')}</td>
                     <td className={td}>{badge(e.duplicate_bib, 'text-[#B91C1C]')}</td>
                     <td className={td}>{badge(e.low_conf_count, 'text-[#C2410C]')}</td>
                     <td className={td}><button className={btn} onClick={() => openDrill(e.event_id)}>{drill?.eventId === e.event_id ? '收起' : '下钻'}</button></td>
                   </tr>
                   {drill?.eventId === e.event_id && (
                     <tr>
-                      <td className="bg-[#FBF7F0] px-4 py-4" colSpan={11}>
+                      <td className="bg-[#FBF7F0] px-4 py-4" colSpan={13}>
                         <div className="font-semibold text-[#5E554D] mb-2">模块明细</div>
                         <div className="overflow-x-auto rounded-xl border border-[#EDE2D2] bg-white">
                           <table className="w-full min-w-[760px] text-xs">
@@ -249,7 +261,7 @@ export default function QualityDashboardPage() {
                 </Fragment>
               ))}
               {events.length === 0 && !loading && (
-                <tr><td className={td} colSpan={11}>暂无数据</td></tr>
+                <tr><td className={td} colSpan={13}>暂无数据</td></tr>
               )}
             </tbody>
           </table>
