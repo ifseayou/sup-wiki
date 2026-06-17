@@ -1,8 +1,10 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
+const { parseTimeToSeconds } = require('./lib/result-time');
 
 const repoRoot = path.resolve(__dirname, '..');
 const EVENT_ID = 297;
@@ -63,19 +65,6 @@ function normalizeMembers(value) {
   return String(value || '').split(/[\n,，、;；/]+/).map((item) => item.trim()).filter(Boolean);
 }
 
-function parseTimeToSeconds(input) {
-  const raw = String(input || '').trim();
-  if (!raw || STATUS_LABELS[raw.toUpperCase()]) return null;
-  if (/^\d+(\.\d+)?$/.test(raw)) return Number(raw);
-  const dottedTime = raw.match(/^(\d+):(\d{2})\.(\d{1,2})$/);
-  if (dottedTime) return Number(dottedTime[1]) * 60 + Number(`${dottedTime[2]}.${dottedTime[3]}`);
-  const parts = raw.split(':').map((part) => part.trim());
-  if (parts.some((part) => !/^\d+(\.\d+)?$/.test(part))) return null;
-  if (parts.length === 2) return Number(parts[0]) * 60 + Number(parts[1]);
-  if (parts.length === 3) return Number(parts[0]) * 3600 + Number(parts[1]) * 60 + Number(parts[2]);
-  return null;
-}
-
 function statusCode(value) {
   const code = String(value || '').trim().toUpperCase();
   return STATUS_LABELS[code] ? code : null;
@@ -107,24 +96,23 @@ async function resolveAthleteId(connection, item, athleteCache) {
     [name]
   );
   if (existingRows.length) {
-    const athleteId = Number(existingRows[0].athlete_id);
     await connection.execute(
       `INSERT IGNORE INTO sup_athlete_identity_links
         (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
        VALUES (?, ?, ?, ?, ?, '中国', ?, ?, ?)`,
       [
-        athleteId,
+        existingRows.length === 1 ? Number(existingRows[0].athlete_id) : null,
         key,
         name,
         item.gender_group || item.group_name || null,
         item.team_name || null,
-        existingRows.length > 1 ? 0.5 : 0.9,
-        existingRows.length > 1 ? 'pending' : 'confirmed',
-        existingRows.length > 1 ? '常州站重导发现同名候选，需后台确认' : '常州站重导自动确认同名运动员',
+        existingRows.length > 1 ? 0.45 : 0.85,
+        'pending',
+        existingRows.length > 1 ? '常州站重导发现多个同名候选，需后台确认' : '常州站重导发现唯一同名档案，等待后台确认后再绑定',
       ]
     );
-    athleteCache.set(key, athleteId);
-    return athleteId;
+    athleteCache.set(key, null);
+    return null;
   }
 
   const [insertResult] = await connection.execute(
@@ -136,7 +124,7 @@ async function resolveAthleteId(connection, item, athleteCache) {
   await connection.execute(
     `INSERT IGNORE INTO sup_athlete_identity_links
       (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
-     VALUES (?, ?, ?, ?, ?, '中国', 0.85, 'confirmed', '常州站重导自动创建草稿运动员')`,
+     VALUES (?, ?, ?, ?, ?, '中国', 0.85, 'pending', '常州站重导自动创建草稿运动员，等待后台确认身份')`,
     [athleteId, key, name, item.gender_group || item.group_name || null, item.team_name || null]
   );
   athleteCache.set(key, athleteId);

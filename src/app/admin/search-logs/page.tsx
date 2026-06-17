@@ -23,7 +23,6 @@ const entryLabels: Record<string, string> = {
   sup_search: 'SUP 搜索',
   race_results: '成绩查询',
   annual_points: '积分查询',
-  event_results: '赛事成绩',
 };
 
 async function readJsonSafely(res: Response) {
@@ -93,8 +92,8 @@ export default function SearchLogsPage() {
     <div className="p-6">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="m-0 text-2xl font-semibold text-brown-800">搜索日志</h1>
-          <p className="mt-1 text-sm text-warm-gray-500">查看小程序用户在哪个入口、什么时间查询了什么内容。</p>
+          <h1 className="m-0 text-2xl font-semibold text-brown-800">关键词搜索日志</h1>
+          <p className="mt-1 text-sm text-warm-gray-500">只记录用户主动输入关键词后的成绩、积分和 SUP 搜索。</p>
         </div>
       </div>
 
@@ -130,7 +129,7 @@ export default function SearchLogsPage() {
               <tr key={item.id} className="border-t border-cream-100 align-top">
                 <td className="px-4 py-3 text-warm-gray-500">{item.created_at_display || item.created_at}</td>
                 <td className="px-4 py-3 font-medium text-brown-700">{entryLabels[item.entry] || item.entry}</td>
-                <td className="px-4 py-3 font-semibold text-brown-800">{item.keyword || '无关键词'}</td>
+                <td className="px-4 py-3 font-semibold text-brown-800">{item.keyword}</td>
                 <td className="px-4 py-3 text-warm-gray-600">
                   {item.email ? (
                     <a href={`/admin/users?search=${encodeURIComponent(item.email)}`} className="font-medium text-brown-700 hover:underline">{item.email}</a>

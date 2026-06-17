@@ -152,8 +152,7 @@ async function createAthleteMatcher(conn, rows) {
     if (athletes.length === 1) {
       const candidateKey = `${key}|${row.group_name || ''}`;
       if (candidateByKey.has(candidateKey)) return candidateByKey.get(candidateKey);
-      const athleteId = athletes[0];
-      const result = { athleteId, identityLinkId: null, matchStatus: 'candidate', confidence: 0.85 };
+      const result = { athleteId: null, identityLinkId: null, matchStatus: 'candidate', confidence: 0.85 };
       candidateByKey.set(candidateKey, result);
       return result;
     }

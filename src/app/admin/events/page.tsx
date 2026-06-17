@@ -275,8 +275,13 @@ function EventForm({ data, onChange, token }: { data: Record<string, unknown>; o
               value={String(data.star_level || '')}
               onChange={(e) => {
                 const starLevel = e.target.value;
-                set('star_level', starLevel || null);
-                set('score_coefficient', starLevel ? getScoreForStarLevel(starLevel) : null);
+                // 一次性更新两字段：避免连续两次 set 闭包同一份旧 data，
+                // 否则第二次会用未更新的 data 覆盖掉 star_level（导致选星级无效）。
+                onChange({
+                  ...data,
+                  star_level: starLevel || null,
+                  score_coefficient: starLevel ? getScoreForStarLevel(starLevel) : null,
+                });
               }}
             >
               <option value="">未评级</option>

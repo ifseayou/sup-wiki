@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
+import { applyPublicPreview, resolveResultAccess, quotaExceededMessage } from '@/lib/result-access';
 import { writeSearchLog } from '@/lib/search-log';
 import { getViewerOwnedAthleteIds, maskAthleteIdentityRows } from '@/lib/result-privacy';
 import { getNationalityAliases, normalizeNationality } from '@/lib/nationality';
@@ -24,13 +24,29 @@ function normalizePointScope(value: string | null): PointScope {
   return 'domestic';
 }
 
+// 年份列表与请求过滤无关、变动极少，进程内缓存，省一次对远程 MySQL 的串行往返。
+const yearsCache: Record<PointType, { value: RowDataPacket[]; at: number } | null> = { athlete: null, club: null };
+const YEARS_TTL_MS = 5 * 60 * 1000;
+async function loadYears(type: PointType): Promise<RowDataPacket[]> {
+  const cached = yearsCache[type];
+  if (cached && Date.now() - cached.at < YEARS_TTL_MS) return cached.value;
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    type === 'club'
+      ? `SELECT year, COUNT(*) AS total FROM sup_annual_club_point_standings GROUP BY year ORDER BY year DESC`
+      : `SELECT year, COUNT(*) AS total FROM sup_annual_point_standings GROUP BY year ORDER BY year DESC`,
+    []
+  );
+  yearsCache[type] = { value: rows, at: Date.now() };
+  return rows;
+}
+
 export async function GET(request: NextRequest) {
   const startedAt = Date.now();
   try {
     const access = await resolveResultAccess(request);
     if (access.authenticated && access.remaining === 0 && access.previewLimit === 0) {
       return NextResponse.json({
-        error: '今日成绩查询次数已用完，请明天再试',
+        error: quotaExceededMessage(access),
         access,
       }, { status: 429 });
     }
@@ -51,18 +67,7 @@ export async function GET(request: NextRequest) {
     const pointScope = normalizePointScope(searchParams.get('point_scope'));
     const nationality = searchParams.get('nationality')?.trim() || '';
 
-    const [yearRows] = await pool.execute<RowDataPacket[]>(
-      type === 'club'
-        ? `SELECT year, COUNT(*) AS total
-           FROM sup_annual_club_point_standings
-           GROUP BY year
-           ORDER BY year DESC`
-        : `SELECT year, COUNT(*) AS total
-           FROM sup_annual_point_standings
-           GROUP BY year
-           ORDER BY year DESC`,
-      []
-    );
+    const yearRows = await loadYears(type);
     const availableYears = new Set(yearRows.map((row) => Number(row.year)));
     const defaultYear = Number(yearRows[0]?.year || new Date().getFullYear() - 1);
     const year = requestedYear && availableYears.has(requestedYear) ? requestedYear : defaultYear;
@@ -121,8 +126,6 @@ export async function GET(request: NextRequest) {
          INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
          LEFT JOIN sup_athletes a ON a.athlete_id = s.athlete_id
          ${where}`;
-    const [countRows] = await pool.execute<RowDataPacket[]>(countSql, params);
-
     const itemSql = type === 'club'
       ? `SELECT
            s.standing_id, s.year, s.rank_position, s.club_id, s.club_name_snapshot,
@@ -145,41 +148,47 @@ export async function GET(request: NextRequest) {
          ${where}
          ORDER BY s.group_name ASC, COALESCE(s.rank_position, 999999) ASC, s.total_points DESC, s.standing_id ASC
          LIMIT ${queryPageSize} OFFSET ${queryOffset}`;
-    const [rawItems] = await pool.execute<RowDataPacket[]>(itemSql, params);
-    const viewer = type === 'athlete' ? await getViewerOwnedAthleteIds(request) : undefined;
-    const items = type === 'athlete' ? await maskAthleteIdentityRows(rawItems, viewer) : rawItems;
 
-    const [groupRows] = await pool.execute<RowDataPacket[]>(
-      type === 'club'
-        ? `SELECT NULL AS group_code, '俱乐部积分' AS group_name, COUNT(*) AS total
-           FROM sup_annual_club_point_standings
-           WHERE year = ?`
-        : `SELECT group_code, group_name, COUNT(*) AS total
-           FROM sup_annual_point_standings s
-           WHERE s.year = ?
-           GROUP BY group_code, group_name
-           ORDER BY total DESC, group_name ASC`,
-      [year]
-    );
+    const groupSql = type === 'club'
+      ? `SELECT NULL AS group_code, '俱乐部积分' AS group_name, COUNT(*) AS total
+         FROM sup_annual_club_point_standings
+         WHERE year = ?`
+      : `SELECT group_code, group_name, COUNT(*) AS total
+         FROM sup_annual_point_standings s
+         WHERE s.year = ?
+         GROUP BY group_code, group_name
+         ORDER BY total DESC, group_name ASC`;
 
-    let nationalities: Array<{ value: string; label: string; meta: string }> = [];
-    if (type === 'athlete') {
-      const nationalityConditions = ['s.year = ?', "a.nationality IS NOT NULL", "a.nationality <> ''"];
-      const nationalityParams: (string | number)[] = [year];
-      if (pointScope !== 'all') {
-        nationalityConditions.push('src.point_scope = ?');
-        nationalityParams.push(pointScope);
-      }
-      const [nationalityRows] = await pool.execute<RowDataPacket[]>(
-        `SELECT a.nationality AS raw_nationality, COUNT(*) AS total
+    const nationalityConditions = ['s.year = ?', "a.nationality IS NOT NULL", "a.nationality <> ''"];
+    const nationalityParams: (string | number)[] = [year];
+    if (pointScope !== 'all') {
+      nationalityConditions.push('src.point_scope = ?');
+      nationalityParams.push(pointScope);
+    }
+    const nationalitySql = `SELECT a.nationality AS raw_nationality, COUNT(*) AS total
          FROM sup_annual_point_standings s
          INNER JOIN sup_annual_point_sources src ON src.source_id = s.source_id
          LEFT JOIN sup_athletes a ON a.athlete_id = s.athlete_id
          WHERE ${nationalityConditions.join(' AND ')}
          GROUP BY a.nationality
-         ORDER BY COUNT(*) DESC, a.nationality ASC`,
-        nationalityParams,
-      );
+         ORDER BY COUNT(*) DESC, a.nationality ASC`;
+
+    // count / 主列表 / 分组统计 / 国籍聚合 / 观看者 互不依赖，并行执行，减少对远程 MySQL 的串行往返。
+    const runRows = async (sql: string, p: (string | number)[]) =>
+      (await pool.execute<RowDataPacket[]>(sql, p))[0];
+    const [countRows, rawItems, groupRows, nationalityRows, viewer] = await Promise.all([
+      runRows(countSql, params),
+      runRows(itemSql, params),
+      runRows(groupSql, [year]),
+      type === 'athlete' ? runRows(nationalitySql, nationalityParams) : Promise.resolve([] as RowDataPacket[]),
+      type === 'athlete'
+        ? getViewerOwnedAthleteIds(request)
+        : Promise.resolve(undefined as Awaited<ReturnType<typeof getViewerOwnedAthleteIds>> | undefined),
+    ]);
+    const items = type === 'athlete' ? await maskAthleteIdentityRows(rawItems, viewer) : rawItems;
+
+    let nationalities: Array<{ value: string; label: string; meta: string }> = [];
+    if (type === 'athlete') {
       const nationalityMap = new Map<string, number>();
       for (const row of nationalityRows) {
         const normalized = normalizeNationality(row.raw_nationality);
@@ -193,16 +202,20 @@ export async function GET(request: NextRequest) {
 
     const total = Number(countRows[0]?.total || 0);
     const preview = applyPublicPreview(items, access);
-    await writeSearchLog(request, {
-      entry: 'annual_points',
-      keyword: search || athleteName || String(athleteId || ''),
-      resultCount: total,
-      durationMs: Date.now() - startedAt,
-      detail: {
-        path: request.nextUrl.pathname,
-        query: Object.fromEntries(request.nextUrl.searchParams.entries()),
-      },
-    });
+    const searchKeyword = (search || athleteName).trim();
+    if (searchKeyword) {
+      // 搜索日志写库不阻塞响应（远程 MySQL 往返，仅审计用途）。
+      void writeSearchLog(request, {
+        entry: 'annual_points',
+        keyword: searchKeyword,
+        resultCount: total,
+        durationMs: Date.now() - startedAt,
+        detail: {
+          path: request.nextUrl.pathname,
+          query: Object.fromEntries(request.nextUrl.searchParams.entries()),
+        },
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       type,

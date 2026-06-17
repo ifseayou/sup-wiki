@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -24,7 +24,10 @@ const navGroups = [
     key: 'dashboard',
     label: '仪表盘',
     icon: '⌂',
-    items: [{ href: '/admin', label: '后台首页', exact: true }],
+    items: [
+      { href: '/admin', label: '后台首页', exact: true },
+      { href: '/admin/quality', label: '质量仪表盘' },
+    ],
   },
   {
     key: 'results',
@@ -32,6 +35,7 @@ const navGroups = [
     icon: '◈',
     items: [
       { href: '/admin/events', label: '赛事' },
+      { href: '/admin/event-submissions', label: '赛事提报审核' },
       { href: '/admin/results', label: '成绩明细' },
       { href: '/admin/annual-points', label: '年度积分' },
       { href: '/admin/annual-point-events', label: '积分赛事雷达' },
@@ -45,8 +49,11 @@ const navGroups = [
     icon: '◎',
     items: [
       { href: '/admin/athletes', label: '运动员' },
+      { href: '/admin/athlete-analytics', label: '运动员分析' },
       { href: '/admin/athlete-claims', label: '资料审批' },
       { href: '/admin/athlete-identities', label: '身份匹配' },
+      { href: '/admin/athlete-transfer', label: '成绩迁移/回滚' },
+      { href: '/admin/athlete-blacklist', label: '隐私黑名单' },
     ],
   },
   {
@@ -98,6 +105,7 @@ const navGroups = [
       { href: '/admin/search-logs', label: '搜索日志' },
       { href: '/admin/mini-announcements', label: '首页公告' },
       { href: '/admin/privacy-policy', label: '隐私说明' },
+      { href: '/admin/athlete-data-license', label: '数据许可协议' },
       { href: '/admin/privacy-requests', label: '隐私请求' },
     ],
   },
@@ -529,7 +537,7 @@ function AdminShell({
                 'radial-gradient(circle at 12% 4%, rgba(15,92,82,0.06), transparent 30%), #F7F3EC',
             }}
           >
-            {children}
+            <Suspense fallback={null}>{children}</Suspense>
           </main>
         </div>
       </div>

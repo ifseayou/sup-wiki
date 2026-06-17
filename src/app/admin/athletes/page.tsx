@@ -302,6 +302,7 @@ function formatAnnualRank(row: Record<string, unknown>) {
 
 function renderAthleteName(_value: unknown, row: Record<string, unknown>) {
   const name = String(row.name || '未命名运动员');
+  const adminName = String(row.admin_display_name || name);
   const nameEn = String(row.name_en || '').trim();
   const photo = String(row.photo || '').trim();
   const showEliteBadge = row.elite_event_status === 'formal' || row.elite_event_status === 'reserve';
@@ -313,7 +314,7 @@ function renderAthleteName(_value: unknown, row: Record<string, unknown>) {
       </div>
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-semibold text-[#2E3D38]">{name}</span>
+          <span className="truncate font-semibold text-[#2E3D38]">{adminName}</span>
           {showEliteBadge && <OfficialEliteBadge status={row.elite_event_status as 'formal' | 'reserve'} groups={eliteGroups} />}
         </div>
         <div className="mt-0.5 truncate text-xs text-[#9A9085]">
@@ -455,6 +456,14 @@ const defaultFormData = {
 };
 
 const athleteFilters = [
+  {
+    key: 'claimed',
+    placeholder: '全部绑定状态',
+    options: [
+      { value: '1', label: '仅已绑定' },
+      { value: '0', label: '仅未绑定' },
+    ],
+  },
   {
     key: 'gender',
     placeholder: '全部性别',

@@ -138,6 +138,9 @@ CREATE TABLE IF NOT EXISTS sup_events (
     name VARCHAR(200) NOT NULL,
     name_en VARCHAR(200),
     slug VARCHAR(150) UNIQUE NOT NULL,
+    series_name VARCHAR(200) COMMENT '赛事系列名(跨届归并)',
+    edition_number INT COMMENT '届号',
+    parent_event_id BIGINT COMMENT '上一届赛事 event_id',
     event_type ENUM('race','festival','training','exhibition') DEFAULT 'race',
     location VARCHAR(200),
     province VARCHAR(50),
@@ -146,16 +149,20 @@ CREATE TABLE IF NOT EXISTS sup_events (
     start_date DATE,
     end_date DATE,
     registration_deadline DATE,
+    registration_start_date DATE COMMENT '报名开始日期',
     organizer VARCHAR(200),
     description TEXT,
     requirements TEXT,
     website VARCHAR(500),
     registration_url VARCHAR(500),
+    registration_qr_image VARCHAR(500) COMMENT '报名二维码图 URL',
     contact_info VARCHAR(300),
     images JSON,
     schedule JSON,
     disciplines JSON,
     price_range VARCHAR(100),
+    prize_pool VARCHAR(120) COMMENT '总奖金概述',
+    prize_description TEXT COMMENT '奖项设置详述',
     max_participants INT,
     star_level VARCHAR(20),
     score_coefficient DECIMAL(3,1),
@@ -175,7 +182,94 @@ CREATE TABLE IF NOT EXISTS sup_events (
     INDEX idx_events_status (status),
     INDEX idx_events_event_status (event_status),
     INDEX idx_events_star_level (star_level),
-    INDEX idx_events_result_status (result_status)
+    INDEX idx_events_result_status (result_status),
+    INDEX idx_events_series_edition (series_name, edition_number),
+    INDEX idx_events_parent (parent_event_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 赛事按组别明细：每组别/项目的报名费、奖金、名额（比 price_range 字符串可统计）
+CREATE TABLE IF NOT EXISTS sup_event_categories (
+    category_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    event_id BIGINT NOT NULL,
+    name VARCHAR(150) NOT NULL COMMENT '组别/项目展示名',
+    discipline VARCHAR(100) COMMENT '项目，如 10公里 / 200米',
+    gender_group VARCHAR(50) COMMENT '性别/组别',
+    board_class VARCHAR(50) COMMENT '板型',
+    fee VARCHAR(60) COMMENT '报名费展示文本',
+    fee_amount DECIMAL(10,2) COMMENT '报名费数值(可统计)',
+    prize VARCHAR(200) COMMENT '该组奖金/奖品',
+    quota INT COMMENT '名额',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_event_categories_event (event_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 逐名次奖金（组别×名次结构化，便于数据分析）
+CREATE TABLE IF NOT EXISTS sup_event_category_prizes (
+    prize_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    event_id BIGINT NOT NULL,
+    category_id BIGINT NOT NULL,
+    rank_position INT NOT NULL COMMENT '名次',
+    amount DECIMAL(10,2) NOT NULL COMMENT '奖金金额(税前)',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_event_cat_rank (category_id, rank_position),
+    INDEX idx_prize_event (event_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 技术官员名单（仲裁/裁判/编排/解说等；管理后台与数据分析使用）
+CREATE TABLE IF NOT EXISTS sup_event_officials (
+    official_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    event_id BIGINT NOT NULL,
+    role_category VARCHAR(40) COMMENT '类别：仲裁/裁判/编排/计时/解说等',
+    role_title VARCHAR(60) COMMENT '职务',
+    name VARCHAR(80) NOT NULL COMMENT '姓名',
+    region VARCHAR(80) COMMENT '地区/单位',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_officials_event (event_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 赛事提报（用户提报海报/链接 → AI 抽取 → 后台审核录入）
+CREATE TABLE IF NOT EXISTS sup_event_submissions (
+    submission_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    submission_type ENUM('poster','link','mixed') NOT NULL DEFAULT 'poster',
+    source VARCHAR(40) NOT NULL DEFAULT 'manual' COMMENT '提报来源 manual/wechat',
+    image_urls JSON COMMENT '海报图 OSS URL 数组',
+    link_url VARCHAR(700) COMMENT '公众号/官网链接',
+    user_note TEXT COMMENT '提报者备注',
+    source_text MEDIUMTEXT COMMENT '来源文章正文素材',
+    extracted_json JSON COMMENT 'AI 抽取的结构化赛事 JSON',
+    extract_status ENUM('pending','extracting','extracted','failed') NOT NULL DEFAULT 'pending',
+    extract_error VARCHAR(500) COMMENT 'AI 抽取失败原因',
+    review_status ENUM('pending','reviewing','ingested','rejected') NOT NULL DEFAULT 'pending',
+    event_id BIGINT NULL COMMENT '录入后关联的赛事 event_id',
+    admin_note TEXT COMMENT '审核备注',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_event_sub_user (user_id),
+    INDEX idx_event_sub_review (review_status),
+    INDEX idx_event_sub_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 公众号文章抓取记录（去重 + 处理状态）
+CREATE TABLE IF NOT EXISTS sup_wechat_articles (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    account VARCHAR(60) NOT NULL DEFAULT 'china_sup',
+    article_url VARCHAR(700) NOT NULL,
+    title VARCHAR(300),
+    publish_time DATETIME NULL,
+    cover_url VARCHAR(700),
+    status ENUM('new','processed','skipped','failed') NOT NULL DEFAULT 'new',
+    process_note VARCHAR(500),
+    submission_id BIGINT NULL,
+    event_id BIGINT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_article_url (article_url),
+    INDEX idx_wechat_status (status),
+    INDEX idx_wechat_account (account)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS sup_event_results (

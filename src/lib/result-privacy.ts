@@ -5,7 +5,7 @@ import { hiddenAthleteName, maskAthleteName } from '@/lib/name-mask';
 import { normalizeNationality } from '@/lib/nationality';
 import type { RowDataPacket } from 'mysql2';
 
-const PRIVACY_HIDE_TYPES = new Set(['hide_athlete', 'delete_frontend']);
+const PRIVACY_HIDE_TYPES = new Set(['hide_athlete', 'delete_frontend', 'admin_blacklist']);
 const PRIVACY_ANON_TYPES = new Set(['anonymize_name']);
 const PRIVACY_RESULTS_HIDE_TYPES = new Set(['hide_results_points']);
 const HIDDEN_RESULT_NOTICE = '该运动员已选择隐藏成绩&积分';
@@ -15,6 +15,7 @@ export type PrivacyState = {
   anonymized: boolean;
   deleted: boolean;
   resultsHidden: boolean;
+  blacklisted?: boolean;
 };
 
 export function privacyStatusCondition(alias = 'pr') {
@@ -43,10 +44,15 @@ export async function buildPrivacyMap(targetType: 'athlete' | 'result', ids: Arr
     for (const row of rows) {
       const id = Number(row.target_id || (targetType === 'athlete' ? row.athlete_id : row.result_id));
       if (!id) continue;
-      const current = map.get(id) || { hidden: false, anonymized: false, deleted: false, resultsHidden: false };
+      const current = map.get(id) || { hidden: false, anonymized: false, deleted: false, resultsHidden: false, blacklisted: false };
       const type = String(row.request_type || '');
+      if (type === 'admin_blacklist') {
+        // 管理员黑名单：sticky 隐藏，restore 不可解除（应本人删除要求）
+        map.set(id, { ...current, blacklisted: true, hidden: true });
+        continue;
+      }
       if (type === 'restore_frontend') {
-        map.set(id, { ...current, hidden: false, anonymized: false, deleted: false });
+        map.set(id, { ...current, hidden: Boolean(current.blacklisted), anonymized: false, deleted: false });
         continue;
       }
       if (type === 'restore_results_points') {

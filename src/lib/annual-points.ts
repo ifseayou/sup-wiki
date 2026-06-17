@@ -321,7 +321,7 @@ async function resolveAthleteMatch(connection: PoolConnection, standing: Normali
       [normalized, standing.athleteName, standing.groupName, athleteId]
     );
     return {
-      athleteId,
+      athleteId: null,
       identityLinkId: linkRows.length ? Number(linkRows[0].link_id) : null,
       matchStatus: 'candidate',
       matchConfidence: 0.85,
@@ -409,7 +409,7 @@ async function createAthleteMatcher(connection: PoolConnection, standings: Norma
         [normalized, standing.athleteName, standing.groupName, athleteId]
       );
       const result: MatchResult = {
-        athleteId,
+        athleteId: null,
         identityLinkId: linkRows.length ? Number(linkRows[0].link_id) : null,
         matchStatus: 'candidate',
         matchConfidence: 0.85,

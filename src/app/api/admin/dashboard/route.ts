@@ -28,6 +28,8 @@ export const GET = withAdmin(async () => {
       questionsDraft,
       docsDraft,
       shopDraft,
+      athletesTotal,
+      athletesClaimed,
     ] = await Promise.all([
       count("SELECT COUNT(*) AS total FROM sup_athlete_profile_claims WHERE status = 'pending'"),
       count("SELECT COUNT(*) AS total FROM sup_event_result_submissions WHERE status = 'pending'"),
@@ -46,6 +48,14 @@ export const GET = withAdmin(async () => {
       count("SELECT COUNT(*) AS total FROM sup_quiz_questions WHERE status = 'draft'"),
       count("SELECT COUNT(*) AS total FROM sup_learn_articles WHERE status = 'draft'"),
       count("SELECT COUNT(*) AS total FROM sup_shop_items WHERE status = 'draft'"),
+      count("SELECT COUNT(*) AS total FROM sup_athletes WHERE status = 'published'"),
+      count(
+        `SELECT COUNT(DISTINCT a.athlete_id) AS total
+           FROM sup_athletes a
+           INNER JOIN sup_athlete_profile_owners o
+             ON o.athlete_id = a.athlete_id AND o.status = 'active' AND o.role = 'owner'
+          WHERE a.status = 'published'`
+      ),
     ]);
 
     const [recentClaimRows] = await pool.execute<RowDataPacket[]>(
@@ -94,6 +104,11 @@ export const GET = withAdmin(async () => {
       },
       draftContent,
       recentItems,
+      athleteStats: {
+        total: athletesTotal,
+        claimed: athletesClaimed,
+        draft: athletesDraft,
+      },
     });
   } catch (error) {
     console.error('获取后台仪表板失败:', error);

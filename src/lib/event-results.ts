@@ -3,6 +3,7 @@ import type { RowDataPacket } from 'mysql2';
 import { getResultStatusLabel, normalizeResultStatusCode } from '@/lib/result-status';
 import { normalizeClubTeamName, syncClubTeamAliasesForEvent } from '@/lib/club-team-normalization';
 import { normalizeNationality } from '@/lib/nationality';
+import { normalizeResultDiscipline, normalizeResultGroup } from '@/lib/result-normalization';
 
 export interface EventSourceLink {
   title: string;
@@ -183,6 +184,12 @@ export function parseFinishTimeToSeconds(input: string) {
   if (/^\d+(\.\d+)?$/.test(raw)) return Number(raw);
   const quoteMatch = raw.match(/^(\d+)'(\d+(?:\.\d+)?)"?$/);
   if (quoteMatch) return Number(quoteMatch[1]) * 60 + Number(quoteMatch[2]);
+  const minuteSecondCentisecond = raw.match(/^([1-9]\d{1,2}):(\d{2}):(\d{2})$/);
+  if (minuteSecondCentisecond && Number(minuteSecondCentisecond[1]) > 2) {
+    return Number(minuteSecondCentisecond[1]) * 60
+      + Number(minuteSecondCentisecond[2])
+      + Number(minuteSecondCentisecond[3]) / 100;
+  }
   const dottedTime = raw.match(/^(\d+):(\d{2})\.(\d{2})\.(\d{1,3})$/);
   if (dottedTime) {
     return Number(dottedTime[1]) * 3600 + Number(dottedTime[2]) * 60 + Number(`${dottedTime[3]}.${dottedTime[4]}`);
@@ -204,6 +211,18 @@ export function parseFinishTimeToSeconds(input: string) {
 async function resolveAthleteId(connection: PoolConnection, result: EventResultInput) {
   if (result.athlete_id) return result.athlete_id;
   const athleteName = result.athlete_name_snapshot.trim();
+  if (!athleteName) return null;
+  const normalized = athleteName.replace(/\s+/g, '').toLowerCase();
+
+  const [confirmedRows] = await connection.execute<AthleteRow[]>(
+    `SELECT athlete_id
+       FROM sup_athlete_identity_links
+      WHERE normalized_name = ? AND status = 'confirmed' AND athlete_id IS NOT NULL
+      ORDER BY confidence DESC, link_id ASC
+      LIMIT 1`,
+    [normalized]
+  );
+  if (confirmedRows.length) return confirmedRows[0].athlete_id;
 
   const [existingRows] = await connection.execute<AthleteRow[]>(
     'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5',
@@ -211,22 +230,22 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
   );
 
   if (existingRows.length > 0) {
-    if (existingRows.length > 1) {
-      await connection.execute(
-        `INSERT IGNORE INTO sup_athlete_identity_links
-          (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
-         VALUES (?, ?, ?, ?, ?, ?, 0.500, 'pending', '同名运动员存在多个候选，需后台确认')`,
-        [
-          existingRows[0].athlete_id,
-          athleteName.replace(/\s+/g, '').toLowerCase(),
-          athleteName,
-          result.gender_group || null,
-          result.team_name || null,
-          normalizeNationality(result.nationality_snapshot),
-        ]
-      );
-    }
-    return existingRows[0].athlete_id;
+    await connection.execute(
+      `INSERT IGNORE INTO sup_athlete_identity_links
+        (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [
+        existingRows.length === 1 ? existingRows[0].athlete_id : null,
+        normalized,
+        athleteName,
+        result.gender_group || null,
+        result.team_name || null,
+        normalizeNationality(result.nationality_snapshot),
+        existingRows.length === 1 ? 0.85 : 0.45,
+        existingRows.length === 1 ? '成绩录入发现唯一同名档案，等待后台确认后再绑定' : '成绩录入发现多个同名候选，需后台确认',
+      ]
+    );
+    return null;
   }
 
   const [insertResult] = await connection.execute(
@@ -243,10 +262,10 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
   await connection.execute(
     `INSERT IGNORE INTO sup_athlete_identity_links
       (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
-     VALUES (?, ?, ?, ?, ?, ?, 0.800, 'confirmed', '导入成绩时自动创建草稿运动员')`,
+     VALUES (?, ?, ?, ?, ?, ?, 0.800, 'pending', '导入成绩时自动创建草稿运动员，等待后台确认身份')`,
     [
       athleteId,
-      athleteName.replace(/\s+/g, '').toLowerCase(),
+      normalized,
       athleteName,
       result.gender_group || null,
       result.team_name || null,
@@ -260,11 +279,39 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
 async function resolveAthleteByName(connection: PoolConnection, name: string, result: EventResultInput) {
   const cleanName = name.trim();
   if (!cleanName) return null;
+  const normalized = cleanName.replace(/\s+/g, '').toLowerCase();
+  const [confirmedRows] = await connection.execute<AthleteRow[]>(
+    `SELECT athlete_id
+       FROM sup_athlete_identity_links
+      WHERE normalized_name = ? AND status = 'confirmed' AND athlete_id IS NOT NULL
+      ORDER BY confidence DESC, link_id ASC
+      LIMIT 1`,
+    [normalized]
+  );
+  if (confirmedRows.length) return confirmedRows[0].athlete_id;
+
   const [existingRows] = await connection.execute<AthleteRow[]>(
-    'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 1',
+    'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5',
     [cleanName]
   );
-  if (existingRows.length > 0) return existingRows[0].athlete_id;
+  if (existingRows.length > 0) {
+    await connection.execute(
+      `INSERT IGNORE INTO sup_athlete_identity_links
+        (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+      [
+        existingRows.length === 1 ? existingRows[0].athlete_id : null,
+        normalized,
+        cleanName,
+        result.gender_group || null,
+        result.team_name || null,
+        normalizeNationality(result.nationality_snapshot),
+        existingRows.length === 1 ? 0.85 : 0.45,
+        existingRows.length === 1 ? '团队赛成员发现唯一同名档案，等待后台确认后再绑定' : '团队赛成员发现多个同名候选，需后台确认',
+      ]
+    );
+    return null;
+  }
 
   const [insertResult] = await connection.execute(
     `INSERT INTO sup_athletes (name, nationality, discipline, bio, status)
@@ -279,10 +326,10 @@ async function resolveAthleteByName(connection: PoolConnection, name: string, re
   await connection.execute(
     `INSERT IGNORE INTO sup_athlete_identity_links
       (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
-     VALUES (?, ?, ?, ?, ?, ?, 0.820, 'confirmed', '团队赛成绩成员自动创建草稿运动员')`,
+     VALUES (?, ?, ?, ?, ?, ?, 0.820, 'pending', '团队赛成绩成员自动创建草稿运动员，等待后台确认身份')`,
     [
       athleteId,
-      cleanName.replace(/\s+/g, '').toLowerCase(),
+      normalized,
       cleanName,
       result.gender_group || null,
       result.team_name || null,
@@ -355,6 +402,51 @@ export async function syncAthleteRaceTimes(connection: PoolConnection, athleteId
   );
 }
 
+interface NormalizedResultFields {
+  normalized_discipline_key: string;
+  discipline_family: string;
+  normalized_group_key: string;
+  norm_confidence: number;
+}
+
+/** 计算单条成绩的标准化字段（项目key/族/组别key/置信度）。置信度取项目与组别的较小值。 */
+function computeNormalizedResultFields(result: EventResultInput): NormalizedResultFields {
+  const disc = normalizeResultDiscipline(result.discipline, result.board_class, result.round_label);
+  const grp = normalizeResultGroup(result.gender_group || '公开组', result.board_class, result.team_name);
+  return {
+    normalized_discipline_key: disc.normalized_key,
+    discipline_family: disc.family,
+    normalized_group_key: grp.normalized_group_key,
+    norm_confidence: Math.min(disc.confidence, grp.confidence),
+  };
+}
+
+/**
+ * 预加载赛事报名组别并按标准化 key 建索引，供成绩匹配 category_id。
+ * key = `${normalized_discipline_key}__${normalized_group_key}`，首个命中优先。
+ */
+async function buildEventCategoryMatcher(connection: PoolConnection, eventId: number) {
+  const matcher = new Map<string, number>();
+  const [rows] = await connection.execute<RowDataPacket[]>(
+    `SELECT category_id, discipline, gender_group, board_class FROM sup_event_categories WHERE event_id = ?`,
+    [eventId]
+  );
+  for (const row of rows) {
+    const disc = normalizeResultDiscipline(String(row.discipline || ''), row.board_class, null);
+    // 项目键为 unknown 时不可靠：多项目赛事(桨板/路跑等)都会落 unknown，会把不同项目误绑到同组别。
+    if (disc.normalized_key === 'unknown') continue;
+    const grp = normalizeResultGroup(String(row.gender_group || ''), row.board_class, null);
+    const key = `${disc.normalized_key}__${grp.normalized_group_key}`;
+    if (!matcher.has(key)) matcher.set(key, Number(row.category_id));
+  }
+  return matcher;
+}
+
+function matchCategoryId(matcher: Map<string, number>, norm: NormalizedResultFields): number | null {
+  if (!matcher.size || norm.normalized_discipline_key === 'unknown') return null;
+  return matcher.get(`${norm.normalized_discipline_key}__${norm.normalized_group_key}`) ?? null;
+}
+
 export async function replaceEventResults(connection: PoolConnection, eventId: number, inputResults: EventResultInput[]) {
   const [existingRows] = await connection.execute<RowDataPacket[]>(
     `SELECT athlete_id FROM sup_event_results WHERE event_id = ? AND athlete_id IS NOT NULL
@@ -372,16 +464,22 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
 
   await connection.execute('DELETE FROM sup_event_results WHERE event_id = ?', [eventId]);
 
+  const categoryMatcher = await buildEventCategoryMatcher(connection, eventId);
+
   for (const result of inputResults) {
     const athleteId = await resolveAthleteId(connection, result);
-    touchedAthleteIds.add(athleteId);
+    if (athleteId) touchedAthleteIds.add(athleteId);
+
+    const norm = computeNormalizedResultFields(result);
+    const categoryId = matchCategoryId(categoryMatcher, norm);
 
     await connection.execute(
       `INSERT INTO sup_event_results (
         event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
         rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized, nationality_snapshot,
-        source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified,
+        normalized_discipline_key, discipline_family, normalized_group_key, norm_confidence, category_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         eventId,
         athleteId,
@@ -410,6 +508,11 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
         typeof result.parse_confidence === 'number' && Number.isFinite(result.parse_confidence) ? result.parse_confidence : 1,
         result.review_status || 'confirmed',
         result.is_verified !== false ? 1 : 0,
+        norm.normalized_discipline_key,
+        norm.discipline_family,
+        norm.normalized_group_key,
+        norm.norm_confidence,
+        categoryId,
       ]
     );
     const [idRows] = await connection.execute<RowDataPacket[]>('SELECT LAST_INSERT_ID() AS result_id');
@@ -431,16 +534,22 @@ export async function replaceEventResults(connection: PoolConnection, eventId: n
 export async function appendEventResults(connection: PoolConnection, eventId: number, inputResults: EventResultInput[]) {
   const touchedAthleteIds = new Set<number>();
 
+  const categoryMatcher = await buildEventCategoryMatcher(connection, eventId);
+
   for (const result of inputResults) {
     const athleteId = await resolveAthleteId(connection, result);
-    touchedAthleteIds.add(athleteId);
+    if (athleteId) touchedAthleteIds.add(athleteId);
+
+    const norm = computeNormalizedResultFields(result);
+    const categoryId = matchCategoryId(categoryMatcher, norm);
 
     await connection.execute(
       `INSERT INTO sup_event_results (
         event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
         rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized, nationality_snapshot,
-        source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified,
+        normalized_discipline_key, discipline_family, normalized_group_key, norm_confidence, category_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         result_id = LAST_INSERT_ID(result_id),
         athlete_id = VALUES(athlete_id),
@@ -461,7 +570,12 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
         source_note = VALUES(source_note),
         parse_confidence = VALUES(parse_confidence),
         review_status = VALUES(review_status),
-        is_verified = VALUES(is_verified)`,
+        is_verified = VALUES(is_verified),
+        normalized_discipline_key = VALUES(normalized_discipline_key),
+        discipline_family = VALUES(discipline_family),
+        normalized_group_key = VALUES(normalized_group_key),
+        norm_confidence = VALUES(norm_confidence),
+        category_id = VALUES(category_id)`,
       [
         eventId,
         athleteId,
@@ -490,6 +604,11 @@ export async function appendEventResults(connection: PoolConnection, eventId: nu
         typeof result.parse_confidence === 'number' && Number.isFinite(result.parse_confidence) ? result.parse_confidence : 1,
         result.review_status || 'confirmed',
         result.is_verified !== false ? 1 : 0,
+        norm.normalized_discipline_key,
+        norm.discipline_family,
+        norm.normalized_group_key,
+        norm.norm_confidence,
+        categoryId,
       ]
     );
     const [idRows] = await connection.execute<RowDataPacket[]>('SELECT LAST_INSERT_ID() AS result_id');

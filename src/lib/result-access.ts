@@ -24,6 +24,19 @@ export interface ResultAccess {
   used: number | null;
   remaining: number | null;
   previewLimit: number | null;
+  /** 是否已绑定（认领）运动员资料——用于配额文案区分（已绑定可获更多次数）。 */
+  bound: boolean;
+}
+
+/**
+ * 配额用尽时的提示文案，与 BFF（sport_hacker shared.js searchQuotaMessage）口径一致：
+ * 未绑定运动员的用户引导其绑定以获得更多次数，已绑定用户给通用文案。
+ */
+export function quotaExceededMessage(access: ResultAccess): string {
+  if (access && access.bound === false && access.authenticated) {
+    return '今日搜索次数已用完，绑定你的运动员资料可获得更多查询次数';
+  }
+  return '今日查询次数已用完，请明天再试';
 }
 
 export async function resolveResultAccess(request: NextRequest, options: { consume?: boolean } = {}): Promise<ResultAccess> {
@@ -39,6 +52,7 @@ export async function resolveResultAccess(request: NextRequest, options: { consu
       used: null,
       remaining: null,
       previewLimit: null,
+      bound: false,
     };
   }
 
@@ -52,8 +66,18 @@ export async function resolveResultAccess(request: NextRequest, options: { consu
       used: null,
       remaining: null,
       previewLimit: PUBLIC_RESULT_PREVIEW_LIMIT,
+      bound: false,
     };
   }
+
+  // 是否已绑定（认领）运动员资料——决定配额文案口径。
+  const [ownerRows] = await pool.execute<RowDataPacket[]>(
+    `SELECT 1 FROM sup_athlete_profile_owners
+     WHERE user_id = ? AND status = 'active' AND role = 'owner'
+     LIMIT 1`,
+    [user.user_id]
+  );
+  const bound = ownerRows.length > 0;
 
   const [rows] = await pool.execute<UserAccessRow[]>(
     `SELECT user_id, nickname, email, openid, user_level, status, daily_result_query_limit
@@ -82,6 +106,7 @@ export async function resolveResultAccess(request: NextRequest, options: { consu
       used: null,
       remaining: null,
       previewLimit: null,
+      bound,
     };
   }
 
@@ -103,6 +128,7 @@ export async function resolveResultAccess(request: NextRequest, options: { consu
       used: usedBefore,
       remaining: 0,
       previewLimit: 0,
+      bound,
     };
   }
 
@@ -115,6 +141,7 @@ export async function resolveResultAccess(request: NextRequest, options: { consu
       used: usedBefore,
       remaining: Math.max(0, limit - usedBefore),
       previewLimit: null,
+      bound,
     };
   }
 
@@ -133,6 +160,7 @@ export async function resolveResultAccess(request: NextRequest, options: { consu
     used: usedBefore + 1,
     remaining: Math.max(0, limit - usedBefore - 1),
     previewLimit: null,
+    bound,
   };
 }
 

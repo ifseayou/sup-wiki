@@ -27,6 +27,9 @@ function parseJsonObject(value: unknown) {
 }
 
 function normalizeAthlete(row: RowDataPacket) {
+  const sameNameCount = Number(row.same_name_count || 0);
+  const sameNameIndex = Number(row.same_name_index || 0);
+  const name = String(row.name || '');
   return {
     ...row,
     nationality: normalizeNationality(row.nationality),
@@ -34,6 +37,9 @@ function normalizeAthlete(row: RowDataPacket) {
     elite_event_groups: parseJsonArray(row.elite_event_groups),
     achievements: parseJsonArray(row.achievements),
     social_links: parseJsonObject(row.social_links),
+    same_name_count: sameNameCount,
+    same_name_index: sameNameIndex,
+    admin_display_name: sameNameCount > 1 && sameNameIndex > 0 ? `${name}-${sameNameIndex}` : name,
   };
 }
 
@@ -75,6 +81,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const nationality = searchParams.get('nationality')?.trim();
     const city = searchParams.get('city')?.trim();
     const rankBucket = searchParams.get('rankBucket')?.trim();
+    const claimed = searchParams.get('claimed')?.trim();
     const sortBy = searchParams.get('sortBy') || '';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'ASC' : 'DESC';
     const page = parseInt(searchParams.get('page') || '1');
@@ -113,6 +120,23 @@ export const GET = withAdmin(async (request: NextRequest) => {
     }
     const rankCondition = hasAnnualTables ? rankBucketCondition(rankBucket || '') : '';
     if (rankCondition) conditions.push(rankCondition);
+    // 已绑定/已认领筛选：用 EXISTS 子查询（只依赖基表 a，count 与 data 查询都安全；不引用 LEFT JOIN 别名）
+    if (claimed === '1' || claimed === '0') {
+      const ownerExists = hasOwners
+        ? "EXISTS(SELECT 1 FROM sup_athlete_profile_owners o WHERE o.athlete_id = a.athlete_id AND o.status = 'active' AND o.role = 'owner')"
+        : '';
+      const claimExists = hasClaims
+        ? "EXISTS(SELECT 1 FROM sup_athlete_profile_claims c WHERE c.athlete_id = a.athlete_id AND c.status = 'approved')"
+        : '';
+      const parts = [ownerExists, claimExists].filter(Boolean);
+      if (parts.length) {
+        conditions.push(
+          claimed === '1'
+            ? `(${parts.join(' OR ')})`
+            : `(${parts.map((p) => `NOT ${p}`).join(' AND ')})`
+        );
+      }
+    }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     let latestAnnualYear = 0;
@@ -129,6 +153,17 @@ export const GET = withAdmin(async (request: NextRequest) => {
     }
 
     const fromSql = `FROM sup_athletes a
+       LEFT JOIN (
+         SELECT
+           athlete_id,
+           COUNT(*) OVER (PARTITION BY LOWER(REPLACE(TRIM(name), ' ', ''))) AS same_name_count,
+           ROW_NUMBER() OVER (
+             PARTITION BY LOWER(REPLACE(TRIM(name), ' ', ''))
+             ORDER BY CASE status WHEN 'published' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END, athlete_id ASC
+           ) AS same_name_index
+         FROM sup_athletes
+         WHERE name IS NOT NULL AND TRIM(name) <> ''
+       ) name_disambig ON name_disambig.athlete_id = a.athlete_id
        ${hasClaims ? `LEFT JOIN (
          SELECT c.claim_id, c.athlete_id, c.submitted_living_province, c.submitted_living_city
          FROM sup_athlete_profile_claims c
@@ -173,6 +208,8 @@ export const GET = withAdmin(async (request: NextRequest) => {
          a.icf_ranking, a.elite_event_status, a.elite_event_groups, a.elite_event_note,
          a.elite_event_source_title, a.elite_event_updated_at,
          a.achievements, a.social_links, a.status, a.updated_at,
+         COALESCE(name_disambig.same_name_count, 1) AS same_name_count,
+         COALESCE(name_disambig.same_name_index, 1) AS same_name_index,
          ${hasClaims ? `COALESCE(
            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(a.social_links, '$.public_profile.living_province')), 'null'),
            latest_claim.submitted_living_province
