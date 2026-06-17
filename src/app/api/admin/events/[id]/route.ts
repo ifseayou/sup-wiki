@@ -3,9 +3,16 @@ import pool from '@/lib/db';
 import { withAdmin } from '@/lib/admin';
 import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { normalizeEventResultsInput, parseSourceLinksInput, replaceEventResults } from '@/lib/event-results';
+import { geocodeAddress } from '@/lib/geocode';
 
 function optionalValue(value: unknown) {
   return value === undefined || value === '' ? null : value;
+}
+
+function coordOrNull(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function dateValue(value: unknown) {
@@ -74,6 +81,16 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
     const body = await request.json();
 
     const { results } = body;
+
+    // 坐标：管理员显式填了则尊重；否则（或带 regeocode）按地址自动地理编码后注入 body 供 fieldSetters 写入
+    const explicitCoord = coordOrNull(body.venue_lat) !== null || coordOrNull(body.venue_lng) !== null;
+    const wantsGeocode = body.regeocode === true
+      || (!explicitCoord && (body.venue || body.location || body.city || body.province));
+    if (wantsGeocode) {
+      const geo = await geocodeAddress({ venue: body.venue, location: body.location, city: body.city, province: body.province });
+      if (geo) { body.venue_lat = geo.lat; body.venue_lng = geo.lng; }
+    }
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -87,6 +104,8 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
         province: (value) => optionalValue(value),
         city: (value) => optionalValue(value),
         venue: (value) => optionalValue(value),
+        venue_lat: (value) => coordOrNull(value),
+        venue_lng: (value) => coordOrNull(value),
         start_date: (value) => dateValue(value),
         end_date: (value) => dateValue(value),
         registration_deadline: (value) => dateValue(value),

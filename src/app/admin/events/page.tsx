@@ -152,6 +152,34 @@ function EventForm({ data, onChange, token }: { data: Record<string, unknown>; o
           <input className={inp} value={String(data.price_range || '')} onChange={e => set('price_range', e.target.value)} placeholder="¥200-¥500" />
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-warm-gray-400 mb-1">具体场馆/水域（venue）</label>
+          <input className={inp} value={String(data.venue || '')} onChange={e => set('venue', e.target.value)} placeholder="如 西溪湿地洪园码头" />
+        </div>
+        <div>
+          <label className="block text-xs text-warm-gray-400 mb-1">详细地点（location）</label>
+          <input className={inp} value={String(data.location || '')} onChange={e => set('location', e.target.value)} placeholder="如 杭州市西湖区西溪湿地" />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-xs text-warm-gray-400 mb-1">场馆纬度</label>
+          <input className={inp} value={String(data.venue_lat ?? '')} onChange={e => set('venue_lat', e.target.value)} placeholder="留空将按地点自动定位" />
+        </div>
+        <div>
+          <label className="block text-xs text-warm-gray-400 mb-1">场馆经度</label>
+          <input className={inp} value={String(data.venue_lng ?? '')} onChange={e => set('venue_lng', e.target.value)} placeholder="留空将按地点自动定位" />
+        </div>
+        <div className="flex items-end pb-1">
+          {(data.venue_lat && data.venue_lng) ? (
+            <a className="text-xs text-brown-600 underline" target="_blank" rel="noreferrer"
+               href={`https://uri.amap.com/marker?position=${data.venue_lng},${data.venue_lat}&name=${encodeURIComponent(String(data.venue || data.name || ''))}`}>在高德查看 ›</a>
+          ) : (
+            <span className="text-xs text-warm-gray-400">保存后按地点自动定位坐标</span>
+          )}
+        </div>
+      </div>
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="block text-xs text-warm-gray-400 mb-1">开始日期</label>
@@ -439,6 +467,9 @@ const defaultFormData = {
   province: '',
   city: '',
   venue: '',
+  location: '',
+  venue_lat: '',
+  venue_lng: '',
   start_date: '',
   end_date: '',
   registration_deadline: '',

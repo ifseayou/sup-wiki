@@ -79,6 +79,8 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params.push(like, like, like, like, like, like, like);
     }
     if (eventId) { conditions.push('er.event_id = ?'); params.push(Number(eventId)); }
+    const resultIdFilter = Number(searchParams.get('result_id'));
+    if (Number.isInteger(resultIdFilter) && resultIdFilter > 0) { conditions.push('er.result_id = ?'); params.push(resultIdFilter); }
     const athleteIdFilter = Number(searchParams.get('athlete_id'));
     if (Number.isInteger(athleteIdFilter) && athleteIdFilter > 0) { conditions.push('er.athlete_id = ?'); params.push(athleteIdFilter); }
     if (eventSearch) { conditions.push('e.name LIKE ?'); params.push(`%${eventSearch}%`); }
