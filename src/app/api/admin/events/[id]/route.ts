@@ -87,7 +87,17 @@ export const PUT = withAdmin(async (request: NextRequest, _ctx) => {
     const wantsGeocode = body.regeocode === true
       || (!explicitCoord && (body.venue || body.location || body.city || body.province));
     if (wantsGeocode) {
-      const geo = await geocodeAddress({ venue: body.venue, location: body.location, city: body.city, province: body.province });
+      // 地址优先用本次提交的；缺失的从库里补（regeocode 时 body 可能只带 flag）
+      const [existingRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT venue, location, city, province FROM sup_events WHERE event_id = ? LIMIT 1', [id]
+      );
+      const cur = (existingRows[0] || {}) as Record<string, unknown>;
+      const geo = await geocodeAddress({
+        venue: (body.venue ?? cur.venue) as string,
+        location: (body.location ?? cur.location) as string,
+        city: (body.city ?? cur.city) as string,
+        province: (body.province ?? cur.province) as string,
+      });
       if (geo) { body.venue_lat = geo.lat; body.venue_lng = geo.lng; }
     }
 
