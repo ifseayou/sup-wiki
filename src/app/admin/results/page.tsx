@@ -95,6 +95,8 @@ export default function AdminResultsPage() {
   const [statusCode, setStatusCode] = useState('');
   const [reviewStatus, setReviewStatus] = useState(() => initialQueryValue('review_status'));
   const [eventId] = useState(() => initialQueryValue('event_id'));
+  const [resultId] = useState(() => initialQueryValue('result_id'));
+  const [autoOpened, setAutoOpened] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -108,6 +110,7 @@ export default function AdminResultsPage() {
     const params = new URLSearchParams({ page: String(page), pageSize: '30' });
     if (search) params.set('search', search);
     if (eventId) params.set('event_id', eventId);
+    if (resultId) params.set('result_id', resultId);
     if (eventSearch) params.set('event_search', eventSearch);
     if (athleteName) params.set('athlete_name', athleteName);
     if (memberName) params.set('member_name', memberName);
@@ -118,7 +121,7 @@ export default function AdminResultsPage() {
     if (statusCode) params.set('result_status_code', statusCode);
     if (reviewStatus) params.set('review_status', reviewStatus);
     return params.toString();
-  }, [athleteName, city, disciplineFilter, eventId, eventSearch, genderGroupFilter, memberName, nationality, page, reviewStatus, search, statusCode]);
+  }, [athleteName, city, disciplineFilter, eventId, resultId, eventSearch, genderGroupFilter, memberName, nationality, page, reviewStatus, search, statusCode]);
 
   async function load() {
     setLoading(true);
@@ -135,6 +138,14 @@ export default function AdminResultsPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, token]);
+
+  // 从质量盘深链 ?result_id= 进入时，自动弹出该行编辑框（仅一次）
+  useEffect(() => {
+    if (resultId && !autoOpened && items.length > 0) {
+      const row = items.find((r) => String(r.result_id) === resultId);
+      if (row) { edit(row); setAutoOpened(true); }
+    }
+  }, [items, resultId, autoOpened]);
 
   function edit(row: ResultRow) {
     setForm({

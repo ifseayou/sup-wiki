@@ -44,8 +44,55 @@ async function eventDrillDown(eventId: number) {
      ORDER BY c DESC`,
     [eventId]
   );
+  // 问题成绩行明细（带 result_id，便于直达编辑）：未匹配/低置信/多第一/重号
+  const [problemRows] = await pool.execute<RowDataPacket[]>(
+    `SELECT result_id, athlete_name_snapshot, discipline, gender_group, board_class, round_label, rank_position, finish_time, result_status_code, issue_type FROM (
+       SELECT result_id, athlete_name_snapshot, discipline, gender_group, board_class, round_label, rank_position, finish_time, result_status_code, 'unmatched' AS issue_type
+       FROM sup_event_results WHERE event_id = ? AND athlete_id IS NULL
+       UNION ALL
+       SELECT result_id, athlete_name_snapshot, discipline, gender_group, board_class, round_label, rank_position, finish_time, result_status_code, 'low_conf'
+       FROM sup_event_results WHERE event_id = ? AND norm_confidence < 0.6
+       UNION ALL
+       SELECT er.result_id, er.athlete_name_snapshot, er.discipline, er.gender_group, er.board_class, er.round_label, er.rank_position, er.finish_time, er.result_status_code, 'multi_first'
+       FROM sup_event_results er
+       INNER JOIN (
+         SELECT discipline, gender_group, COALESCE(board_class,'') bc, COALESCE(round_label,'') rl
+         FROM sup_event_results
+         WHERE event_id = ? AND rank_position = 1 AND (result_status_code IS NULL OR result_status_code = '')
+         GROUP BY discipline, gender_group, bc, rl HAVING COUNT(*) > 1
+       ) bad ON er.discipline = bad.discipline AND er.gender_group = bad.gender_group
+              AND COALESCE(er.board_class,'') = bad.bc AND COALESCE(er.round_label,'') = bad.rl
+       WHERE er.event_id = ? AND er.rank_position = 1 AND (er.result_status_code IS NULL OR er.result_status_code = '')
+       UNION ALL
+       SELECT er.result_id, er.athlete_name_snapshot, er.discipline, er.gender_group, er.board_class, er.round_label, er.rank_position, er.finish_time, er.result_status_code, 'dup_bib'
+       FROM sup_event_results er
+       INNER JOIN (
+         SELECT bib_number, discipline, gender_group, COALESCE(board_class,'') bc, COALESCE(round_label,'') rl
+         FROM sup_event_results
+         WHERE event_id = ? AND bib_number IS NOT NULL AND bib_number <> ''
+         GROUP BY bib_number, discipline, gender_group, bc, rl HAVING COUNT(*) > 1
+       ) dups ON er.bib_number = dups.bib_number AND er.discipline = dups.discipline AND er.gender_group = dups.gender_group
+               AND COALESCE(er.board_class,'') = dups.bc AND COALESCE(er.round_label,'') = dups.rl
+       WHERE er.event_id = ? AND er.bib_number IS NOT NULL AND er.bib_number <> ''
+     ) p
+     ORDER BY FIELD(issue_type,'multi_first','dup_bib','unmatched','low_conf'), discipline, gender_group, round_label, rank_position
+     LIMIT 500`,
+    [eventId, eventId, eventId, eventId, eventId, eventId]
+  );
   return NextResponse.json({
     event_id: eventId,
+    problem_results: problemRows.map((r) => ({
+      result_id: Number(r.result_id),
+      athlete_name: r.athlete_name_snapshot,
+      discipline: r.discipline,
+      gender_group: r.gender_group,
+      board_class: r.board_class,
+      round_label: r.round_label,
+      rank_position: r.rank_position,
+      finish_time: r.finish_time,
+      result_status_code: r.result_status_code,
+      issue_type: r.issue_type,
+    })),
     modules: modules.map((m) => ({
       discipline: m.discipline,
       gender_group: m.gender_group,

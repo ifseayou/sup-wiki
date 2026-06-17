@@ -43,8 +43,28 @@ interface ModuleRow {
   no_first: boolean;
 }
 
+interface ProblemRow {
+  result_id: number;
+  athlete_name: string;
+  discipline: string;
+  gender_group: string;
+  board_class: string | null;
+  round_label: string | null;
+  rank_position: number | null;
+  finish_time: string | null;
+  result_status_code: string | null;
+  issue_type: 'unmatched' | 'low_conf' | 'multi_first' | 'dup_bib';
+}
+
 const resultStatusLabels: Record<string, string> = {
   none: '未采集', partial: '部分采集', top10_complete: '前十完成', extended_complete: '扩展完成',
+};
+
+const ISSUE_LABEL: Record<string, { text: string; cls: string }> = {
+  multi_first: { text: '多第一', cls: 'bg-[#FDE2E2] text-[#B91C1C]' },
+  dup_bib: { text: '重号', cls: 'bg-[#FDE2E2] text-[#B91C1C]' },
+  unmatched: { text: '未匹配', cls: 'bg-[#FCE9D6] text-[#C2410C]' },
+  low_conf: { text: '低置信', cls: 'bg-[#FCE9D6] text-[#C2410C]' },
 };
 
 export default function QualityDashboardPage() {
@@ -56,7 +76,7 @@ export default function QualityDashboardPage() {
   const [total, setTotal] = useState(0);
   const [pageInput, setPageInput] = useState('1');
   const [loading, setLoading] = useState(false);
-  const [drill, setDrill] = useState<{ eventId: number; modules: ModuleRow[]; dups: { bib_number: string; count: number }[] } | null>(null);
+  const [drill, setDrill] = useState<{ eventId: number; modules: ModuleRow[]; dups: { bib_number: string; count: number }[]; problems: ProblemRow[] } | null>(null);
 
   const authHeaders = { Authorization: `Bearer ${token}` };
 
@@ -81,8 +101,8 @@ export default function QualityDashboardPage() {
   const openDrill = async (eventId: number) => {
     if (drill?.eventId === eventId) { setDrill(null); return; }
     const res = await fetch(`/api/admin/quality?event_id=${eventId}`, { headers: authHeaders });
-    const data = await readAdminResponse(res) as { modules?: ModuleRow[]; duplicate_bibs?: { bib_number: string; count: number }[] };
-    setDrill({ eventId, modules: data.modules || [], dups: data.duplicate_bibs || [] });
+    const data = await readAdminResponse(res) as { modules?: ModuleRow[]; duplicate_bibs?: { bib_number: string; count: number }[]; problem_results?: ProblemRow[] };
+    setDrill({ eventId, modules: data.modules || [], dups: data.duplicate_bibs || [], problems: data.problem_results || [] });
   };
 
   const jumpToPage = () => {
@@ -182,6 +202,46 @@ export default function QualityDashboardPage() {
                         </div>
                         {drill.dups.length > 0 && (
                           <div className="mt-2 text-[#B91C1C]">重复号码牌：{drill.dups.map((d) => `${d.bib_number}×${d.count}`).join('，')}</div>
+                        )}
+
+                        {/* 问题成绩行明细：点「编辑」直达成绩编辑弹框 */}
+                        {drill.problems.length > 0 && (
+                          <div className="mt-4">
+                            <div className="font-semibold text-[#5E554D] mb-2">问题成绩行（{drill.problems.length}，点「编辑」直达修改）</div>
+                            <div className="overflow-x-auto rounded-xl border border-[#EDE2D2] bg-white">
+                              <table className="w-full min-w-[760px] text-xs">
+                                <thead>
+                                  <tr className="border-b border-[#EDE2D2] bg-[#F7F0E4] text-[#7D6B58]">
+                                    <th className="px-3 py-2 text-left">问题</th>
+                                    <th className="px-3 py-2 text-left">运动员</th>
+                                    <th className="px-3 py-2 text-left">项目</th>
+                                    <th className="px-3 py-2 text-left">组别</th>
+                                    <th className="px-3 py-2 text-left">轮次</th>
+                                    <th className="px-3 py-2 text-right">名次</th>
+                                    <th className="px-3 py-2 text-left">成绩</th>
+                                    <th className="px-3 py-2 text-right">操作</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#F1E8DA]">
+                                  {drill.problems.map((p, i) => (
+                                    <tr key={`${p.result_id}-${p.issue_type}-${i}`}>
+                                      <td className="px-3 py-2"><span className={`rounded px-2 py-0.5 text-[11px] font-semibold ${ISSUE_LABEL[p.issue_type]?.cls || ''}`}>{ISSUE_LABEL[p.issue_type]?.text || p.issue_type}</span></td>
+                                      <td className="px-3 py-2 text-[#5E554D]">{p.athlete_name || <span className="text-[#C2410C]">（未匹配）</span>}</td>
+                                      <td className="px-3 py-2 text-[#5E554D]">{p.discipline}{p.board_class ? ` / ${p.board_class}` : ''}</td>
+                                      <td className="px-3 py-2 text-[#5E554D]">{p.gender_group}</td>
+                                      <td className="px-3 py-2 text-[#5E554D]">{p.round_label || '-'}</td>
+                                      <td className="px-3 py-2 text-right tabular-nums">{p.result_status_code || p.rank_position || '-'}</td>
+                                      <td className="px-3 py-2 text-[#5E554D]">{p.finish_time || '-'}</td>
+                                      <td className="px-3 py-2 text-right">
+                                        <a className="rounded-lg border border-[#D8CCBA] bg-white px-3 py-1 text-[#6B5E50] hover:bg-[#F8F4ED]" target="_blank" rel="noreferrer"
+                                           href={`/admin/results?event_id=${e.event_id}&result_id=${p.result_id}`}>编辑</a>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
                         )}
                       </td>
                     </tr>

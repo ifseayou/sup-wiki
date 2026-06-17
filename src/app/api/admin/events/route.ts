@@ -3,6 +3,27 @@ import pool from '@/lib/db';
 import { withAdmin } from '@/lib/admin';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { normalizeEventResultsInput, parseSourceLinksInput, replaceEventResults } from '@/lib/event-results';
+import { geocodeAddress } from '@/lib/geocode';
+
+function coordOrNull(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 解析坐标：管理员显式填了则尊重；否则按地址自动地理编码（无 key/失败→null）。 */
+async function resolveVenueCoords(body: Record<string, unknown>): Promise<{ lat: number | null; lng: number | null }> {
+  let lat = coordOrNull(body.venue_lat);
+  let lng = coordOrNull(body.venue_lng);
+  if ((lat === null || lng === null) || body.regeocode === true) {
+    const geo = await geocodeAddress({
+      venue: body.venue as string, location: body.location as string,
+      city: body.city as string, province: body.province as string,
+    });
+    if (geo) { lat = geo.lat; lng = geo.lng; }
+  }
+  return { lat, lng };
+}
 
 function dateValue(value: unknown) {
   if (value === undefined || value === '') return null;
@@ -208,21 +229,23 @@ export const POST = withAdmin(async (request: NextRequest) => {
       return NextResponse.json({ error: '赛事名称和 slug 为必填项' }, { status: 400 });
     }
 
+    const { lat: venueLat, lng: venueLng } = await resolveVenueCoords(body);
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
       const [result] = await connection.execute<ResultSetHeader>(
-        `INSERT INTO sup_events (name, name_en, slug, event_type, location, province, city, venue,
+        `INSERT INTO sup_events (name, name_en, slug, event_type, location, province, city, venue, venue_lat, venue_lng,
           start_date, end_date, registration_deadline, organizer, description, requirements,
           website, registration_url, contact_info, images, schedule, disciplines,
           price_range, max_participants, star_level, score_coefficient, source_scope,
           result_status, result_source_note, result_source_links, event_guide, result_last_verified_at,
           status, event_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           name, name_en || null, slug, event_type || 'race',
-          location || null, province || null, city || null, venue || null,
+          location || null, province || null, city || null, venue || null, venueLat, venueLng,
           dateValue(start_date), dateValue(end_date), dateValue(registration_deadline),
           organizer || null, description || null, requirements || null,
           website || null, registration_url || null, contact_info || null,
