@@ -191,35 +191,47 @@ export function MultiImageUpload({
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const upload = useCallback(async (file: File) => {
+  // 支持一次选中多张：按剩余名额截取，顺序上传后一次性 onChange
+  // （逐张 onChange 会因闭包旧 values 互相覆盖，导致看起来只能传一张）
+  const uploadMany = useCallback(async (files: File[]) => {
+    if (!files.length) return;
+    const room = Math.max(0, max - values.length);
+    if (room <= 0) { setError(`最多 ${max} 张`); return; }
+    const picked = files.slice(0, room);
     setError('');
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', folder);
-      if (module) formData.append('module', module);
-      const res = await fetch('/api/admin/upload', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        onChange([...values, data.url]);
-      } else {
-        setError(data.error || '上传失败');
+      const uploaded: string[] = [];
+      let failed = 0;
+      for (const file of picked) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', folder);
+        if (module) formData.append('module', module);
+        try {
+          const res = await fetch('/api/admin/upload', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+          });
+          const data = await res.json();
+          if (res.ok && data.url) uploaded.push(data.url);
+          else failed += 1;
+        } catch {
+          failed += 1;
+        }
       }
-    } catch {
-      setError('网络错误');
+      if (uploaded.length) onChange([...values, ...uploaded]);
+      if (failed) setError(`${failed} 张上传失败`);
+      else if (picked.length < files.length) setError(`已达上限，仅上传前 ${picked.length} 张`);
     } finally {
       setUploading(false);
     }
-  }, [folder, module, token, onChange, values]);
+  }, [folder, module, token, onChange, values, max]);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) upload(file);
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length) uploadMany(files);
     if (inputRef.current) inputRef.current.value = '';
   }
 
@@ -360,6 +372,7 @@ export function MultiImageUpload({
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
         onChange={handleFileSelect}
         style={{ display: 'none' }}
       />

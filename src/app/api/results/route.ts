@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { applyPublicPreview, resolveResultAccess } from '@/lib/result-access';
+import { applyPublicPreview, resolveResultAccess, quotaExceededMessage } from '@/lib/result-access';
 import { localResultSourceCondition } from '@/lib/result-source-scope';
 import { resultDefaultOrderBy } from '@/lib/result-ordering';
 import { getResultPaceDisplay, isNormalResultFinish, toResultNumber } from '@/lib/result-pace';
@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
     const access = await resolveResultAccess(request);
     if (access.authenticated && access.remaining === 0 && access.previewLimit === 0) {
       return NextResponse.json({
-        error: '今日成绩查询次数已用完，请明天再试',
+        error: quotaExceededMessage(access),
         access,
       }, { status: 429 });
     }

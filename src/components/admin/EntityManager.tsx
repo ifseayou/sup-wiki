@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AdminFilterSelect from '@/components/admin/AdminFilterSelect';
 import AdminSearchableFilter from '@/components/admin/AdminSearchableFilter';
 import { readAdminResponse } from '@/lib/admin-api-client';
@@ -195,6 +196,7 @@ export default function EntityManager({
   enableBulkActions = false,
 }: EntityManagerProps) {
   const filters = useMemo(() => additionalFilters ?? [], [additionalFilters]);
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -232,6 +234,17 @@ export default function EntityManager({
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [search]);
+
+  // URL query 变化时（含 SPA 客户端跳转，如从仪表盘点「已绑定」带 ?claimed=1）同步筛选器，
+  // 避免只在首次 mount 读一次 window.location.search 导致需手动刷新才生效。
+  useEffect(() => {
+    const s = searchParams.get('search') || '';
+    setSearch(s);
+    setDebouncedSearch(s.trim());
+    setStatusFilter(searchParams.get('status') || '');
+    setExtraFilterValues(Object.fromEntries(filters.map((filter) => [filter.key, searchParams.get(filter.key) || ''])));
+    setPage(1);
+  }, [searchParams, filters]);
 
   const queryKey = useMemo(
     () =>

@@ -48,6 +48,9 @@ export const GET = withAdmin(async (request: NextRequest) => {
   try {
     const status = request.nextUrl.searchParams.get('status') || 'pending';
     const search = request.nextUrl.searchParams.get('search')?.trim() || '';
+    const page = Math.max(1, Number(request.nextUrl.searchParams.get('page') || 1));
+    const pageSize = Math.min(100, Math.max(10, Number(request.nextUrl.searchParams.get('pageSize') || 20)));
+    const offset = (page - 1) * pageSize;
     const conditions = ["(? = 'all' OR c.status = ?)"];
     const params: (string | number)[] = [status, status];
 
@@ -56,6 +59,16 @@ export const GET = withAdmin(async (request: NextRequest) => {
       const like = `%${search}%`;
       params.push(like, like, like);
     }
+
+    const [countRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT COUNT(*) AS total
+       FROM sup_athlete_profile_claims c
+       INNER JOIN sup_users u ON u.user_id = c.user_id
+       INNER JOIN sup_athletes a ON a.athlete_id = c.athlete_id
+       WHERE ${conditions.join(' AND ')}`,
+      params
+    );
+    const total = Number(countRows[0]?.total || 0);
 
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT
@@ -111,11 +124,17 @@ export const GET = withAdmin(async (request: NextRequest) => {
        LEFT JOIN sup_events e ON e.event_id = er.event_id
        WHERE ${conditions.join(' AND ')}
        ORDER BY FIELD(c.status, 'pending', 'approved', 'rejected'), c.created_at DESC
-       LIMIT 200`,
+       LIMIT ${pageSize} OFFSET ${offset}`,
       params
     );
 
-    return NextResponse.json({ items: rows.map(normalizeClaimRow) });
+    return NextResponse.json({
+      items: rows.map(normalizeClaimRow),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize) || 1,
+    });
   } catch (error) {
     console.error('获取运动员资料审批列表失败:', error);
     return NextResponse.json({ error: '获取运动员资料审批列表失败' }, { status: 500 });

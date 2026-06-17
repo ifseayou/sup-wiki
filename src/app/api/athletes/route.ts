@@ -7,7 +7,7 @@ import pool from '@/lib/db';
 import { getNationalityAliases, normalizeNationality } from '@/lib/nationality';
 import { buildAthleteOwnerMap, buildPrivacyMap } from '@/lib/result-privacy';
 import { hiddenAthleteName, maskAthleteName } from '@/lib/name-mask';
-import { resolveResultAccess, applyPublicPreview } from '@/lib/result-access';
+import { resolveResultAccess, applyPublicPreview, quotaExceededMessage } from '@/lib/result-access';
 import type { RowDataPacket } from 'mysql2';
 import type { Athlete, Discipline, PaginatedResponse } from '@/types';
 
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const shouldConsumeAccess = Boolean(search || discipline || nationality);
     const access = await resolveResultAccess(request, { consume: shouldConsumeAccess });
     if (shouldConsumeAccess && access.authenticated && access.remaining === 0 && access.previewLimit === 0) {
-      return NextResponse.json({ error: '今日成绩查询次数已用完，请明天再试', access }, { status: 429 });
+      return NextResponse.json({ error: quotaExceededMessage(access), access }, { status: 429 });
     }
 
     const offset = (page - 1) * pageSize;

@@ -457,6 +457,14 @@ const defaultFormData = {
 
 const athleteFilters = [
   {
+    key: 'claimed',
+    placeholder: '全部绑定状态',
+    options: [
+      { value: '1', label: '仅已绑定' },
+      { value: '0', label: '仅未绑定' },
+    ],
+  },
+  {
     key: 'gender',
     placeholder: '全部性别',
     options: [

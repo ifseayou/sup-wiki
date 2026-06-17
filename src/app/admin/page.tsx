@@ -22,6 +22,11 @@ interface DashboardData {
     created_at: string;
     href: string;
   }[];
+  athleteStats?: {
+    total: number;
+    claimed: number;
+    draft: number;
+  };
 }
 
 const todoCards = [
@@ -113,6 +118,36 @@ export default function AdminDashboard() {
           );
         })}
       </div>
+
+      <section className="mb-8 bg-cream-50 border border-cream-200 rounded-xl p-5">
+        <h2 className="mb-4 text-base font-semibold text-brown-800">运动员概览</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <Link
+            href="/admin/athletes?status=published"
+            className="rounded-xl border border-cream-200 bg-white/60 p-4 transition-all hover:border-brown-500 hover:shadow-sm"
+          >
+            <div className="text-3xl font-bold text-brown-800">{loading ? '—' : data?.athleteStats?.total ?? 0}</div>
+            <div className="mt-1 text-sm font-medium text-brown-700">运动员总数</div>
+            <div className="mt-0.5 text-xs text-warm-gray-500">已发布的正式档案</div>
+          </Link>
+          <Link
+            href="/admin/athletes?claimed=1"
+            className="rounded-xl border border-cream-200 bg-white/60 p-4 transition-all hover:border-brown-500 hover:shadow-sm"
+          >
+            <div className="text-3xl font-bold text-brown-800">{loading ? '—' : data?.athleteStats?.claimed ?? 0}</div>
+            <div className="mt-1 text-sm font-medium text-brown-700">已绑定运动员</div>
+            <div className="mt-0.5 text-xs text-warm-gray-500">用户已认领绑定</div>
+          </Link>
+          <Link
+            href="/admin/athletes?status=draft"
+            className="rounded-xl border border-cream-200 bg-white/60 p-4 transition-all hover:border-brown-500 hover:shadow-sm"
+          >
+            <div className="text-3xl font-bold text-brown-800">{loading ? '—' : data?.athleteStats?.draft ?? data?.draftContent?.athletes ?? 0}</div>
+            <div className="mt-1 text-sm font-medium text-brown-700">草稿待完善</div>
+            <div className="mt-0.5 text-xs text-warm-gray-500">导入成绩自动生成</div>
+          </Link>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-5">
         <section className="bg-cream-50 border border-cream-200 rounded-xl p-4">

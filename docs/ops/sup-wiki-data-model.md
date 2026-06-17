@@ -217,3 +217,17 @@ YYYY-MM-DD - 标题
 - 影响表：`sup_events`、`sup_event_categories`、`sup_event_category_prizes`、`sup_event_officials`、`sup_event_submissions`。不影响 `sup_event_results`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`，不会自动创建运动员或同步战绩缓存。
 - 影响接口/页面：赛事列表、赛事详情页、`/api/events`、`/api/events/384`。该赛事 `result_status='none'`，成绩/积分查询不会新增记录；提报 `submission_id=1` 已标记为 `ingested` 并关联 `event_id=384`。
 - 回滚/核验：核验该赛事组别 5 条、逐名次奖金 78 条、技术官员占位 2 条，赛事状态 `published/upcoming`，星级 `三星`、系数 `3.0`。如需回滚，按 `event_id=384` 删除 `sup_event_category_prizes`、`sup_event_categories`、`sup_event_officials`，再删除 `sup_events` 记录，并将对应 `sup_event_submissions` 恢复为 `pending`。
+
+### 2026-06-16 - 录入 2026 中国桨板精英联赛无锡站补充通知
+
+- 变更：根据中国桨板公众号发布的体育总局水上中心补充通知，创建生产赛事 `event_id=386`（`2026年中国桨板精英联赛（无锡站）`，2026-07-04 至 2026-07-05，江苏省无锡市梁溪区清名桥历史文化街区）。本次仅录入赛事补充通知、日程、项目距离、报名报到要求和技术官员，不录入成绩或积分。
+- 影响表：`sup_events`、`sup_event_categories`、`sup_event_officials`、`sup_event_submissions`、`sup_wechat_articles`。不影响 `sup_event_results`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`，不会自动创建运动员或同步战绩缓存。
+- 影响接口/页面：赛事列表、赛事详情页、`/api/events`、`/api/events/386`。该赛事 `result_status='none'`，赛事评级按中国桨板精英联赛口径记录为 `五星`、系数 `5.0`、`source_scope='全国'`；提报 `submission_id=67` 和微信文章 `id=151` 已关联 `event_id=386`。
+- 回滚/核验：核验该赛事组别 4 条、技术官员 18 条、成绩与积分记录均为 0，赛事状态 `published/upcoming`。如需回滚，按 `event_id=386` 删除 `sup_event_officials`、`sup_event_categories`，再删除 `sup_events` 记录，并将对应 `sup_event_submissions` 恢复为 `pending`、`sup_wechat_articles` 恢复为待人工处理。
+
+### 2026-06-17 - 录入第二届全国全民健身大赛西南区桨板比赛预告
+
+- 变更：根据开州发布公众号文章《国家级桨板大赛即将在汉丰湖举行》，创建生产赛事 `event_id=387`（`第二届全国全民健身大赛（西南区）桨板比赛`，2026-06-19 至 2026-06-21，重庆市开州区汉丰湖城南故津片区）。本次仅录入赛事预告、主办承办信息、赛程、团体年龄组和竞赛项目，不录入成绩或积分。
+- 影响表：`sup_events`、`sup_event_categories`。不影响 `sup_event_results`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`，不会自动创建运动员或同步战绩缓存。
+- 影响接口/页面：赛事列表、赛事详情页、`/api/events`、`/api/events/387`。该赛事 `result_status='none'`，参考同类全国全民健身大赛区域赛口径记录为 `三星`、系数 `3.0`、`source_scope='西南区'`。
+- 回滚/核验：核验该赛事组别 8 条、逐名次奖金 0 条、技术官员 0 条、成绩与积分记录均为 0，赛事状态 `published/upcoming`。如需回滚，按 `event_id=387` 删除 `sup_event_categories` 后删除 `sup_events` 记录。

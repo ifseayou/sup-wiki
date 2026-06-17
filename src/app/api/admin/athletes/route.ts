@@ -81,6 +81,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const nationality = searchParams.get('nationality')?.trim();
     const city = searchParams.get('city')?.trim();
     const rankBucket = searchParams.get('rankBucket')?.trim();
+    const claimed = searchParams.get('claimed')?.trim();
     const sortBy = searchParams.get('sortBy') || '';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'ASC' : 'DESC';
     const page = parseInt(searchParams.get('page') || '1');
@@ -119,6 +120,23 @@ export const GET = withAdmin(async (request: NextRequest) => {
     }
     const rankCondition = hasAnnualTables ? rankBucketCondition(rankBucket || '') : '';
     if (rankCondition) conditions.push(rankCondition);
+    // 已绑定/已认领筛选：用 EXISTS 子查询（只依赖基表 a，count 与 data 查询都安全；不引用 LEFT JOIN 别名）
+    if (claimed === '1' || claimed === '0') {
+      const ownerExists = hasOwners
+        ? "EXISTS(SELECT 1 FROM sup_athlete_profile_owners o WHERE o.athlete_id = a.athlete_id AND o.status = 'active' AND o.role = 'owner')"
+        : '';
+      const claimExists = hasClaims
+        ? "EXISTS(SELECT 1 FROM sup_athlete_profile_claims c WHERE c.athlete_id = a.athlete_id AND c.status = 'approved')"
+        : '';
+      const parts = [ownerExists, claimExists].filter(Boolean);
+      if (parts.length) {
+        conditions.push(
+          claimed === '1'
+            ? `(${parts.join(' OR ')})`
+            : `(${parts.map((p) => `NOT ${p}`).join(' AND ')})`
+        );
+      }
+    }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     let latestAnnualYear = 0;

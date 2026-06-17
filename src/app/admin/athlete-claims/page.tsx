@@ -124,16 +124,25 @@ export default function AdminAthleteClaimsPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageInput, setPageInput] = useState('1');
+  const [refreshTick, setRefreshTick] = useState(0);
 
   function load() {
     setLoading(true);
     setError('');
-    const params = new URLSearchParams({ status });
+    const params = new URLSearchParams({ status, page: String(page), pageSize: '20' });
     if (search) params.set('search', search);
     fetch(`/api/admin/athlete-claims?${params}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(async (res) => {
         const data = await readAdminResponse(res);
         setItems(Array.isArray(data.items) ? data.items as ClaimRow[] : []);
+        setTotal(Number(data.total || 0));
+        const nextTotalPages = Math.max(1, Number(data.totalPages || 1));
+        setTotalPages(nextTotalPages);
+        setPageInput(String(Math.min(page, nextTotalPages)));
       })
       .catch((err) => setError(err instanceof Error ? err.message : '加载失败'))
       .finally(() => setLoading(false));
@@ -142,7 +151,24 @@ export default function AdminAthleteClaimsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, token]);
+  }, [status, page, token, refreshTick]);
+
+  // 切 tab / 搜索 / 查询：回到第 1 页并刷新
+  function applyFilter() {
+    setPage(1);
+    setPageInput('1');
+    setRefreshTick((t) => t + 1);
+  }
+  function switchStatus(next: string) {
+    setStatus(next);
+    setPage(1);
+    setPageInput('1');
+  }
+  function jumpToPage() {
+    const target = Math.min(totalPages, Math.max(1, Number(pageInput) || 1));
+    setPage(target);
+    setPageInput(String(target));
+  }
 
   async function review(claimId: number, action: 'approve' | 'reject') {
     const note = action === 'reject' ? window.prompt('拒绝原因（可选）') || '' : '';
@@ -157,7 +183,7 @@ export default function AdminAthleteClaimsPage() {
       alert(error instanceof Error ? error.message : '处理失败');
       return;
     }
-    load();
+    setRefreshTick((t) => t + 1);
   }
 
   function preview(url: string) {
@@ -172,14 +198,14 @@ export default function AdminAthleteClaimsPage() {
           <p style={{ margin: '6px 0 0', color: '#8B8580', fontSize: 13 }}>优先处理号码牌已校验通过的“我是本人，认领该运动员”提交。</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') load(); }} placeholder="搜索运动员 / 用户" style={{ height: 36, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 10px' }} />
-          <button onClick={load} style={{ height: 36, border: '1px solid #8B7355', borderRadius: 8, background: '#8B7355', color: '#fff', padding: '0 14px' }}>查询</button>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') applyFilter(); }} placeholder="搜索运动员 / 用户" style={{ height: 36, border: '1px solid #D8CDBE', borderRadius: 8, padding: '0 10px' }} />
+          <button onClick={applyFilter} style={{ height: 36, border: '1px solid #8B7355', borderRadius: 8, background: '#8B7355', color: '#fff', padding: '0 14px' }}>查询</button>
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         {['pending', 'approved', 'rejected', 'all'].map((item) => (
-          <button key={item} onClick={() => setStatus(item)} style={{ border: '1px solid #D8CDBE', borderRadius: 999, padding: '7px 13px', background: status === item ? '#2A2118' : '#fff', color: status === item ? '#fff' : '#6F5B42' }}>
+          <button key={item} onClick={() => switchStatus(item)} style={{ border: '1px solid #D8CDBE', borderRadius: 999, padding: '7px 13px', background: status === item ? '#2A2118' : '#fff', color: status === item ? '#fff' : '#6F5B42' }}>
             {statusLabels[item]}
           </button>
         ))}
@@ -259,6 +285,17 @@ export default function AdminAthleteClaimsPage() {
           </section>
         ))}
         {!loading && items.length === 0 && <div style={{ border: '1px dashed #D8CDBE', borderRadius: 12, padding: 32, textAlign: 'center', color: '#8B8580' }}>暂无提交</div>}
+      </div>
+
+      <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 13, color: '#8B8580' }}>
+        <span>共 {total} 条，第 {page} / {totalPages} 页</span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          <button disabled={page <= 1} onClick={() => setPage((v) => Math.max(1, v - 1))} style={{ border: '1px solid #D8CDBE', borderRadius: 8, padding: '6px 12px', background: page <= 1 ? '#F5F1EA' : '#fff', color: '#6F5B42', cursor: page <= 1 ? 'not-allowed' : 'pointer', opacity: page <= 1 ? 0.5 : 1 }}>上一页</button>
+          <span>跳至</span>
+          <input value={pageInput} onChange={(e) => setPageInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') jumpToPage(); }} inputMode="numeric" style={{ width: 56, height: 32, border: '1px solid #D8CDBE', borderRadius: 6, padding: '0 8px', textAlign: 'center', color: '#2A2118' }} />
+          <button onClick={jumpToPage} style={{ border: '1px solid #D8CDBE', borderRadius: 8, padding: '6px 12px', background: '#fff', color: '#6F5B42', cursor: 'pointer' }}>确定</button>
+          <button disabled={page >= totalPages} onClick={() => setPage((v) => Math.min(totalPages, v + 1))} style={{ border: '1px solid #D8CDBE', borderRadius: 8, padding: '6px 12px', background: page >= totalPages ? '#F5F1EA' : '#fff', color: '#6F5B42', cursor: page >= totalPages ? 'not-allowed' : 'pointer', opacity: page >= totalPages ? 0.5 : 1 }}>下一页</button>
+        </div>
       </div>
     </div>
   );
