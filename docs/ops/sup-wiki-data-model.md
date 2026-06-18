@@ -231,3 +231,10 @@ YYYY-MM-DD - 标题
 - 影响表：`sup_events`、`sup_event_categories`。不影响 `sup_event_results`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`，不会自动创建运动员或同步战绩缓存。
 - 影响接口/页面：赛事列表、赛事详情页、`/api/events`、`/api/events/387`。该赛事 `result_status='none'`，参考同类全国全民健身大赛区域赛口径记录为 `三星`、系数 `3.0`、`source_scope='西南区'`。
 - 回滚/核验：核验该赛事组别 8 条、逐名次奖金 0 条、技术官员 0 条、成绩与积分记录均为 0，赛事状态 `published/upcoming`。如需回滚，按 `event_id=387` 删除 `sup_event_categories` 后删除 `sup_events` 记录。
+
+### 2026-06-18 - 录入 2026 中国桨板国际公开赛（汉中站）成绩与积分
+
+- 变更：为用户提交批次 `mp_1781786111424_mittlaou` 绑定既有生产赛事 `event_id=380`（`2026年中国桨板国际公开赛（汉中站）`，2026-06-13 至 2026-06-14，陕西省汉中市汉江汉中城区段），从 1 份成绩册 PDF 导入第 28-83 页赛事成绩 666 条，并从第 2-27 页导入参赛单位、高校、个人和团体积分 351 条。
+- 影响表：`sup_event_point_standings` 新增 `technical_rank`、`technical_points` 两列，用于保存成绩册中的技术赛排名和技术赛积分；`sup_events`、`sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`、`sup_event_result_submissions`、`sup_event_point_standings`、`sup_athletes`、`sup_athlete_identity_links`、`sup_club_team_aliases` 均有数据写入或更新。本次导入触达并同步 327 名运动员战绩缓存；提交记录 `submission_id=32` 更新为 `imported`，来源记录 `source_id=467`。
+- 影响接口/页面：`/events/380`、`/api/events/380/results`、`/results`、`/api/results`、运动员详情页战绩面板。赛事状态更新为 `completed`，`result_status='extended_complete'`，`source_scope='国内外'`；赛事成绩 API 的积分榜返回字段新增 `technical_rank`、`technical_points`，前台和后台积分榜增加技术赛列。
+- 回滚/核验：核验生产库 `sup_event_results` 中 `event_id=380` 共 666 条，状态分布为正常成绩 615、DNS 38、DNF 7、DSQ 6；成绩模块 47 个，均无同一决赛模块多个正常第一名。`sup_event_point_standings` 中 `event_id=380` 共 351 条、18 个积分模块；双人龙板积分前三名包含技术赛积分 170/200/150。来源 OSS PDF 返回 200。如需回滚，应先删除 `event_id=380` 关联的 `sup_event_results`、`sup_event_result_members`、`sup_event_result_sources`、`sup_event_point_standings`，再视情况清理本次自动创建且无其他成绩关联的运动员实体、身份链接、队伍别名和提交记录状态；字段迁移如需回滚，可在确认没有其他赛事使用后删除 `technical_rank`、`technical_points`。

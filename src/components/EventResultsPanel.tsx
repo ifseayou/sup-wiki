@@ -51,6 +51,8 @@ interface PointStandingRow {
   endurance_points: number | string | null;
   sprint_rank: string | null;
   sprint_points: number | string | null;
+  technical_rank: string | null;
+  technical_points: number | string | null;
   total_points: number | string | null;
   results_points_hidden?: boolean;
   privacy_notice?: string | null;
@@ -835,6 +837,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                       <th className="px-5 py-3 text-left">队伍</th>
                       <th className="px-5 py-3 text-right">耐力赛</th>
                       <th className="px-5 py-3 text-right">冲刺赛</th>
+                      <th className="px-5 py-3 text-right">技术赛</th>
                       <th className="px-5 py-3 text-right">总积分</th>
                     </tr>
                   </thead>
@@ -853,6 +856,7 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                         <td className="px-5 py-3 text-[#655D56]">{row.team_name || '个人'}</td>
                         <td className="px-5 py-3 text-right text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.endurance_rank || '-'}{row.endurance_points != null ? ` / ${row.endurance_points}` : ''}</>}</td>
                         <td className="px-5 py-3 text-right text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.sprint_rank || '-'}{row.sprint_points != null ? ` / ${row.sprint_points}` : ''}</>}</td>
+                        <td className="px-5 py-3 text-right text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.technical_rank || '-'}{row.technical_points != null ? ` / ${row.technical_points}` : ''}</>}</td>
                         <td className="px-5 py-3 text-right font-semibold text-[#8A612F]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.total_points ?? '-'}</td>
                       </tr>
                     ))}
@@ -871,9 +875,10 @@ export default function EventResultsPanel({ eventId }: { eventId: number }) {
                       />
                       {row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <RankBadge rank={row.rank_position ?? row.status_rank} />}
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="grid grid-cols-4 gap-2 text-sm">
                       <div><div className="text-xs text-[#8A8078]">耐力</div><div className="text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.endurance_rank || '-'}{row.endurance_points != null ? `/${row.endurance_points}` : ''}</>}</div></div>
                       <div><div className="text-xs text-[#8A8078]">冲刺</div><div className="text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.sprint_rank || '-'}{row.sprint_points != null ? `/${row.sprint_points}` : ''}</>}</div></div>
+                      <div><div className="text-xs text-[#8A8078]">技术</div><div className="text-[#655D56]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : <>{row.technical_rank || '-'}{row.technical_points != null ? `/${row.technical_points}` : ''}</>}</div></div>
                       <div><div className="text-xs text-[#8A8078]">总分</div><div className="font-semibold text-[#8A612F]">{row.results_points_hidden ? <HiddenValue tip={row.privacy_notice} /> : row.total_points ?? '-'}</div></div>
                     </div>
                   </div>

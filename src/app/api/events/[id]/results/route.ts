@@ -217,7 +217,8 @@ export async function GET(
         `SELECT
            ps.standing_id, ps.event_id, ps.source_id, ps.group_name, ps.rank_position, ps.status_rank,
            ps.bib_number, ps.athlete_id, ps.athlete_name_snapshot, ps.team_name,
-           ps.endurance_rank, ps.endurance_points, ps.sprint_rank, ps.sprint_points, ps.total_points,
+           ps.endurance_rank, ps.endurance_points, ps.sprint_rank, ps.sprint_points,
+           ps.technical_rank, ps.technical_points, ps.total_points,
            ps.source_locator,
            a.name AS athlete_name,
            a.photo AS athlete_photo,
@@ -297,7 +298,8 @@ export async function GET(
       `SELECT
          ps.standing_id, ps.event_id, ps.source_id, ps.group_name, ps.rank_position, ps.status_rank,
          ps.bib_number, ps.athlete_id, ps.athlete_name_snapshot, ps.team_name,
-         ps.endurance_rank, ps.endurance_points, ps.sprint_rank, ps.sprint_points, ps.total_points,
+         ps.endurance_rank, ps.endurance_points, ps.sprint_rank, ps.sprint_points,
+         ps.technical_rank, ps.technical_points, ps.total_points,
          ps.source_locator,
          a.name AS athlete_name,
          a.photo AS athlete_photo,

@@ -346,6 +346,8 @@ CREATE TABLE IF NOT EXISTS sup_event_point_standings (
     endurance_points DECIMAL(10,2) NULL,
     sprint_rank VARCHAR(20) NULL,
     sprint_points DECIMAL(10,2) NULL,
+    technical_rank VARCHAR(20) NULL,
+    technical_points DECIMAL(10,2) NULL,
     total_points DECIMAL(10,2) NULL,
     source_locator VARCHAR(100) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

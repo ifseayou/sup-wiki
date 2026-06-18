@@ -56,6 +56,8 @@ interface AdminPointStandingRow {
   endurance_points?: number | null;
   sprint_rank?: string | null;
   sprint_points?: number | null;
+  technical_rank?: string | null;
+  technical_points?: number | null;
   total_points?: number | null;
   source_locator?: string | null;
   source_file_name?: string | null;
@@ -359,6 +361,7 @@ export default function EventResultsAdminPage() {
                   <th className="px-4 py-3 text-left">队伍</th>
                   <th className="px-4 py-3 text-left">耐力赛</th>
                   <th className="px-4 py-3 text-left">冲刺赛</th>
+                  <th className="px-4 py-3 text-left">技术赛</th>
                   <th className="px-4 py-3 text-left">总积分</th>
                   <th className="px-4 py-3 text-left">来源索引</th>
                 </tr>
@@ -372,6 +375,7 @@ export default function EventResultsAdminPage() {
                     <td className="px-4 py-3 text-warm-gray-600">{row.team_name || '个人'}</td>
                     <td className="px-4 py-3 text-warm-gray-600">{row.endurance_rank || '—'}{row.endurance_points != null ? ` / ${row.endurance_points}` : ''}</td>
                     <td className="px-4 py-3 text-warm-gray-600">{row.sprint_rank || '—'}{row.sprint_points != null ? ` / ${row.sprint_points}` : ''}</td>
+                    <td className="px-4 py-3 text-warm-gray-600">{row.technical_rank || '—'}{row.technical_points != null ? ` / ${row.technical_points}` : ''}</td>
                     <td className="px-4 py-3 font-medium text-brown-700">{row.total_points ?? '—'}</td>
                     <td className="px-4 py-3 text-xs text-warm-gray-500">
                       {row.source_file_url ? (
