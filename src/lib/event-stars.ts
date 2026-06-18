@@ -38,6 +38,50 @@ export function getScoreForStarLevel(starLevel?: string | null) {
   return EVENT_STAR_OPTIONS.find((option) => option.value === starLevel)?.score ?? null;
 }
 
+/**
+ * 等级赛事：与「赛事人员来源(source_scope)」1:1（参考 ArticleGuideTabs CHINA_RULE_ROWS）。
+ * 全球→世界级, 亚洲→亚洲级, 国内外→国际级, 全国→国家级, 省市及周边→大区类, 本省市→省级,
+ * 本地市→地市级, 本区县→区县级, 本乡镇→乡镇级/其它, 俱乐部/品牌→其它。
+ */
+export const EVENT_GRADE_BY_SCOPE: Record<string, string> = {
+  '全球': '世界级',
+  '亚洲': '亚洲级',
+  '国内外': '国际级',
+  '全国': '国家级',
+  '省市及周边区域': '大区类',
+  '本省市': '省级',
+  '本地市': '地市级',
+  '本区县': '区县级',
+  '本乡镇': '乡镇级/其它',
+  '俱乐部/品牌': '其它',
+};
+
+/**
+ * 星级兜底推断等级（source_scope 为空时）。五星无法区分亚洲级/国际级，默认国际级。
+ */
+const EVENT_GRADE_BY_STAR: Record<string, string> = {
+  '五星+': '世界级',
+  '五星': '国际级',
+  '四星+': '国家级',
+  '四星': '国家级',
+  '三星+': '大区类',
+  '三星': '省级',
+  '二星': '地市级',
+  '一星': '区县级',
+  '无星': '乡镇级/其它',
+};
+
+/**
+ * 赛事等级标签：优先按 source_scope，缺失时按星级兜底，皆无则「未分级」。
+ */
+export function eventGradeLabel(sourceScope?: string | null, starLevel?: string | null): string {
+  const scope = String(sourceScope || '').trim();
+  if (scope && EVENT_GRADE_BY_SCOPE[scope]) return EVENT_GRADE_BY_SCOPE[scope];
+  const star = String(starLevel || '').trim();
+  if (star && EVENT_GRADE_BY_STAR[star]) return EVENT_GRADE_BY_STAR[star];
+  return '未分级';
+}
+
 export function getEventStarBadgeStyle(starLevel?: string | null) {
   switch (starLevel) {
     case '五星+':

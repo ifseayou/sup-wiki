@@ -9,6 +9,7 @@ import {
   EVENT_RESULT_STATUS_OPTIONS,
   EVENT_SOURCE_SCOPE_OPTIONS,
   EVENT_STAR_OPTIONS,
+  eventGradeLabel,
   getEventResultStatusLabel,
   getEventStarBadgeStyle,
   getScoreForStarLevel,
@@ -394,7 +395,11 @@ const columns = [
       );
     },
   },
-  { key: 'event_type', label: '类型', render: (v: unknown) => ({'race':'竞速','festival':'嘉年华','training':'训练营','exhibition':'展览'}[String(v)] || String(v)) },
+  { key: 'source_scope', label: '等级赛事', render: (_v: unknown, row: Record<string, unknown>) => {
+    const grade = eventGradeLabel(row.source_scope as string | null, row.star_level as string | null);
+    const muted = grade === '未分级';
+    return <span className={muted ? 'text-warm-gray-400' : 'text-warm-gray-700'}>{grade}</span>;
+  } },
   { key: 'province', label: '省份' },
   { key: 'start_date', label: '开始日期', render: (v: unknown) => v ? new Date(String(v)).toLocaleDateString('zh-CN') : '—' },
   { key: 'event_status', label: '赛事状态', render: (v: unknown) => ({'upcoming':'即将','ongoing':'进行中','completed':'已结束','cancelled':'已取消'}[String(v)] || String(v)) },

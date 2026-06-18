@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
               COUNT(*) AS rows_n,
               COUNT(DISTINCT athlete_id) AS athletes,
               COUNT(DISTINCT event_id) AS events
-       FROM sup_event_results GROUP BY discipline_family ORDER BY rows_n DESC`
+       FROM sup_event_results GROUP BY fam ORDER BY rows_n DESC`
     ),
     pool.execute<RowDataPacket[]>(
       `SELECT normalized_group_key AS gk,
