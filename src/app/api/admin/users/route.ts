@@ -39,7 +39,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT
          u.user_id, u.nickname, u.email, u.openid, u.user_level, u.status,
-         u.daily_result_query_limit, u.admin_note, u.created_at, u.updated_at, u.last_login_at,
+         u.daily_result_query_limit, u.can_view_all_results, u.admin_note, u.created_at, u.updated_at, u.last_login_at,
          COALESCE(today.query_count, 0) AS today_result_queries,
          COUNT(DISTINCT owner.athlete_id) AS owned_athlete_count,
          COUNT(DISTINCT claim.claim_id) AS claim_count,

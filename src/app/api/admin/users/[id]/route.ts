@@ -53,12 +53,13 @@ export async function PATCH(
       ? null
       : Math.max(0, Math.min(10000, Number(rawLimit) || 0));
     const adminNote = String(body.admin_note || '').trim() || null;
+    const canViewAll = body.can_view_all_results === true || body.can_view_all_results === 1 || body.can_view_all_results === '1' ? 1 : 0;
 
     await pool.execute(
       `UPDATE sup_users
-       SET user_level = ?, status = ?, daily_result_query_limit = ?, admin_note = ?
+       SET user_level = ?, status = ?, daily_result_query_limit = ?, admin_note = ?, can_view_all_results = ?
        WHERE user_id = ?`,
-      [level, status, limit, adminNote, userId]
+      [level, status, limit, adminNote, canViewAll, userId]
     );
 
     return NextResponse.json({ success: true });

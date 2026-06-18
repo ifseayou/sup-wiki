@@ -11,6 +11,7 @@ type UserAccessRow = RowDataPacket & {
   user_level: string | null;
   status: string | null;
   daily_result_query_limit: number | null;
+  can_view_all_results: number | null;
   nickname: string | null;
   email: string | null;
   openid: string | null;
@@ -80,7 +81,7 @@ export async function resolveResultAccess(request: NextRequest, options: { consu
   const bound = ownerRows.length > 0;
 
   const [rows] = await pool.execute<UserAccessRow[]>(
-    `SELECT user_id, nickname, email, openid, user_level, status, daily_result_query_limit
+    `SELECT user_id, nickname, email, openid, user_level, status, daily_result_query_limit, can_view_all_results
      FROM sup_users
      WHERE user_id = ?
      LIMIT 1`,
@@ -92,6 +93,7 @@ export async function resolveResultAccess(request: NextRequest, options: { consu
     level: row?.user_level,
     status: row?.status,
     dailyLimit: row?.daily_result_query_limit,
+    canViewAll: Number(row?.can_view_all_results) === 1,
     nickname: row?.nickname,
     email: row?.email,
     openid: row?.openid,

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import pool from '@/lib/db';
 import { getUserFromRequest } from '@/lib/user-auth';
+import { isIAddUUser, normalizeUserLevel } from '@/lib/user-levels';
 import { hiddenAthleteName, maskAthleteName } from '@/lib/name-mask';
 import { normalizeNationality } from '@/lib/nationality';
 import type { RowDataPacket } from 'mysql2';
@@ -98,7 +99,24 @@ export async function buildAthleteOwnerMap(athleteIds: Array<number | null | und
 
 export async function getViewerOwnedAthleteIds(request: NextRequest) {
   const user = getUserFromRequest(request);
-  if (!user) return { userId: null, ownedAthleteIds: new Set<number>() };
+  if (!user) return { userId: null, ownedAthleteIds: new Set<number>(), canViewAll: false };
+  // 是否被授予「查询全部成绩」权限（admin / i_add_u / can_view_all_results）——决定是否对未认领国内选手解除脱敏。
+  let canViewAll = false;
+  try {
+    const [userRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT nickname, email, openid, user_level, can_view_all_results
+       FROM sup_users WHERE user_id = ? LIMIT 1`,
+      [user.user_id]
+    );
+    const u = userRows[0];
+    canViewAll = Boolean(u) && (
+      normalizeUserLevel(u.user_level) === 'admin'
+      || Number(u.can_view_all_results) === 1
+      || isIAddUUser({ nickname: u.nickname, email: u.email, openid: u.openid })
+    );
+  } catch {
+    canViewAll = false;
+  }
   try {
     const [rows] = await pool.execute<RowDataPacket[]>(
       `SELECT athlete_id
@@ -109,9 +127,10 @@ export async function getViewerOwnedAthleteIds(request: NextRequest) {
     return {
       userId: user.user_id,
       ownedAthleteIds: new Set(rows.map((row) => Number(row.athlete_id)).filter(Boolean)),
+      canViewAll,
     };
   } catch {
-    return { userId: user.user_id, ownedAthleteIds: new Set<number>() };
+    return { userId: user.user_id, ownedAthleteIds: new Set<number>(), canViewAll };
   }
 }
 
@@ -210,12 +229,13 @@ function hidePointStandingDetails<T extends Record<string, unknown>>(row: T): T 
 
 export async function filterAndMaskRaceResults<T extends Record<string, unknown>>(
   rows: T[],
-  viewer: { ownedAthleteIds?: Set<number> } = {}
+  viewer: { ownedAthleteIds?: Set<number>; canViewAll?: boolean } = {}
 ) {
   const resultPrivacy = await buildPrivacyMap('result', rows.map((row) => Number(row.result_id || row.id)));
   const athletePrivacy = await buildPrivacyMap('athlete', rows.map((row) => Number(row.athlete_id)));
   const ownerMap = await buildAthleteOwnerMap(rows.map((row) => Number(row.athlete_id)));
   const ownedAthleteIds = viewer.ownedAthleteIds || new Set<number>();
+  const canViewAll = Boolean(viewer.canViewAll);
 
   return rows
     .filter((row) => {
@@ -240,7 +260,8 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
         resultState?.hidden || resultState?.anonymized || athleteState?.hidden || athleteState?.anonymized
       );
       const shouldHideResults = !isPublicForeignResult && !isMyAthlete && Boolean(resultState?.resultsHidden || athleteState?.resultsHidden);
-      const shouldMaskUnclaimed = !isPublicForeignResult && !athleteIsClaimed;
+      // 授权用户（admin / can_view_all_results）：未认领国内选手也显示全名（仍尊重本人显式隐私隐藏 shouldHideByPrivacy）
+      const shouldMaskUnclaimed = !canViewAll && !isPublicForeignResult && !athleteIsClaimed;
       const displayLabel = shouldHideByPrivacy
         ? hiddenAthleteName()
         : shouldMaskUnclaimed
@@ -278,11 +299,12 @@ export async function getAthletePrivacyState(athleteId: number) {
 
 export async function maskAthleteIdentityRows<T extends Record<string, unknown>>(
   rows: T[],
-  viewer: { ownedAthleteIds?: Set<number> } = {}
+  viewer: { ownedAthleteIds?: Set<number>; canViewAll?: boolean } = {}
 ) {
   const athletePrivacy = await buildPrivacyMap('athlete', rows.map((row) => Number(row.athlete_id)));
   const ownerMap = await buildAthleteOwnerMap(rows.map((row) => Number(row.athlete_id)));
   const ownedAthleteIds = viewer.ownedAthleteIds || new Set<number>();
+  const canViewAll = Boolean(viewer.canViewAll);
 
   return rows
     .filter((row) => !athletePrivacy.get(Number(row.athlete_id))?.deleted)
@@ -316,6 +338,14 @@ export async function maskAthleteIdentityRows<T extends Record<string, unknown>>
           ...row,
           athlete_is_claimed: true,
           is_foreign_athlete: true,
+        };
+      }
+      // 授权用户（admin / can_view_all_results）：未认领国内选手也显示全名（隐私隐藏已在上方处理）
+      if (canViewAll) {
+        return {
+          ...row,
+          athlete_is_claimed: false,
+          is_foreign_athlete: isForeignAthlete,
         };
       }
       const label = maskAthleteName(row.athlete_name || row.athlete_name_snapshot);

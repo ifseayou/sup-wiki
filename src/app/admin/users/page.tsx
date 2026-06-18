@@ -11,6 +11,7 @@ interface UserRow {
   user_level: string;
   status: string;
   daily_result_query_limit: number | null;
+  can_view_all_results: number | null;
   admin_note: string | null;
   today_result_queries: number;
   owned_athlete_count: number;
@@ -109,6 +110,7 @@ export default function AdminUsersPage() {
         user_level: user.user_level,
         status: user.status,
         daily_result_query_limit: user.daily_result_query_limit,
+        can_view_all_results: Number(user.can_view_all_results) === 1 ? 1 : 0,
         admin_note: user.admin_note,
       }),
     });
@@ -164,6 +166,7 @@ export default function AdminUsersPage() {
               <th style={{ padding: 12, textAlign: 'left' }}>等级</th>
               <th style={{ padding: 12, textAlign: 'left' }}>状态</th>
               <th style={{ padding: 12, textAlign: 'left' }}>每日查询上限</th>
+              <th style={{ padding: 12, textAlign: 'left' }}>查全部成绩</th>
               <th style={{ padding: 12, textAlign: 'left' }}>今日查询</th>
               <th style={{ padding: 12, textAlign: 'left' }}>绑定运动员 / 提交</th>
               <th style={{ padding: 12, textAlign: 'left' }}>备注</th>
@@ -204,6 +207,16 @@ export default function AdminUsersPage() {
                       background: normalizeUserLevel(user.user_level) === 'admin' ? '#F4EFE8' : '#fff',
                     }}
                   />
+                </td>
+                <td style={{ padding: 12, textAlign: 'center' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#6F5B42' }} title="勾选后：不限次数、无需绑定运动员、未认领国内选手显示全名（仍尊重本人隐私隐藏）">
+                    <input
+                      type="checkbox"
+                      checked={Number(user.can_view_all_results) === 1}
+                      onChange={(e) => updateLocal(user.user_id, 'can_view_all_results', e.target.checked ? 1 : 0)}
+                    />
+                    <span style={{ fontSize: 12 }}>不限/不脱敏</span>
+                  </label>
                 </td>
                 <td style={{ padding: 12, color: '#6F5B42', fontWeight: 700 }}>{user.today_result_queries || 0}</td>
                 <td style={{ padding: 12, color: '#6F5B42', minWidth: 220 }}>

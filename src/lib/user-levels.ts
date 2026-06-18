@@ -41,10 +41,13 @@ export function resolveResultQueryLimit(input: {
   nickname?: string | null;
   email?: string | null;
   openid?: string | null;
+  canViewAll?: boolean | null;
 }) {
   const level = normalizeUserLevel(input.level);
   if (input.status === 'blocked' || level === 'blocked') return { level, limit: 0 };
   if (level === 'admin' || isIAddUUser(input)) return { level: 'admin' as const, limit: null };
+  // 被授予「查询全部成绩」权限：不限次（保持其原本 level，不提权为 admin）
+  if (input.canViewAll) return { level, limit: null };
   if (input.dailyLimit !== null && input.dailyLimit !== undefined) {
     return { level, limit: Math.max(0, Math.min(10000, Number(input.dailyLimit) || 0)) };
   }
