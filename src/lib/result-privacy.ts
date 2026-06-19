@@ -271,10 +271,11 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
       const viewerHasOwnedAthlete = ownedAthleteIds.size > 0;
       const resultState = resultPrivacy.get(Number(row.result_id || row.id));
       const athleteState = athletePrivacy.get(athleteId);
-      const shouldHideByPrivacy = !isPublicForeignResult && !isMyAthlete && Boolean(
+      // 团体成绩不做隐藏：成员个人隐私请求不应连带隐藏整条团体成绩（黑名单合规底线在 BFF applyBlacklistNoDetail 兜底）。
+      const shouldHideByPrivacy = !isTeam && !isPublicForeignResult && !isMyAthlete && Boolean(
         resultState?.hidden || resultState?.anonymized || athleteState?.hidden || athleteState?.anonymized
       );
-      const shouldHideResults = !isPublicForeignResult && !isMyAthlete && Boolean(resultState?.resultsHidden || athleteState?.resultsHidden);
+      const shouldHideResults = !isTeam && !isPublicForeignResult && !isMyAthlete && Boolean(resultState?.resultsHidden || athleteState?.resultsHidden);
       // 团体（非单人）成绩无法被认领：不脱敏、全名直出。授权用户（admin / can_view_all_results）同样不打码。
       const shouldMaskUnclaimed = !isTeam && !canViewAll && !isPublicForeignResult && !athleteIsClaimed;
       const displayLabel = shouldHideByPrivacy
