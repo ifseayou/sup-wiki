@@ -150,6 +150,20 @@ export function isInternationalResult(row: Record<string, unknown>) {
   return /(ICF|ISA|APP|World|EuroTour|世界|国际|亚洲杯|亚锦赛|海外|国外)/i.test(text);
 }
 
+const TEAM_DISCIPLINE_REGEX = /龙板|dragon|团体|团队|接力|双人|四人|多人|relay/i;
+
+// 团体/多人成绩判定（龙板、双人、四人、接力、团体等）——无法被认领，不脱敏、不可进详情。
+// 与 BFF server/lib/sup-result-utils.js isTeamResultItem 同口径。
+export function isTeamResult(row: Record<string, unknown>) {
+  if (row.entry_type === 'team' || row.is_team === true) return true;
+  if (row.entry_type === 'individual') return false;
+  const members = Array.isArray(row.team_members) ? row.team_members : [];
+  if (members.length >= 2) return true;
+  const text = [row.discipline, row.gender_group, row.round_label, row.team_name]
+    .map((v) => String(v || '').trim()).filter(Boolean).join(' ');
+  return TEAM_DISCIPLINE_REGEX.test(text);
+}
+
 export function isForeignAthleteIdentity(row: Record<string, unknown>) {
   const nationality = [
     row.athlete_nationality,
@@ -246,6 +260,7 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
     .map((row) => {
       const athleteId = Number(row.athlete_id);
       const owners = ownerMap.get(athleteId) || [];
+      const isTeam = isTeamResult(row);
       const isInternational = isInternationalResult(row);
       const isForeignAthlete = isForeignAthleteIdentity(row);
       // 隐私/脱敏只按「选手是否外籍」判定，不再因赛事名含「国际/亚洲杯/世界」就整场公开。
@@ -260,8 +275,8 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
         resultState?.hidden || resultState?.anonymized || athleteState?.hidden || athleteState?.anonymized
       );
       const shouldHideResults = !isPublicForeignResult && !isMyAthlete && Boolean(resultState?.resultsHidden || athleteState?.resultsHidden);
-      // 授权用户（admin / can_view_all_results）：未认领国内选手也显示全名（仍尊重本人显式隐私隐藏 shouldHideByPrivacy）
-      const shouldMaskUnclaimed = !canViewAll && !isPublicForeignResult && !athleteIsClaimed;
+      // 团体（非单人）成绩无法被认领：不脱敏、全名直出。授权用户（admin / can_view_all_results）同样不打码。
+      const shouldMaskUnclaimed = !isTeam && !canViewAll && !isPublicForeignResult && !athleteIsClaimed;
       const displayLabel = shouldHideByPrivacy
         ? hiddenAthleteName()
         : shouldMaskUnclaimed
@@ -269,7 +284,10 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
           : '';
       const identityMasked = displayLabel ? hideResultName(row, displayLabel) : row;
       const masked = shouldHideResults ? hideRaceResultDetails(identityMasked) : identityMasked;
-      const privacyActions = isPublicForeignResult
+      // 团体成绩：无认领入口
+      const privacyActions = isTeam
+        ? []
+        : isPublicForeignResult
         ? []
         : isMyAthlete
           ? [athleteState?.resultsHidden ? 'restore_results_points' : 'hide_results_points']
@@ -278,7 +296,10 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
             : [];
       return {
         ...masked,
-        athlete_is_claimed: athleteIsClaimed,
+        // 团体成绩不可进入运动员详情
+        no_detail: isTeam ? true : (masked as Record<string, unknown>).no_detail,
+        is_team: isTeam,
+        athlete_is_claimed: isTeam ? true : athleteIsClaimed,
         is_international_result: isInternational,
         is_foreign_athlete: isForeignAthlete,
         is_my_athlete: isMyAthlete,
