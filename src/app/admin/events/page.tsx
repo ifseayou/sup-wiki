@@ -6,10 +6,12 @@ import RegionSelect from '@/components/admin/RegionSelect';
 import { MultiImageUpload } from '@/components/admin/ImageUpload';
 import { useAdminAuth } from '../layout';
 import {
+  EVENT_GRADE_OPTIONS,
   EVENT_RESULT_STATUS_OPTIONS,
   EVENT_SOURCE_SCOPE_OPTIONS,
   EVENT_STAR_OPTIONS,
   eventGradeLabel,
+  eventGradePreset,
   getEventResultStatusLabel,
   getEventStarBadgeStyle,
   getScoreForStarLevel,
@@ -308,6 +310,33 @@ function EventForm({ data, onChange, token }: { data: Record<string, unknown>; o
       </div>
       <div className="rounded-xl border border-cream-200 bg-cream-100/60 p-4">
         <h3 className="mb-3 text-sm font-medium text-brown-700">赛事评级与结果档案</h3>
+        <div className="mb-4">
+          <label className="block text-xs text-warm-gray-400 mb-1">赛事等级</label>
+          <select
+            className={inp}
+            value={(() => {
+              const g = eventGradeLabel(data.source_scope as string | null, data.star_level as string | null);
+              return EVENT_GRADE_OPTIONS.some((o) => o.grade === g) ? g : '';
+            })()}
+            onChange={(e) => {
+              const preset = eventGradePreset(e.target.value);
+              if (!preset) { set('source_scope', null); return; }
+              // 一次性更新，避免连续 set 闭包覆盖
+              onChange({
+                ...data,
+                source_scope: preset.source_scope,
+                star_level: preset.star,
+                score_coefficient: getScoreForStarLevel(preset.star),
+              });
+            }}
+          >
+            <option value="">未分级</option>
+            {EVENT_GRADE_OPTIONS.map((option) => (
+              <option key={option.grade} value={option.grade}>{option.grade}</option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-warm-gray-400">选等级自动联动星级 / 积分系数 / 来源范围，可在下方微调（如国家级改四星 / 4.0）。</p>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs text-warm-gray-400 mb-1">赛事星级</label>
@@ -509,9 +538,9 @@ const defaultFormData = {
 
 const additionalFilters = [
   {
-    key: 'star_level',
-    placeholder: '全部星级',
-    options: EVENT_STAR_OPTIONS.map((option) => ({ label: option.label, value: option.value })),
+    key: 'source_scope',
+    placeholder: '全部等级',
+    options: EVENT_GRADE_OPTIONS.map((option) => ({ label: option.grade, value: option.source_scope })),
   },
   {
     key: 'result_status',

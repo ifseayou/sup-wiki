@@ -82,6 +82,26 @@ export function eventGradeLabel(sourceScope?: string | null, starLevel?: string 
   return '未分级';
 }
 
+/**
+ * 赛事等级选项（后台主控下拉）：等级 → 来源范围 + 星级（与 event-guide 表一一对应）。
+ * 积分系数由 getScoreForStarLevel(star) 推导，国家级默认四星+，可在星级处手动微调四星/4.0。
+ */
+export const EVENT_GRADE_OPTIONS = [
+  { grade: '世界级', source_scope: '全球', star: '五星+' },
+  { grade: '亚洲级', source_scope: '亚洲', star: '五星' },
+  { grade: '国际级', source_scope: '国内外', star: '五星' },
+  { grade: '国家级', source_scope: '全国', star: '四星+' },
+  { grade: '大区类', source_scope: '省市及周边区域', star: '三星+' },
+  { grade: '省级', source_scope: '本省市', star: '三星' },
+  { grade: '地市级', source_scope: '本地市', star: '二星' },
+  { grade: '区县级', source_scope: '本区县', star: '一星' },
+  { grade: '乡镇级/其它', source_scope: '本乡镇', star: '无星' },
+] as const;
+
+export function eventGradePreset(grade?: string | null) {
+  return EVENT_GRADE_OPTIONS.find((option) => option.grade === grade) || null;
+}
+
 export function getEventStarBadgeStyle(starLevel?: string | null) {
   switch (starLevel) {
     case '五星+':

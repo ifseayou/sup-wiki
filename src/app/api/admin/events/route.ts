@@ -74,6 +74,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     const event_status = searchParams.get('event_status');
     const search = searchParams.get('search');
     const star_level = searchParams.get('star_level');
+    const source_scope = searchParams.get('source_scope');
     const result_status = searchParams.get('result_status');
     const year = searchParams.get('year');
     const sortBy = searchParams.get('sortBy') || '';
@@ -91,6 +92,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     if (event_type) { conditions.push('e.event_type = ?'); params.push(event_type); }
     if (event_status) { conditions.push('e.event_status = ?'); params.push(event_status); }
     if (star_level) { conditions.push('e.star_level = ?'); params.push(star_level); }
+    if (source_scope) { conditions.push('e.source_scope = ?'); params.push(source_scope); }
     if (result_status) { conditions.push('e.result_status = ?'); params.push(result_status); }
     if (year) { conditions.push('YEAR(e.start_date) = ?'); params.push(Number(year)); }
     if (search) {
