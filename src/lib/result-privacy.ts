@@ -150,6 +150,53 @@ export function isInternationalResult(row: Record<string, unknown>) {
   return /(ICF|ISA|APP|World|EuroTour|世界|国际|亚洲杯|亚锦赛|海外|国外)/i.test(text);
 }
 
+// 取所有活跃黑名单(admin_blacklist)的 athlete_id 与其姓名(name/name_en)。
+// 用于团体成绩里「按 athlete_id 或姓名」匿名命中黑名单的成员（与 BFF getBlacklistedAthleteSet 同口径）。
+export async function getBlacklistedAthleteSet(): Promise<{ ids: Set<number>; names: Set<string> }> {
+  const ids = new Set<number>();
+  const names = new Set<string>();
+  try {
+    const [blRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT target_id FROM sup_privacy_requests pr
+        WHERE pr.target_type = 'athlete' AND pr.request_type = 'admin_blacklist' AND ${privacyStatusCondition('pr')}`
+    );
+    for (const r of blRows) { const id = Number(r.target_id); if (id > 0) ids.add(id); }
+    if (ids.size) {
+      const placeholders = [...ids].map(() => '?').join(',');
+      const [nameRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT name, name_en FROM sup_athletes WHERE athlete_id IN (${placeholders})`,
+        [...ids]
+      );
+      for (const r of nameRows) {
+        const n = String(r.name || '').trim();
+        const e = String(r.name_en || '').trim();
+        if (n) names.add(n);
+        if (e) names.add(e);
+      }
+    }
+  } catch {
+    return { ids, names };
+  }
+  return { ids, names };
+}
+
+// 把团体成员里命中黑名单的成员匿名化（按 athlete_id 或姓名），其余成员与队名保持原样；无命中返回原数组。
+function maskBlacklistedTeamMembers(members: unknown, bl: { ids: Set<number>; names: Set<string> }): unknown {
+  if (!Array.isArray(members)) return members;
+  let changed = false;
+  const out = members.map((m) => {
+    if (!m) return m;
+    const item = m as Record<string, unknown>;
+    const mid = Number(item.athlete_id);
+    const mn = String(item.member_name || item.name || '').trim();
+    const hit = (mid && bl.ids.has(mid)) || (mn && bl.names.has(mn));
+    if (!hit) return m;
+    changed = true;
+    return { ...item, athlete_id: '', name: hiddenAthleteName(), member_name: hiddenAthleteName() };
+  });
+  return changed ? out : members;
+}
+
 const TEAM_DISCIPLINE_REGEX = /龙板|dragon|团体|团队|接力|双人|四人|多人|relay/i;
 
 // 团体/多人成绩判定（龙板、双人、四人、接力、团体等）——无法被认领，不脱敏、不可进详情。
@@ -248,6 +295,7 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
   const resultPrivacy = await buildPrivacyMap('result', rows.map((row) => Number(row.result_id || row.id)));
   const athletePrivacy = await buildPrivacyMap('athlete', rows.map((row) => Number(row.athlete_id)));
   const ownerMap = await buildAthleteOwnerMap(rows.map((row) => Number(row.athlete_id)));
+  const blacklist = await getBlacklistedAthleteSet();
   const ownedAthleteIds = viewer.ownedAthleteIds || new Set<number>();
   const canViewAll = Boolean(viewer.canViewAll);
 
@@ -278,7 +326,9 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
       const shouldHideResults = !isTeam && !isPublicForeignResult && !isMyAthlete && Boolean(resultState?.resultsHidden || athleteState?.resultsHidden);
       // 团体（非单人）成绩无法被认领：不脱敏、全名直出。授权用户（admin / can_view_all_results）同样不打码。
       const shouldMaskUnclaimed = !isTeam && !canViewAll && !isPublicForeignResult && !athleteIsClaimed;
-      const displayLabel = shouldHideByPrivacy
+      // 团队实体本身被拉黑（罕见）→ 整队匿名；否则团体不脱敏，仅在下方遮命中黑名单的成员。
+      const teamSelfBlacklisted = isTeam && Boolean(athleteState?.blacklisted);
+      const displayLabel = shouldHideByPrivacy || teamSelfBlacklisted
         ? hiddenAthleteName()
         : shouldMaskUnclaimed
           ? maskAthleteName(row.athlete_name || row.athlete_name_snapshot)
@@ -297,6 +347,8 @@ export async function filterAndMaskRaceResults<T extends Record<string, unknown>
             : [];
       return {
         ...masked,
+        // 团体成绩：仅匿名命中黑名单的成员，队名与其他成员保留（团队整体匿名已在上方 displayLabel 处理）
+        team_members: isTeam ? maskBlacklistedTeamMembers((masked as Record<string, unknown>).team_members, blacklist) : (masked as Record<string, unknown>).team_members,
         // 团体成绩不可进入运动员详情
         no_detail: isTeam ? true : (masked as Record<string, unknown>).no_detail,
         is_team: isTeam,
