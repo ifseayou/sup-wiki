@@ -50,6 +50,18 @@ test('planRelink 外籍唯一候选回填、域内/多候选/无候选跳过', (
   );
 });
 
+test('planRelink 罗马音快照命中外籍 name_en 候选（荒木珠里/Shuri ARAKI）→ 回填', () => {
+  // loadPublishedCandidates 会把 name_en="Shuri Araki" 的外籍档案挂到 norm "shuriaraki"
+  const nullGroups = [{ norm: 'shuriaraki', sample: 'Shuri ARAKI', affected: 18 }];
+  const candidatesByNorm = new Map([
+    ['shuriaraki', [{ athlete_id: 15, name: '荒木珠里', nationality: '日本' }]],
+  ]);
+  const { relinks, skipped } = planRelink(nullGroups, candidatesByNorm, { allowDomestic: false });
+  assert.equal(relinks.length, 1);
+  assert.equal(skipped.length, 0);
+  assert.deepEqual({ toId: relinks[0].toId, affected: relinks[0].affected }, { toId: 15, affected: 18 });
+});
+
 test('planRelink --all 放开国内唯一候选', () => {
   const nullGroups = [{ norm: 'zhangsan', sample: '张三', affected: 5 }];
   const candidatesByNorm = new Map([['zhangsan', [{ athlete_id: 100, name: '张三', nationality: '中国' }]]]);

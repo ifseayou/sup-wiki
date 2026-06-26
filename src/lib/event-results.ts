@@ -239,12 +239,13 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
   );
   if (confirmedRows.length) return confirmedRows[0].athlete_id;
 
-  // 归一化匹配（大小写/空格不敏感），修复英文名外籍选手因大小写差异匹配不到已存在档案的问题。
+  // 归一化匹配 name 或 name_en（大小写/空格不敏感）：外籍选手档案名常为中文、成绩快照为罗马音，需同时匹配英文名。
   const [existingRows] = await connection.execute<AthleteRow[]>(
     `SELECT athlete_id, nationality FROM sup_athletes
       WHERE REPLACE(LOWER(TRIM(name)), ' ', '') = ?
+         OR (name_en IS NOT NULL AND name_en <> '' AND REPLACE(LOWER(TRIM(name_en)), ' ', '') = ?)
       ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5`,
-    [normalized]
+    [normalized, normalized]
   );
 
   if (existingRows.length > 0) {
@@ -319,8 +320,9 @@ async function resolveAthleteByName(connection: PoolConnection, name: string, re
   const [existingRows] = await connection.execute<AthleteRow[]>(
     `SELECT athlete_id, nationality FROM sup_athletes
       WHERE REPLACE(LOWER(TRIM(name)), ' ', '') = ?
+         OR (name_en IS NOT NULL AND name_en <> '' AND REPLACE(LOWER(TRIM(name_en)), ' ', '') = ?)
       ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5`,
-    [normalized]
+    [normalized, normalized]
   );
   if (existingRows.length > 0) {
     const single = existingRows.length === 1;

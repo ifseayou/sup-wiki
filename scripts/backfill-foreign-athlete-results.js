@@ -145,21 +145,31 @@ async function collectNullGroups(conn) {
   return [...map.values()].sort((a, b) => b.affected - a.affected);
 }
 
-/** 查每个归一化名的「已发布」候选档案。 */
+/** 查每个归一化名的「已发布」候选档案（同时匹配 name 与 name_en：外籍中文名档案+罗马音成绩快照）。 */
 async function loadPublishedCandidates(conn, norms) {
   const byNorm = new Map();
   if (!norms.length) return byNorm;
+  const want = new Set(norms);
   const [rows] = await conn.query(
-    `SELECT athlete_id, name, nationality,
-            REPLACE(LOWER(TRIM(name)), ' ', '') AS norm
+    `SELECT athlete_id, name, name_en, nationality,
+            REPLACE(LOWER(TRIM(name)), ' ', '') AS norm_name,
+            REPLACE(LOWER(TRIM(COALESCE(name_en, ''))), ' ', '') AS norm_en
        FROM sup_athletes
-      WHERE status = 'published' AND REPLACE(LOWER(TRIM(name)), ' ', '') IN (?)`,
-    [norms]
+      WHERE status = 'published'
+        AND (REPLACE(LOWER(TRIM(name)), ' ', '') IN (?)
+             OR (name_en IS NOT NULL AND name_en <> '' AND REPLACE(LOWER(TRIM(name_en)), ' ', '') IN (?)))`,
+    [norms, norms]
   );
+  const add = (norm, cand) => {
+    if (!norm || !want.has(norm)) return;
+    const list = byNorm.get(norm) || [];
+    if (!list.some((c) => c.athlete_id === cand.athlete_id)) list.push(cand);
+    byNorm.set(norm, list);
+  };
   for (const r of rows) {
-    const list = byNorm.get(r.norm) || [];
-    list.push({ athlete_id: Number(r.athlete_id), name: r.name, nationality: r.nationality });
-    byNorm.set(r.norm, list);
+    const cand = { athlete_id: Number(r.athlete_id), name: r.name, nationality: r.nationality };
+    add(r.norm_name, cand);
+    add(r.norm_en, cand);
   }
   return byNorm;
 }
