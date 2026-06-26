@@ -41,6 +41,18 @@ export interface EventResultInput {
 
 interface AthleteRow extends RowDataPacket {
   athlete_id: number;
+  nationality?: string | null;
+}
+
+/** 归一化姓名：与 sup_athlete_identity_links.normalized_name 口径一致（去空白 + 小写）。 */
+function normalizeAthleteName(name: string) {
+  return name.replace(/\s+/g, '').toLowerCase();
+}
+
+/** 国内（含港澳台）国籍判定：用于决定外籍同名档案是否在导入时自动绑定。 */
+function isDomesticNationality(value: unknown) {
+  const nat = normalizeNationality(value);
+  return !nat || nat === '中国' || nat === '中国香港' || nat === '中国台北' || nat === '中国澳门';
 }
 
 interface AthleteRaceTimeRow extends RowDataPacket {
@@ -215,7 +227,7 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
   if (result.athlete_id) return result.athlete_id;
   const athleteName = result.athlete_name_snapshot.trim();
   if (!athleteName) return null;
-  const normalized = athleteName.replace(/\s+/g, '').toLowerCase();
+  const normalized = normalizeAthleteName(athleteName);
 
   const [confirmedRows] = await connection.execute<AthleteRow[]>(
     `SELECT athlete_id
@@ -227,28 +239,39 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
   );
   if (confirmedRows.length) return confirmedRows[0].athlete_id;
 
+  // 归一化匹配（大小写/空格不敏感），修复英文名外籍选手因大小写差异匹配不到已存在档案的问题。
   const [existingRows] = await connection.execute<AthleteRow[]>(
-    'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5',
-    [athleteName]
+    `SELECT athlete_id, nationality FROM sup_athletes
+      WHERE REPLACE(LOWER(TRIM(name)), ' ', '') = ?
+      ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5`,
+    [normalized]
   );
 
   if (existingRows.length > 0) {
+    const single = existingRows.length === 1;
+    // 唯一命中且为外籍档案：导入即自动绑定（外籍英文名重名概率低），写 confirmed link 留痕。
+    const autoBind = single && !isDomesticNationality(existingRows[0].nationality);
     await connection.execute(
       `INSERT IGNORE INTO sup_athlete_identity_links
         (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        existingRows.length === 1 ? existingRows[0].athlete_id : null,
+        single ? existingRows[0].athlete_id : null,
         normalized,
         athleteName,
         result.gender_group || null,
         result.team_name || null,
         normalizeNationality(result.nationality_snapshot),
-        existingRows.length === 1 ? 0.85 : 0.45,
-        existingRows.length === 1 ? '成绩录入发现唯一同名档案，等待后台确认后再绑定' : '成绩录入发现多个同名候选，需后台确认',
+        autoBind ? 0.9 : single ? 0.85 : 0.45,
+        autoBind ? 'confirmed' : 'pending',
+        autoBind
+          ? '外籍唯一同名档案，导入自动绑定'
+          : single
+            ? '成绩录入发现唯一同名档案，等待后台确认后再绑定'
+            : '成绩录入发现多个同名候选，需后台确认',
       ]
     );
-    return null;
+    return autoBind ? existingRows[0].athlete_id : null;
   }
 
   const [insertResult] = await connection.execute(
@@ -282,7 +305,7 @@ async function resolveAthleteId(connection: PoolConnection, result: EventResultI
 async function resolveAthleteByName(connection: PoolConnection, name: string, result: EventResultInput) {
   const cleanName = name.trim();
   if (!cleanName) return null;
-  const normalized = cleanName.replace(/\s+/g, '').toLowerCase();
+  const normalized = normalizeAthleteName(cleanName);
   const [confirmedRows] = await connection.execute<AthleteRow[]>(
     `SELECT athlete_id
        FROM sup_athlete_identity_links
@@ -294,26 +317,35 @@ async function resolveAthleteByName(connection: PoolConnection, name: string, re
   if (confirmedRows.length) return confirmedRows[0].athlete_id;
 
   const [existingRows] = await connection.execute<AthleteRow[]>(
-    'SELECT athlete_id FROM sup_athletes WHERE name = ? ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5',
-    [cleanName]
+    `SELECT athlete_id, nationality FROM sup_athletes
+      WHERE REPLACE(LOWER(TRIM(name)), ' ', '') = ?
+      ORDER BY CASE status WHEN "published" THEN 0 ELSE 1 END, athlete_id ASC LIMIT 5`,
+    [normalized]
   );
   if (existingRows.length > 0) {
+    const single = existingRows.length === 1;
+    const autoBind = single && !isDomesticNationality(existingRows[0].nationality);
     await connection.execute(
       `INSERT IGNORE INTO sup_athlete_identity_links
         (athlete_id, normalized_name, display_name, gender_hint, team_hint, nationality_hint, confidence, status, note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        existingRows.length === 1 ? existingRows[0].athlete_id : null,
+        single ? existingRows[0].athlete_id : null,
         normalized,
         cleanName,
         result.gender_group || null,
         result.team_name || null,
         normalizeNationality(result.nationality_snapshot),
-        existingRows.length === 1 ? 0.85 : 0.45,
-        existingRows.length === 1 ? '团队赛成员发现唯一同名档案，等待后台确认后再绑定' : '团队赛成员发现多个同名候选，需后台确认',
+        autoBind ? 0.9 : single ? 0.85 : 0.45,
+        autoBind ? 'confirmed' : 'pending',
+        autoBind
+          ? '外籍唯一同名档案，导入自动绑定'
+          : single
+            ? '团队赛成员发现唯一同名档案，等待后台确认后再绑定'
+            : '团队赛成员发现多个同名候选，需后台确认',
       ]
     );
-    return null;
+    return autoBind ? existingRows[0].athlete_id : null;
   }
 
   const [insertResult] = await connection.execute(

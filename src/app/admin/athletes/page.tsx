@@ -270,11 +270,11 @@ function AthleteForm({ data, onChange, token }: { data: Record<string, unknown>;
             className={inp}
             rows={5}
             value={String(data.bio || profileString(publicProfile, 'intro'))}
-            onChange={e => updateBio(e.target.value.slice(0, 300))}
-            maxLength={300}
+            onChange={e => updateBio(e.target.value.slice(0, 500))}
+            maxLength={500}
             placeholder="介绍桨板经历、训练地点或代表队信息"
           />
-          <div className="mt-1 text-right text-xs text-warm-gray-400">{String(data.bio || profileString(publicProfile, 'intro')).length}/300</div>
+          <div className="mt-1 text-right text-xs text-warm-gray-400">{String(data.bio || profileString(publicProfile, 'intro')).length}/500</div>
         </div>
       </section>
       </div>
