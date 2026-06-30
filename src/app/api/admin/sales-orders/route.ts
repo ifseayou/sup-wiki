@@ -21,8 +21,14 @@ interface OrderRow extends RowDataPacket {
 
 function dateOrNull(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null;
-  const s = String(value).trim();
-  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  // mysql2 默认把 DATE 列返回为 Date 对象，按本地年月日还原（避免 toISOString 的 UTC 偏移）。
+  if (value instanceof Date) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  const m = String(value).trim().match(/^(\d{4}-\d{2}-\d{2})/);
   return m ? m[1] : null;
 }
 

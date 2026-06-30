@@ -575,24 +575,26 @@ export default function SalesOrdersPage() {
         )}
       </div>
 
-      {/* 分页（含第 X 页跳转） */}
-      {totalPages > 1 && (
+      {/* 分页（含第 X 页跳转）：有数据即常驻；单页时翻页按钮禁用、隐藏跳转 */}
+      {total > 0 && !loading && (
         <div className="flex flex-wrap items-center justify-center gap-2">
           <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded-lg border border-[#D8CCBA] bg-white px-3 py-1.5 text-sm text-[#6B5E50] transition hover:border-[#0F5C52] disabled:opacity-40">上一页</button>
           <span className="rounded-lg bg-[#F2E9DC] px-3 py-1.5 text-sm text-[#6B5E50]">第 {page} / {totalPages} 页 · 共 {total} 条</span>
-          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="rounded-lg border border-[#D8CCBA] bg-white px-3 py-1.5 text-sm text-[#6B5E50] transition hover:border-[#0F5C52] disabled:opacity-40">下一页</button>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm text-[#8B8175]">跳转</span>
-            <input
-              type="number"
-              value={jumpInput}
-              onChange={(e) => setJumpInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') jumpToPage(); }}
-              className="h-9 w-16 rounded-lg border border-[#D8CCBA] bg-white px-2 text-center text-sm text-[#3A2F24] outline-none focus:border-[#0F5C52] focus:ring-2 focus:ring-[#0F5C52]/10"
-              placeholder="页"
-            />
-            <button onClick={jumpToPage} className="rounded-lg border border-[#D8CCBA] bg-white px-3 py-1.5 text-sm text-[#6B5E50] transition hover:border-[#0F5C52]">确定</button>
-          </div>
+          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="rounded-lg border border-[#D8CCBA] bg-white px-3 py-1.5 text-sm text-[#6B5E50] transition hover:border-[#0F5C52] disabled:opacity-40">下一页</button>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm text-[#8B8175]">跳转</span>
+              <input
+                type="number"
+                value={jumpInput}
+                onChange={(e) => setJumpInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') jumpToPage(); }}
+                className="h-9 w-16 rounded-lg border border-[#D8CCBA] bg-white px-2 text-center text-sm text-[#3A2F24] outline-none focus:border-[#0F5C52] focus:ring-2 focus:ring-[#0F5C52]/10"
+                placeholder="页"
+              />
+              <button onClick={jumpToPage} className="rounded-lg border border-[#D8CCBA] bg-white px-3 py-1.5 text-sm text-[#6B5E50] transition hover:border-[#0F5C52]">确定</button>
+            </div>
+          )}
         </div>
       )}
 
