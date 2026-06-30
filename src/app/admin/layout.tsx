@@ -85,6 +85,14 @@ const navGroups = [
     ],
   },
   {
+    key: 'business',
+    label: '经营管理',
+    icon: '◐',
+    items: [
+      { href: '/admin/sales-orders', label: '销售订单' },
+    ],
+  },
+  {
     key: 'learning',
     label: '学习体系',
     icon: '◇',
