@@ -8,7 +8,7 @@ import {
   ORDER_TYPE_OPTIONS,
   COURSE_PRESETS,
   computeProfit,
-  computeMargin,
+  marginOf,
   formatYuan,
   orderTypeLabel,
   type SalesOrderType,
@@ -53,6 +53,7 @@ interface OrderForm {
   item_name: string;
   selling_price: string;
   cost_price: string;
+  profit: string;
   notes: string;
 }
 
@@ -71,6 +72,7 @@ function emptyForm(): OrderForm {
     item_name: '',
     selling_price: '',
     cost_price: '',
+    profit: '',
     notes: '',
   };
 }
@@ -132,6 +134,12 @@ function OrderModal({
   const [customCourse, setCustomCourse] = useState<boolean>(
     initial.order_type === 'course' && !!initial.item_name && !COURSE_PRESETS.includes(initial.item_name as typeof COURSE_PRESETS[number])
   );
+  // 利润是否被手动改写：编辑已有订单时，若存储利润≠销售价-成本价则视为已手改，保留不自动联动。
+  const [profitTouched, setProfitTouched] = useState<boolean>(() => {
+    if (!initial.profit) return false;
+    const auto = computeProfit(initial.selling_price, initial.order_type === 'course' ? 0 : initial.cost_price);
+    return Number(initial.profit) !== auto;
+  });
   const set = (k: keyof OrderForm, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   function pickProduct(idStr: string) {
@@ -144,8 +152,17 @@ function OrderModal({
     }));
   }
 
-  const profit = computeProfit(form.selling_price, form.order_type === 'course' ? 0 : form.cost_price);
-  const margin = computeMargin(form.selling_price, form.order_type === 'course' ? 0 : form.cost_price);
+  // 未手改时，利润自动 = 销售价 - 成本价（课程成本按 0），随销售价/成本价联动。
+  useEffect(() => {
+    if (profitTouched) return;
+    const autoStr = form.selling_price === ''
+      ? ''
+      : String(computeProfit(form.selling_price, form.order_type === 'course' ? 0 : form.cost_price));
+    setForm((f) => (f.profit === autoStr ? f : { ...f, profit: autoStr }));
+  }, [form.selling_price, form.cost_price, form.order_type, profitTouched]);
+
+  const profitNum = Number(form.profit) || 0;
+  const margin = marginOf(form.selling_price, profitNum);
 
   function submit() {
     onSave(form);
@@ -168,7 +185,7 @@ function OrderModal({
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => { set('order_type', opt.value); if (opt.value === 'course') { set('shop_item_id', ''); set('cost_price', ''); } }}
+                  onClick={() => { set('order_type', opt.value); setProfitTouched(false); if (opt.value === 'course') { set('shop_item_id', ''); set('cost_price', ''); } }}
                   className={`h-10 flex-1 rounded-lg border text-sm transition ${form.order_type === opt.value ? 'border-[#0F5C52] bg-[#0F5C52] text-white' : 'border-[#D8CCBA] bg-white text-[#5E5144] hover:border-[#B99A70]'}`}
                 >
                   {opt.label}
@@ -211,13 +228,16 @@ function OrderModal({
                   <input type="number" className={inp} value={form.selling_price} onChange={(e) => set('selling_price', e.target.value)} placeholder="实际成交价" />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-xs text-[#8B8175]">利润（自动）</label>
-                  <div className={`${inp} flex items-center bg-[#F5F1EB]`}>
-                    {form.selling_price ? (
-                      <span style={{ color: profit >= 0 ? '#0F5C52' : '#9B2C2C', fontWeight: 600 }}>
-                        {formatYuan(profit)}{margin != null ? `（${margin}%）` : ''}
-                      </span>
-                    ) : <span className="text-[#B1A69A]">—</span>}
+                  <label className="mb-1.5 block text-xs text-[#8B8175]">利润（¥，可改）</label>
+                  <input
+                    type="number"
+                    className={inp}
+                    value={form.profit}
+                    onChange={(e) => { setProfitTouched(true); set('profit', e.target.value); }}
+                    placeholder="默认=售价-成本"
+                  />
+                  <div className="mt-1 text-[11px] text-[#A99C8C]">
+                    {form.profit !== '' ? <>毛利率 {margin != null ? `${margin}%` : '—'}{!profitTouched ? ' · 自动' : ' · 已手改'}</> : '默认=销售价-成本价，可改'}
                   </div>
                 </div>
               </div>
@@ -251,7 +271,17 @@ function OrderModal({
                   <input className={inp} value={form.item_name} onChange={(e) => set('item_name', e.target.value)} placeholder="如：冲浪培训" />
                 </div>
               )}
-              <div className="rounded-lg bg-[#F4FBF7] px-3 py-2 text-xs text-[#31574C]">课程培训无成本，销售价即利润 {form.selling_price ? formatYuan(profit) : ''}</div>
+              <div>
+                <label className="mb-1.5 block text-xs text-[#8B8175]">利润（¥，可改）</label>
+                <input
+                  type="number"
+                  className={inp}
+                  value={form.profit}
+                  onChange={(e) => { setProfitTouched(true); set('profit', e.target.value); }}
+                  placeholder="默认=销售价"
+                />
+                <div className="mt-1 text-[11px] text-[#A99C8C]">课程无成本，默认利润=销售价，可改{!profitTouched && form.profit !== '' ? ' · 自动' : profitTouched ? ' · 已手改' : ''}</div>
+              </div>
             </>
           )}
 
@@ -366,6 +396,7 @@ export default function SalesOrdersPage() {
         item_name: form.item_name,
         selling_price: form.selling_price,
         cost_price: form.order_type === 'course' ? 0 : form.cost_price,
+        profit: form.profit,
         notes: form.notes,
       };
       const res = form.order_id
@@ -412,6 +443,7 @@ export default function SalesOrdersPage() {
       item_name: o.item_name,
       selling_price: String(o.selling_price),
       cost_price: String(o.cost_price),
+      profit: o.profit != null ? String(o.profit) : '',
       notes: o.notes || '',
     });
   }

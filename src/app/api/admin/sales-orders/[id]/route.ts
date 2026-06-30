@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdmin } from '@/lib/admin';
 import pool from '@/lib/db';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { amountOrNull } from '@/lib/sales-orders';
 
 function dateOrNull(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null;
@@ -55,6 +56,7 @@ export const PUT = withAdmin(async (request: NextRequest) => {
       const c = priceOrNull(body.cost_price);
       setField('cost_price', c === null ? 0 : c);
     }
+    if (body.profit !== undefined) setField('profit', amountOrNull(body.profit)); // null=回落销售价-成本价
     if (body.notes !== undefined) setField('notes', body.notes ? String(body.notes).trim() : null);
 
     if (fields.length === 0) return NextResponse.json({ error: '没有要更新的字段' }, { status: 400 });

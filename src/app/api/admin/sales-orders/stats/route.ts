@@ -15,9 +15,9 @@ export const GET = withAdmin(async (request: NextRequest) => {
          COUNT(*) AS total_orders,
          COALESCE(SUM(selling_price), 0) AS total_revenue,
          COALESCE(SUM(cost_price), 0) AS total_cost,
-         COALESCE(SUM(selling_price - cost_price), 0) AS total_profit,
-         COALESCE(SUM(CASE WHEN order_type = 'equipment' THEN selling_price - cost_price ELSE 0 END), 0) AS equipment_profit,
-         COALESCE(SUM(CASE WHEN order_type = 'course' THEN selling_price - cost_price ELSE 0 END), 0) AS course_profit,
+         COALESCE(SUM(COALESCE(profit, selling_price - cost_price)), 0) AS total_profit,
+         COALESCE(SUM(CASE WHEN order_type = 'equipment' THEN COALESCE(profit, selling_price - cost_price) ELSE 0 END), 0) AS equipment_profit,
+         COALESCE(SUM(CASE WHEN order_type = 'course' THEN COALESCE(profit, selling_price - cost_price) ELSE 0 END), 0) AS course_profit,
          SUM(CASE WHEN order_type = 'equipment' THEN 1 ELSE 0 END) AS equipment_count,
          SUM(CASE WHEN order_type = 'course' THEN 1 ELSE 0 END) AS course_count
        FROM sup_sales_orders ${where}`,
@@ -33,7 +33,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
       `SELECT
          DATE_FORMAT(order_date, '%Y-%m') AS ym,
          COALESCE(SUM(selling_price), 0) AS revenue,
-         COALESCE(SUM(selling_price - cost_price), 0) AS profit
+         COALESCE(SUM(COALESCE(profit, selling_price - cost_price)), 0) AS profit
        FROM sup_sales_orders ${where}
        GROUP BY ym
        ORDER BY ym DESC

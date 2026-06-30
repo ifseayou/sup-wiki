@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { withAdmin } from '@/lib/admin';
 import type { RowDataPacket, ResultSetHeader } from 'mysql2';
-import { computeProfit, computeMargin, buildSalesWhere } from '@/lib/sales-orders';
+import { computeProfit, marginOf, amountOrNull, buildSalesWhere } from '@/lib/sales-orders';
 
 interface OrderRow extends RowDataPacket {
   order_id: number;
@@ -13,6 +13,7 @@ interface OrderRow extends RowDataPacket {
   item_name: string;
   selling_price: string;
   cost_price: string;
+  profit: string | null;
   notes: string | null;
   created_at: Date;
   updated_at: Date;
@@ -54,14 +55,17 @@ export const GET = withAdmin(async (request: NextRequest) => {
       params
     );
 
-    const items = rows.map((r) => ({
-      ...r,
-      order_date: dateOrNull(r.order_date),
-      selling_price: Number(r.selling_price),
-      cost_price: Number(r.cost_price),
-      profit: computeProfit(r.selling_price, r.cost_price),
-      margin: computeMargin(r.selling_price, r.cost_price),
-    }));
+    const items = rows.map((r) => {
+      const profit = r.profit != null ? Number(r.profit) : computeProfit(r.selling_price, r.cost_price);
+      return {
+        ...r,
+        order_date: dateOrNull(r.order_date),
+        selling_price: Number(r.selling_price),
+        cost_price: Number(r.cost_price),
+        profit,
+        margin: marginOf(r.selling_price, profit),
+      };
+    });
 
     return NextResponse.json({ items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) });
   } catch (error) {
@@ -100,16 +104,20 @@ export const POST = withAdmin(async (request: NextRequest) => {
       const override = priceOrNull(body.cost_price);
       costPrice = override !== null ? override : (Number(item.cost_price) || 0);
     } else {
-      // 课程：销售价即利润，成本恒为 0。
+      // 课程：成本恒为 0（利润默认=销售价，可由前端覆盖）。
       if (!itemName) return NextResponse.json({ error: '请填写培训项目' }, { status: 400 });
       costPrice = 0;
     }
 
+    // 利润：前端给了就用（允许手改/负数），否则默认 销售价-成本价。
+    const profitOverride = amountOrNull(body.profit);
+    const profit = profitOverride !== null ? profitOverride : computeProfit(sellingPrice, costPrice);
+
     const [result] = await pool.execute<ResultSetHeader>(
       `INSERT INTO sup_sales_orders
-         (order_type, customer_name, order_date, shop_item_id, item_name, selling_price, cost_price, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [orderType, customerName, orderDate, shopItemId, itemName, sellingPrice, costPrice, body.notes ? String(body.notes).trim() : null]
+         (order_type, customer_name, order_date, shop_item_id, item_name, selling_price, cost_price, profit, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [orderType, customerName, orderDate, shopItemId, itemName, sellingPrice, costPrice, profit, body.notes ? String(body.notes).trim() : null]
     );
 
     return NextResponse.json({ success: true, order_id: result.insertId }, { status: 201 });

@@ -32,6 +32,20 @@ export function computeMargin(selling: unknown, cost: unknown): number | null {
   return Math.round(((sell - toNumber(cost)) / sell) * 1000) / 10;
 }
 
+/** 按已知利润算毛利率（profit/selling）。销售价≤0 返回 null。 */
+export function marginOf(selling: unknown, profit: unknown): number | null {
+  const sell = toNumber(selling);
+  if (sell <= 0) return null;
+  return Math.round((toNumber(profit) / sell) * 1000) / 10;
+}
+
+/** 金额解析（允许负数，用于可手改的利润）。空/非法返回 null。 */
+export function amountOrNull(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+}
+
 /** 金额格式化为「¥1,234」（保留必要的两位小数）。 */
 export function formatYuan(value: unknown): string {
   const n = toNumber(value);
