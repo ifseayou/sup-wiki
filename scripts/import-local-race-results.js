@@ -232,6 +232,7 @@ function slugify(name, startDate) {
 
 function normalizeResultStatusCode(value) {
   const code = String(value || '').trim().toUpperCase();
+  if (code.startsWith('DSQ')) return 'DSQ';
   return RESULT_STATUS_LABELS[code] ? code : null;
 }
 
