@@ -622,12 +622,13 @@ async function insertResultRow(connection, eventId, sourceId, source, result, at
   const athleteId = await resolveAthleteId(connection, result, athleteCache);
   const athleteName = String(result.athlete_name_snapshot || result.athlete_name || '').trim();
   const statusCode = normalizeResultStatusCode(result.result_status_code || result.finish_time);
+  const entryType = result.entry_type === 'team' || normalizeTeamMembers(result.team_members).length > 0 ? 'team' : 'individual';
   const [inserted] = await connection.execute(
     `INSERT INTO sup_event_results (
       event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
       rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized, nationality_snapshot,
-      source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'official', ?, ?, ?, ?, ?, ?, ?, ?)
+      source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified, entry_type
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'official', ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       result_id = LAST_INSERT_ID(result_id),
       athlete_id = VALUES(athlete_id),
@@ -648,7 +649,8 @@ async function insertResultRow(connection, eventId, sourceId, source, result, at
       source_note = VALUES(source_note),
       parse_confidence = VALUES(parse_confidence),
       review_status = VALUES(review_status),
-      is_verified = VALUES(is_verified)`,
+      is_verified = VALUES(is_verified),
+      entry_type = VALUES(entry_type)`,
     [
       eventId,
       athleteId,
@@ -676,6 +678,7 @@ async function insertResultRow(connection, eventId, sourceId, source, result, at
       typeof result.parse_confidence === 'number' ? result.parse_confidence : 1,
       result.review_status || 'confirmed',
       result.is_verified === false ? 0 : 1,
+      entryType,
     ]
   );
   const resultId = Number(inserted.insertId || 0);
@@ -686,6 +689,7 @@ async function insertResultRow(connection, eventId, sourceId, source, result, at
 function normalizeResultForDb(result, eventId, sourceId, source, athleteId) {
   const statusCode = normalizeResultStatusCode(result.result_status_code || result.finish_time);
   const athleteName = String(result.athlete_name_snapshot || result.athlete_name || '').trim();
+  const entryType = result.entry_type === 'team' || normalizeTeamMembers(result.team_members).length > 0 ? 'team' : 'individual';
   return {
     eventId,
     athleteId,
@@ -717,6 +721,7 @@ function normalizeResultForDb(result, eventId, sourceId, source, athleteId) {
       typeof result.parse_confidence === 'number' ? result.parse_confidence : 1,
       result.review_status || 'confirmed',
       result.is_verified === false ? 0 : 1,
+      entryType,
     ],
     result,
   };
@@ -758,9 +763,9 @@ async function insertResultRowsBatch(connection, eventId, sourceId, source, resu
   const sqlPrefix = `INSERT INTO sup_event_results (
     event_id, athlete_id, athlete_name_snapshot, bib_number, gender_group, discipline, board_class, round_label,
     rank_position, result_label, finish_time, result_status_code, result_status_note, time_seconds, points, team_name, team_name_normalized, nationality_snapshot,
-    source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified
+    source_type, source_id, source_title, source_locator, source_url, source_note, parse_confidence, review_status, is_verified, entry_type
   ) VALUES `;
-  const valuePlaceholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "official", ?, ?, ?, ?, ?, ?, ?, ?)';
+  const valuePlaceholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "official", ?, ?, ?, ?, ?, ?, ?, ?, ?)';
   const updateSql = ` ON DUPLICATE KEY UPDATE
     athlete_id = VALUES(athlete_id),
     bib_number = VALUES(bib_number),
@@ -780,7 +785,8 @@ async function insertResultRowsBatch(connection, eventId, sourceId, source, resu
     source_note = VALUES(source_note),
     parse_confidence = VALUES(parse_confidence),
     review_status = VALUES(review_status),
-    is_verified = VALUES(is_verified)`;
+    is_verified = VALUES(is_verified),
+    entry_type = VALUES(entry_type)`;
 
   for (const group of chunk(normalized, resultBatchSize)) {
     const params = group.flatMap((item) => item.values);
